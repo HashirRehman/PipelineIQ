@@ -168,6 +168,8 @@ Core engineer roster.
 
 Indexes: is_active, seniority_level_id. Rules: never hard-deleted. is_active=false stops discovery inclusion only — all history stays intact.
 
+Visibility: current assignment (engineer_bd_assignments) OR referenced by a lead the viewer permanently owns (owned_lead_engineer_ids() — see doc 01 §7/§9).
+
 
 
 
@@ -302,6 +304,8 @@ Unique: (job_source_id, external_job_id). Indexes: dedup_hash, is_remote.
 >
 > This is the exact hook for cross-platform dedup — see canonical_jobs in Part B. Nothing here needs to change structurally when a second source is added; the merge logic bolts on via a new nullable FK column.
 
+Visibility: transitively via job_engineer_matches for a currently-assigned engineer, OR referenced by a lead the viewer permanently owns (owned_lead_job_ids()). The owned-lead branch reads leads.job_id directly rather than through job_engineer_matches — that table's own RLS is current-assignment-only, so routing through it would silently defeat the carve-out (see doc 01 §7's note).
+
 
 
 
@@ -326,6 +330,8 @@ AI-generated candidate pairing + relevance score.
 Unique: (job_id, engineer_id) — one AI suggestion per pairing, ever. Indexes: (engineer_id, relevance_score DESC), job_id.
 
 Rules: a match can be reused across multiple leads over time (e.g. withdraw → reapply).
+
+Visibility: transitively via the matched engineer's current assignment only — deliberately no owned-lead carve-out here (unlike engineers/jobs). See doc 01 §7's note on why routing an owned-lead exception through this table doesn't work.
 
 
 
@@ -375,6 +381,8 @@ The core application record. Ownership is a permanent snapshot; duplicate preven
 Indexes: (bd_user_id, status), current_stage_id, last_activity_at.
 
 Rules: created only via create_lead_from_match() — never a bare INSERT, so the duplicate check and initial lead_events row can’t be skipped. job_engineer_match_id is NOT NULL for MVP; becomes nullable later if manual lead entry is added, with no other structural change needed since job_id/engineer_id are already stored directly.
+
+Visibility: bd_user_id = auth.uid() is the permanent snapshot that keeps this row visible through a later reassignment — but that alone only keeps the leads row itself visible. owned_lead_engineer_ids()/owned_lead_job_ids() (doc 01 §7/§15) are what additionally keep the referenced engineers/jobs rows visible too, so an embedded query (e.g. a leads list showing engineer name/job title) doesn't go blank for the original BD after reassignment.
 
 
 

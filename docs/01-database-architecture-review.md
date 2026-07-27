@@ -183,15 +183,24 @@ RLS is enabled on every application table (never on auth.*, which Supabase alrea
 
 - assigned_engineer_ids() — returns the set of engineer IDs currently assigned to auth.uid() (engineer_bd_assignments rows where unassigned_at IS NULL).
 
+- owned_lead_engineer_ids() / owned_lead_job_ids() — SECURITY DEFINER, added after MVP to close a gap the original design left unresolved (see the note below the table). Each returns the engineer/job IDs referenced by any lead — any status, active/withdrawn/closed — where bd_user_id = auth.uid(). They exist so a BD Executive keeps full engineer/job detail on leads they still permanently own, after the underlying engineer has been reassigned to someone else. engineers_select/jobs_select compose them as an additional OR branch, the same way every other policy composes is_admin()/assigned_engineer_ids().
+
 | Table | Policy logic |
 | --- | --- |
-| engineers | SELECT if is_admin() OR id IN assigned_engineer_ids(). No per-row owner column — visibility is derived from engineer_bd_assignments. |
+| engineers | SELECT if is_admin() OR id IN assigned_engineer_ids() OR id IN owned_lead_engineer_ids(). No per-row owner column — current-assignment visibility, plus a carve-out for engineers referenced by a lead the caller still owns. |
 | leads | SELECT/UPDATE if is_admin() OR bd_user_id = auth.uid(). Uses the permanent owner snapshot, not current assignment — this is what preserves historical visibility through reassignment. |
-| job_engineer_matches / jobs | Visibility inherited transitively via the matched engineer’s current assignment. Admin sees all. |
+| job_engineer_matches | Visibility inherited transitively via the matched engineer’s current assignment only — no owned-lead carve-out here (see note below on why not). Admin sees all. |
+| jobs | SELECT if is_admin() OR EXISTS a job_engineer_matches row for a currently-assigned engineer OR id IN owned_lead_job_ids(). The owned-lead branch reads leads.job_id directly rather than routing through job_engineer_matches (see note below). |
 | lead_events, lead_files, lead_reminders | Visibility inherited from the parent leads row via the same predicate, joined. |
-| engineer_cvs | Same as engineers — visible to assigned BD + Admin. |
+| engineer_cvs | Same as engineers — visible to assigned BD + Admin. (Not yet extended with the owned-lead carve-out — engineer_cvs was out of scope for the fix that added owned_lead_engineer_ids(); revisit if a future lead-detail page needs a reassigned engineer's CVs.) |
 | profiles | A user can always read their own row; Admin reads all; BD users cannot read each other’s profile rows. |
 | notifications | Strictly user_id = auth.uid() — even Admin doesn’t bypass this; the team-wide overdue view is a separate query against leads/lead_reminders. |
+
+> **Why the owned-lead carve-out on `jobs` can't just route through `job_engineer_matches`**
+>
+> The obvious-looking fix is to extend the existing `job_engineer_matches`-based `EXISTS` subquery in `jobs_select` to also check `owned_lead_engineer_ids()`. That doesn't work: the subquery's `FROM job_engineer_matches` is a raw reference inside the policy body, not wrapped in a SECURITY DEFINER function, so it's still subject to `job_engineer_matches_select`'s own RLS (current-assignment-only, no carve-out) — which silently filters the row out before the `OR` condition inside the subquery is even reached. The actual fix is `owned_lead_job_ids()`, which reads `leads.job_id` directly, bypassing `job_engineer_matches` entirely for this case — the same reason `assigned_engineer_ids()` reads `engineer_bd_assignments` directly instead of through some other gated table. **Lesson for any future RLS carve-out that needs to reach through more than one RLS-protected table: each hop needs its own SECURITY DEFINER helper reading the base table directly — a raw nested subquery through an intermediate RLS-protected table will not bypass that table's own policy.**
+>
+> This was discovered live (not caught by review) while verifying the permanent-ownership guarantee end-to-end: the `leads` row itself survived a real reassignment correctly, but its embedded engineer/job detail went blank for the original BD, because `engineers_select`/`jobs_select` had no notion of "still owns a lead referencing this." `owned_lead_engineer_ids()`/`owned_lead_job_ids()` close that gap; §9 below has been updated to reflect the carve-out.
 
 
 ## 8. Admin Access Rules
@@ -207,7 +216,7 @@ Admin bypasses ownership filters on every table via is_admin() — full read on 
 
 - Read-only on engineers currently assigned to them (and cascading read on those engineers’ CVs, skills, matches).
 
-- No visibility into engineers not assigned to them, even if a former assignment existed and was removed.
+- No visibility into engineers not assigned to them, even if a former assignment existed and was removed — **except** for an engineer/job referenced by a lead they still permanently own (`owned_lead_engineer_ids()`/`owned_lead_job_ids()`, §7). This exception was added after MVP; it did not exist when this rule was first written, and the two were never reconciled until the gap was found live (§7's note).
 
 - Read-only on lookup tables (pipeline_stages, job_sources, skills, seniority_levels).
 
@@ -296,6 +305,8 @@ Reserved for small, stable, code-coupled value sets unlikely to need runtime edi
 - is_admin() — SECURITY DEFINER, used across nearly every RLS policy.
 
 - assigned_engineer_ids() — SECURITY DEFINER, returns current engineer assignment set for auth.uid().
+
+- owned_lead_engineer_ids() / owned_lead_job_ids() — SECURITY DEFINER, return the engineer/job IDs tied to any lead (any status) where bd_user_id = auth.uid(), independent of current engineer_bd_assignments. Composed into engineers_select/jobs_select (§7) so a BD keeps full detail on their own historical leads after reassignment.
 
 - create_lead_from_match(match_id) — validates no existing duplicate, creates the leads row, flips job_engineer_matches.status to applied, inserts the initial lead_events row, all in one transaction.
 
