@@ -40,6 +40,15 @@ Modules 5–9 (Interview Pipeline Tracking, Lead Timeline & Activity Log, Notifi
 - Migrations before features: when starting a new module, write/verify the relevant SQL migration first, get it reviewed, then build the Server Actions and UI on top.
 - Build in this order: Module 1 → 2 → 3 → 4. Don't jump ahead or parallelize modules without asking.
 
+## Commit discipline
+
+- After any prompt that results in a completed, verified, self-contained unit of work (a sub-chunk, a chunk, a bug fix, a migration) — commit it, with a message scoped to exactly that task. Don't wait to be asked.
+- One commit per logical unit of work. Don't bundle multiple unrelated sub-chunks/fixes into a single commit, and don't split one coherent change across several commits either.
+- Commit message format: a short imperative summary line (e.g. "Module 4: add duplicate-prevention constraint + create_lead_from_match()"), optionally followed by a couple of bullet points if the change has distinct parts worth calling out.
+- Only commit work that's actually been verified per this project's standing bar (real invocation, not just tsc/build passing) — an unverified or partially-working change should stay uncommitted and be flagged as such, not committed with a caveat buried in the message.
+- Never push to any remote (origin/GitHub) without separate, explicit permission each time — local commits are cheap and reversible, pushing is a different, separate decision.
+- If a task naturally produces several distinct commits (e.g. "fix bug" then "add test coverage for it"), that's fine — prefer more small, clear commits over one large vague one.
+
 ## When something in the code and something in `/docs` disagree
 
 Flag it and ask — don't silently pick one. The docs represent decisions made with the team; the code should catch up to them, not the other way around.
