@@ -42,10 +42,10 @@ Modules 5–9 (Interview Pipeline Tracking, Lead Timeline & Activity Log, Notifi
 
 ## Commit discipline
 
-- After any prompt that results in a completed, verified, self-contained unit of work (a sub-chunk, a chunk, a bug fix, a migration) — commit it, with a message scoped to exactly that task. Don't wait to be asked.
+- After any prompt that results in a completed, verified, self-contained unit of work (a sub-chunk, a chunk, a bug fix, a migration) — Claude Code does not run `git commit` itself. Instead, stage the changes (`git add`) and give the exact commit message it would have used. The user reviews the diff and runs `git commit` themselves.
 - One commit per logical unit of work. Don't bundle multiple unrelated sub-chunks/fixes into a single commit, and don't split one coherent change across several commits either.
 - Commit message format: a short imperative summary line (e.g. "Module 4: add duplicate-prevention constraint + create_lead_from_match()"), optionally followed by a couple of bullet points if the change has distinct parts worth calling out.
-- Only commit work that's actually been verified per this project's standing bar (real invocation, not just tsc/build passing) — an unverified or partially-working change should stay uncommitted and be flagged as such, not committed with a caveat buried in the message.
+- Only stage and propose a message for work that's actually been verified per this project's standing bar (real invocation, not just tsc/build passing) — an unverified or partially-working change should stay unstaged and be flagged as such, not proposed with a caveat buried in the message.
 - Never push to any remote (origin/GitHub) without separate, explicit permission each time — local commits are cheap and reversible, pushing is a different, separate decision.
 - If a task naturally produces several distinct commits (e.g. "fix bug" then "add test coverage for it"), that's fine — prefer more small, clear commits over one large vague one.
 
