@@ -1,18 +1,7 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
-import { StatusBadge, type StatusBadgeVariant } from "@/components/status-badge";
-
-const LEAD_STATUS_VARIANT: Record<string, StatusBadgeVariant> = {
-  active: "info",
-  withdrawn: "neutral",
-  closed: "success",
-};
-
-const LEAD_STATUS_LABEL: Record<string, string> = {
-  active: "Active",
-  withdrawn: "Withdrawn",
-  closed: "Closed",
-};
+import { LeadStatusBadge } from "@/components/lead-status-badge";
 
 export default async function LeadsPage() {
   const supabase = await createClient();
@@ -59,13 +48,13 @@ export default async function LeadsPage() {
               {list.map((lead) => (
                 <tr key={lead.id}>
                   <td className="px-4 py-3">
-                    <StatusBadge variant={LEAD_STATUS_VARIANT[lead.status] ?? "neutral"}>
-                      {LEAD_STATUS_LABEL[lead.status] ?? lead.status}
-                    </StatusBadge>
+                    <LeadStatusBadge status={lead.status} />
                   </td>
                   <td className="px-4 py-3">{lead.engineers?.full_name ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <div className="font-medium">{lead.jobs?.title ?? "—"}</div>
+                    <Link href={`/leads/${lead.id}`} className="font-medium hover:underline">
+                      {lead.jobs?.title ?? "—"}
+                    </Link>
                     {lead.jobs?.company_name && (
                       <div className="text-muted-foreground">{lead.jobs.company_name}</div>
                     )}

@@ -95,5 +95,6 @@ export async function withdrawLead(
   }
 
   revalidatePath("/leads");
+  revalidatePath(`/leads/${parsed.data.leadId}`);
   return { success: true };
 }
