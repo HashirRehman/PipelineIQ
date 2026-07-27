@@ -161,23 +161,56 @@ export class GroqAiClient implements AiClient {
     return { score: cappedScore, modelVersion: GROQ_MODEL };
   }
 
-  async extractRemoteRegion(job: JobListing): Promise<{ region: string | null }> {
+  async extractRemoteRegion(job: JobListing): Promise<{
+    region: string | null;
+    isGloballyOpen: boolean;
+    possiblyClosed: boolean;
+    possiblyClosedReason: string | null;
+  }> {
     const systemPrompt =
-      "You extract the remote-work eligibility region stated in a job posting's description, if any. " +
-      'Respond only with JSON: {"region": "<short label such as \'US only\', \'Worldwide\', \'EMEA\'>"} ' +
-      'or {"region": null} if the description does not state any eligibility region.';
+      "You extract two independent signals from a job posting's description, if present. " +
+      'Respond only with JSON: {"remote_region": "<short label such as \'US only\', \'Worldwide\', \'EMEA\'>" ' +
+      'or null if no eligibility region is stated, ' +
+      '"is_globally_open": <true|false>, ' +
+      '"possibly_closed": <true|false>, ' +
+      '"possibly_closed_reason": "<one sentence>" or null}. ' +
+      "is_globally_open must be true only if the posting states no location/citizenship/region restriction on who " +
+      "may apply (open worldwide, or the description simply never names one) — set it false whenever a specific " +
+      "country, region, or timezone requirement is named (e.g. 'must be US-based', 'authorized to work in the US', " +
+      "'EU timezone only'). is_globally_open and possibly_closed are completely independent judgments — a posting " +
+      "that says the role has been filled can still be is_globally_open: true if it never named a geographic " +
+      "restriction; do not set is_globally_open to false just because the role sounds closed or unavailable. " +
+      "possibly_closed must be true only when the text itself explicitly says the role is filled, closed, or no " +
+      "longer accepting applications — never infer this from how old the posting seems or from vague wording. " +
+      "possibly_closed_reason must quote or closely paraphrase the specific line that justifies possibly_closed, " +
+      "and must be null whenever possibly_closed is false.";
 
     const userPrompt = [`Job title: ${job.title}`, `Job description: ${job.description ?? "none provided"}`].join(
       "\n",
     );
 
-    const parsed = await callGroqJson(systemPrompt, userPrompt);
-    if (typeof parsed !== "object" || parsed === null || !("region" in parsed)) {
-      throw new Error(`extractRemoteRegion: unexpected response shape: ${JSON.stringify(parsed)}`);
+    const rawParsed = await callGroqJson(systemPrompt, userPrompt);
+    if (typeof rawParsed !== "object" || rawParsed === null || !("remote_region" in rawParsed)) {
+      throw new Error(`extractRemoteRegion: unexpected response shape: ${JSON.stringify(rawParsed)}`);
     }
 
-    const region = (parsed as { region: unknown }).region;
-    return { region: typeof region === "string" ? region : null };
+    const parsed = rawParsed as {
+      remote_region: unknown;
+      is_globally_open: unknown;
+      possibly_closed: unknown;
+      possibly_closed_reason: unknown;
+    };
+
+    if (typeof parsed.is_globally_open !== "boolean" || typeof parsed.possibly_closed !== "boolean") {
+      throw new Error(`extractRemoteRegion: unexpected response shape: ${JSON.stringify(rawParsed)}`);
+    }
+
+    return {
+      region: typeof parsed.remote_region === "string" ? parsed.remote_region : null,
+      isGloballyOpen: parsed.is_globally_open,
+      possiblyClosed: parsed.possibly_closed,
+      possiblyClosedReason: typeof parsed.possibly_closed_reason === "string" ? parsed.possibly_closed_reason : null,
+    };
   }
 
   async summarizeNotes(_notes: string[]): Promise<string> {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DismissMatchForm } from "@/components/dismiss-match-form";
 import { MarkAppliedForm } from "@/components/mark-applied-form";
 import { RunDiscoveryButton } from "@/components/run-discovery-button";
+import { HiringStatusBadge } from "@/components/hiring-status-badge";
 
 const PAGE_SIZE = 10;
 
@@ -28,23 +29,44 @@ export default async function DiscoveryPage({
   const currentPage = Number.isFinite(parsedPage) && parsedPage >= 1 ? Math.floor(parsedPage) : 1;
   const offset = (currentPage - 1) * PAGE_SIZE;
 
-  // Same query for both roles — the difference in results comes entirely
-  // from the transitive jobs_select/job_engineer_matches_select RLS
-  // policies (is_admin() OR engineer_id IN assigned_engineer_ids()), not
-  // from any role branching here. Matches this codebase's convention set
-  // by /engineers. { count: "exact" } and .range() apply to this exact
-  // same RLS-filtered query — Postgres evaluates row security as part of
-  // the query plan before ORDER BY/LIMIT/OFFSET, so pagination can only
-  // ever slice the already-role-scoped result set, never bypass it.
-  const { data: matches, count } = await supabase
+  // Admin-tunable BD score floor — fail closed to the hardcoded default if
+  // app_settings is missing/malformed, same pattern as the CV upload limits.
+  const DEFAULT_MIN_RELEVANCE_SCORE = 60;
+  const { data: minScoreSetting } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "discovery_min_relevance_score")
+    .maybeSingle();
+  const minRelevanceScore =
+    typeof minScoreSetting?.value === "number" ? minScoreSetting.value : DEFAULT_MIN_RELEVANCE_SCORE;
+
+  // RLS still does all row-level role scoping via the transitive
+  // jobs_select/job_engineer_matches_select policies, same as everywhere
+  // else. The two filters below are a deliberate, acknowledged departure
+  // from this codebase's usual "never branch the query by role" convention:
+  // is_globally_open applies to everyone (a country-restricted job is
+  // unusable regardless of who's looking), while the relevance-score floor
+  // is BD-only — Admin's view stays unfiltered on score for oversight/QA.
+  // Neither filter touches what runJobDiscovery scores or writes; every
+  // pairing still gets a job_engineer_matches row regardless of score.
+  // jobs!inner (not a plain embed) is required for .eq("jobs...") below to
+  // filter the join itself rather than just shaping the embedded object.
+  let query = supabase
     .from("job_engineer_matches")
     .select(
-      "id, relevance_score, engineers(full_name), jobs(title, company_name, location, apply_url, is_remote, remote_region, posted_at)",
+      "id, relevance_score, engineers(full_name), jobs!inner(title, company_name, location, apply_url, is_remote, remote_region, posted_at, is_globally_open, possibly_closed)",
       { count: "exact" },
     )
     .eq("status", "suggested")
+    .eq("jobs.is_globally_open", true)
     .order("relevance_score", { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
+
+  if (!isAdmin) {
+    query = query.gte("relevance_score", minRelevanceScore);
+  }
+
+  const { data: matches, count } = await query;
 
   const list = matches ?? [];
   const totalCount = count ?? 0;
@@ -93,6 +115,7 @@ export default async function DiscoveryPage({
                   <Badge variant="outline">
                     {remoteBadgeLabel(match.jobs?.is_remote ?? null, match.jobs?.remote_region ?? null)}
                   </Badge>
+                  {match.jobs?.possibly_closed && <HiringStatusBadge />}
                   {match.jobs?.posted_at && (
                     <span className="text-xs text-muted-foreground">
                       Posted {new Date(match.jobs.posted_at).toLocaleDateString()}

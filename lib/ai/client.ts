@@ -30,7 +30,12 @@ export interface AiClient {
     engineerProfile: EngineerContext,
     job: JobListing,
   ): Promise<{ score: number; modelVersion: string }>;
-  extractRemoteRegion(job: JobListing): Promise<{ region: string | null }>;
+  extractRemoteRegion(job: JobListing): Promise<{
+    region: string | null;
+    isGloballyOpen: boolean;
+    possiblyClosed: boolean;
+    possiblyClosedReason: string | null;
+  }>;
   summarizeNotes(notes: string[]): Promise<string>;
   suggestFollowUp(leadContext: LeadContext): Promise<string>;
   recommendCv(engineerId: string, job: JobListing): Promise<{ cvId: string; reasoning: string }>;

@@ -387,9 +387,12 @@ export type Database = {
           discovered_at: string
           external_job_id: string
           id: string
+          is_globally_open: boolean | null
           is_remote: boolean | null
           job_source_id: string
           location: string | null
+          possibly_closed: boolean | null
+          possibly_closed_reason: string | null
           posted_at: string | null
           remote_region: string | null
           title: string
@@ -403,9 +406,12 @@ export type Database = {
           discovered_at?: string
           external_job_id: string
           id?: string
+          is_globally_open?: boolean | null
           is_remote?: boolean | null
           job_source_id: string
           location?: string | null
+          possibly_closed?: boolean | null
+          possibly_closed_reason?: string | null
           posted_at?: string | null
           remote_region?: string | null
           title: string
@@ -419,9 +425,12 @@ export type Database = {
           discovered_at?: string
           external_job_id?: string
           id?: string
+          is_globally_open?: boolean | null
           is_remote?: boolean | null
           job_source_id?: string
           location?: string | null
+          possibly_closed?: boolean | null
+          possibly_closed_reason?: string | null
           posted_at?: string | null
           remote_region?: string | null
           title?: string
@@ -809,6 +818,8 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
+      owned_lead_engineer_ids: { Args: never; Returns: string[] }
+      owned_lead_job_ids: { Args: never; Returns: string[] }
       reassign_engineer_bd: {
         Args: {
           p_engineer_id: string

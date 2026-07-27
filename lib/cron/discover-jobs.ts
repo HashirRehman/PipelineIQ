@@ -175,20 +175,24 @@ export async function runJobDiscovery(
     summary.sourcesProcessed++;
   }
 
-  // --- Step 2: enrich jobs missing dedup_hash/remote_region ---------------
-  // DB-state-driven ("dedup_hash IS NULL"), not run-scoped — a job enriched
-  // by a previous, crashed run is never re-enriched, and one that survived
-  // ingestion but never got enriched (the crash-mid-way case) is always
-  // picked back up here regardless of which run inserted it.
+  // --- Step 2: enrich jobs missing eligibility fields ---------------------
+  // DB-state-driven ("is_globally_open IS NULL"), not run-scoped — a job
+  // enriched by a previous, crashed run is never re-enriched, and one that
+  // survived ingestion but never got enriched (the crash-mid-way case) is
+  // always picked back up here regardless of which run inserted it. Gating
+  // on is_globally_open (not dedup_hash) is deliberate: it's the field the
+  // combined extraction call was added for, so switching the gate to it is
+  // what makes rows already enriched under the old one-field shape get
+  // automatically re-enriched here — no separate backfill migration needed.
   const { data: unenrichedJobs } = await supabase
     .from("jobs")
     .select("id, title, company_name, location, description")
-    .is("dedup_hash", null);
+    .is("is_globally_open", null);
 
   for (const job of unenrichedJobs ?? []) {
     try {
       const dedupHash = computeDedupHash(job);
-      const { region } = await aiClient.extractRemoteRegion({
+      const { region, isGloballyOpen, possiblyClosed, possiblyClosedReason } = await aiClient.extractRemoteRegion({
         title: job.title,
         companyName: job.company_name,
         description: job.description,
@@ -196,7 +200,13 @@ export async function runJobDiscovery(
       });
       const { error } = await supabase
         .from("jobs")
-        .update({ dedup_hash: dedupHash, remote_region: region })
+        .update({
+          dedup_hash: dedupHash,
+          remote_region: region,
+          is_globally_open: isGloballyOpen,
+          possibly_closed: possiblyClosed,
+          possibly_closed_reason: possiblyClosedReason,
+        })
         .eq("id", job.id);
       if (error) throw error;
       summary.jobsEnriched++;
@@ -215,7 +225,26 @@ export async function runJobDiscovery(
     .select("id, years_experience, summary, seniority_levels(name)")
     .eq("is_active", true);
 
-  const { data: allJobs } = await supabase.from("jobs").select("id, title, company_name, location, description");
+  const { data: allJobs } = await supabase
+    .from("jobs")
+    .select("id, title, company_name, location, description, posted_at, discovered_at");
+
+  // Freshness cutoff is scoped to scoring only (the O(jobs × engineers)
+  // cost this exists to control) — enrichment above stays unfiltered by
+  // age, since it's a cheap O(jobs) cost. Admin-tunable via app_settings,
+  // same fail-closed-to-a-hardcoded-default pattern as the CV upload limits.
+  const DEFAULT_FRESHNESS_CUTOFF_DAYS = 7;
+  const { data: freshnessSetting } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "job_freshness_cutoff_days")
+    .maybeSingle();
+  const freshnessDays =
+    typeof freshnessSetting?.value === "number" ? freshnessSetting.value : DEFAULT_FRESHNESS_CUTOFF_DAYS;
+  const freshnessCutoff = new Date(Date.now() - freshnessDays * 24 * 60 * 60 * 1000);
+  const freshJobs = (allJobs ?? []).filter(
+    (job) => new Date(job.posted_at ?? job.discovered_at) >= freshnessCutoff,
+  );
 
   const { data: existingMatches } = await supabase.from("job_engineer_matches").select("job_id, engineer_id");
 
@@ -234,7 +263,7 @@ export async function runJobDiscovery(
       skills: (engineerSkillRows ?? []).map((row) => row.skills?.name).filter((name): name is string => Boolean(name)),
     };
 
-    const unscoredJobs = (allJobs ?? []).filter((job) => !matchedPairs.has(`${job.id}:${engineer.id}`));
+    const unscoredJobs = freshJobs.filter((job) => !matchedPairs.has(`${job.id}:${engineer.id}`));
 
     for (const job of unscoredJobs) {
       try {

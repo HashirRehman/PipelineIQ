@@ -23,6 +23,10 @@ type JsearchJob = {
 type JsearchConfig = {
   query?: string;
   work_from_home?: boolean;
+  // Comma-separated ISO country codes. JSearch has no "worldwide" sentinel —
+  // omitting this param (or passing it empty) silently defaults to "us"
+  // (confirmed live), so broadening past the US requires an explicit list.
+  country?: string;
 };
 
 // JSearch's date_posted only supports coarse buckets, not an arbitrary
@@ -60,6 +64,7 @@ export class JsearchAdapter implements JobSourceAdapter {
       page: "1",
       // One page per run for MVP — keeps free-tier quota usage bounded.
       num_pages: "1",
+      country: this.config.country ?? "us,gb,ca,au,ie,de,nl,in",
     });
 
     const response = await fetch(`${JSEARCH_BASE_URL}/search-v2?${params.toString()}`, {
