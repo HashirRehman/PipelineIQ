@@ -2,8 +2,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { markAppliedSchema, withdrawLeadSchema } from "@/lib/validation/schemas";
+import { markAppliedSchema, reapplyLeadSchema, withdrawLeadSchema } from "@/lib/validation/schemas";
 
 export type MarkAppliedState = {
   error?: string;
@@ -97,4 +98,64 @@ export async function withdrawLead(
   revalidatePath("/leads");
   revalidatePath(`/leads/${parsed.data.leadId}`);
   return { success: true };
+}
+
+export type ReapplyLeadState = {
+  error?: string;
+};
+
+// Unlike markApplied/withdrawLead, success here doesn't return to the
+// caller at all — reapply produces a genuinely new leads row (proven in
+// sub-chunk 1: withdraw -> reapply is a new id, never a revived one), so
+// the page you reapplied from (the withdrawn lead) isn't the resource
+// that changed. redirect() takes the caller to the new lead instead of
+// leaving them on a static "Withdrawn" page.
+export async function reapplyLead(
+  _prevState: ReapplyLeadState,
+  formData: FormData,
+): Promise<ReapplyLeadState> {
+  const parsed = reapplyLeadSchema.safeParse({
+    leadId: formData.get("leadId"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const supabase = await createClient();
+
+  // RLS-scoped read (leads_select: is_admin() OR bd_user_id = auth.uid())
+  // resolves to nothing for a non-owner/non-Admin — same "not found"
+  // non-distinction the detail page itself already uses.
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("job_engineer_match_id, bd_user_id, status")
+    .eq("id", parsed.data.leadId)
+    .maybeSingle();
+
+  if (!lead) {
+    return { error: "Lead not found." };
+  }
+
+  if (lead.status !== "withdrawn") {
+    return { error: "Only a withdrawn lead can be reapplied." };
+  }
+
+  const { data: newLeadId, error } = await supabase.rpc("create_lead_from_match", {
+    p_match_id: lead.job_engineer_match_id,
+    // Preserves the original BD's ownership, not auth.uid() — see the
+    // sub-chunk plan for why this differs from markApplied's default.
+    p_bd_user_id: lead.bd_user_id,
+  });
+
+  if (error) {
+    if (error.code === "P0001") {
+      return { error: error.message };
+    }
+    console.error("reapplyLead: create_lead_from_match rpc failed", error);
+    return { error: "Something went wrong. Please try again." };
+  }
+
+  revalidatePath("/leads");
+  redirect(`/leads/${newLeadId}`);
 }

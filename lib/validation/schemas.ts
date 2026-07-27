@@ -106,3 +106,7 @@ export const withdrawLeadSchema = z.object({
   leadId: z.uuid(),
   reason: z.string().trim().min(1, "A reason is required.").max(500),
 });
+
+export const reapplyLeadSchema = z.object({
+  leadId: z.uuid(),
+});
