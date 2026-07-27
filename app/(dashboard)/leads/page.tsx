@@ -2,19 +2,55 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { LeadStatusBadge } from "@/components/lead-status-badge";
+import { LeadsFilterForm } from "@/components/leads-filter-form";
+import { leadsFilterSchema } from "@/lib/validation/schemas";
 
-export default async function LeadsPage() {
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ engineerId?: string; status?: string; from?: string; to?: string }>;
+}) {
   const supabase = await createClient();
 
   const { data: isAdmin } = await supabase.rpc("is_admin");
 
+  const rawParams = await searchParams;
+  const filters = leadsFilterSchema.parse(rawParams);
+  const hasAnyFilter = Boolean(filters.engineerId || filters.status || filters.from || filters.to);
+
+  // Options for the engineer dropdown come from this same RLS-scoped
+  // table, unfiltered — a BD only ever sees engineers they actually have
+  // leads for, Admin sees everyone. Deliberately separate from the main
+  // (filtered) query below so picking one filter never shrinks another
+  // filter's own option list.
+  const { data: engineerRows } = await supabase.from("leads").select("engineer_id, engineers(full_name)");
+  const engineerOptions = Array.from(
+    new Map(
+      (engineerRows ?? []).map((row) => [row.engineer_id, row.engineers?.full_name ?? "—"]),
+    ).entries(),
+  )
+    .map(([id, fullName]) => ({ id, fullName }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+
   // Same query for both roles — the difference in results comes entirely
   // from the leads_select RLS policy (is_admin() OR bd_user_id =
   // auth.uid()), matching the convention set by /engineers and /discovery.
-  const { data: leads } = await supabase
+  // Filters are additional .eq()/.gte()/.lte() calls chained onto this
+  // same query — Postgres evaluates RLS as part of the query plan
+  // regardless, so they can only ever narrow this role-scoped result,
+  // never widen it (same guarantee already proven for /discovery's
+  // pagination).
+  let query = supabase
     .from("leads")
     .select("id, status, applied_at, engineers(full_name), jobs(title, company_name)")
     .order("applied_at", { ascending: false });
+
+  if (filters.engineerId) query = query.eq("engineer_id", filters.engineerId);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.from) query = query.gte("applied_at", filters.from);
+  if (filters.to) query = query.lte("applied_at", `${filters.to}T23:59:59.999`);
+
+  const { data: leads } = await query;
 
   const list = leads ?? [];
 
@@ -27,10 +63,16 @@ export default async function LeadsPage() {
         </p>
       </div>
 
+      <LeadsFilterForm engineerOptions={engineerOptions} currentFilters={filters} />
+
       {list.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            {isAdmin ? "No leads yet." : "You don't have any leads yet."}
+            {hasAnyFilter
+              ? "No leads match these filters."
+              : isAdmin
+                ? "No leads yet."
+                : "You don't have any leads yet."}
           </CardContent>
         </Card>
       ) : (

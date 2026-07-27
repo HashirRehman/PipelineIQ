@@ -110,3 +110,15 @@ export const withdrawLeadSchema = z.object({
 export const reapplyLeadSchema = z.object({
   leadId: z.uuid(),
 });
+
+// Parses /leads' searchParams. A malformed/tampered value (hand-edited
+// URL) is treated as "no filter" for that field via .catch(undefined),
+// not a page error — this is a read-only page and RLS still bounds the
+// result regardless of what filters are applied, so failing open to
+// "unfiltered" is the safe direction.
+export const leadsFilterSchema = z.object({
+  engineerId: z.uuid().optional().catch(undefined),
+  status: z.enum(["active", "withdrawn", "closed"]).optional().catch(undefined),
+  from: z.iso.date().optional().catch(undefined),
+  to: z.iso.date().optional().catch(undefined),
+});
