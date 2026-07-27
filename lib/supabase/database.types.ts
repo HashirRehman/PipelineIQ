@@ -436,6 +436,170 @@ export type Database = {
           },
         ]
       }
+      lead_event_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          label: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          label: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          label?: string
+        }
+        Relationships: []
+      }
+      lead_events: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          created_by: string
+          event_type_id: string
+          id: string
+          lead_id: string
+          note: string | null
+          occurred_at: string
+          stage_id: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          created_by: string
+          event_type_id: string
+          id?: string
+          lead_id: string
+          note?: string | null
+          occurred_at?: string
+          stage_id?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          created_by?: string
+          event_type_id?: string
+          id?: string
+          lead_id?: string
+          note?: string | null
+          occurred_at?: string
+          stage_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "lead_event_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          applied_at: string
+          bd_user_id: string
+          created_at: string
+          current_stage_id: string
+          engineer_id: string
+          id: string
+          job_engineer_match_id: string
+          job_id: string
+          last_activity_at: string
+          status: Database["public"]["Enums"]["lead_status"]
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          bd_user_id: string
+          created_at?: string
+          current_stage_id: string
+          engineer_id: string
+          id?: string
+          job_engineer_match_id: string
+          job_id: string
+          last_activity_at?: string
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          bd_user_id?: string
+          created_at?: string
+          current_stage_id?: string
+          engineer_id?: string
+          id?: string
+          job_engineer_match_id?: string
+          job_id?: string
+          last_activity_at?: string
+          status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_bd_user_id_fkey"
+            columns: ["bd_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_current_stage_id_fkey"
+            columns: ["current_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_job_engineer_match_id_fkey"
+            columns: ["job_engineer_match_id"]
+            isOneToOne: false
+            referencedRelation: "job_engineer_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_history: {
         Row: {
           id: string
@@ -467,6 +631,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pipeline_stages: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_terminal: boolean
+          name: string
+          order_index: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_terminal?: boolean
+          name: string
+          order_index: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_terminal?: boolean
+          name?: string
+          order_index?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -613,6 +804,10 @@ export type Database = {
     }
     Functions: {
       assigned_engineer_ids: { Args: never; Returns: string[] }
+      create_lead_from_match: {
+        Args: { p_bd_user_id: string; p_match_id: string }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       reassign_engineer_bd: {
         Args: {
@@ -631,8 +826,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      withdraw_lead: {
+        Args: { p_lead_id: string; p_reason: string }
+        Returns: undefined
+      }
     }
     Enums: {
+      lead_status: "active" | "withdrawn" | "closed"
       match_status: "suggested" | "dismissed" | "applied"
     }
     CompositeTypes: {
@@ -764,6 +964,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      lead_status: ["active", "withdrawn", "closed"],
       match_status: ["suggested", "dismissed", "applied"],
     },
   },
