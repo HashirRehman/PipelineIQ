@@ -4,9 +4,10 @@
 // Never use this client for table reads/writes — those go through
 // lib/supabase/server.ts so RLS stays the access-control boundary.
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
 export function createAdminClient() {
-  return createSupabaseClient(
+  return createSupabaseClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY!,
     {

@@ -13,8 +13,7 @@ export async function middleware(request: NextRequest) {
 
     const { data: isAdmin } = await supabase.rpc("is_admin");
     if (!isAdmin) {
-      // No real dashboard home yet — placeholder redirect target.
-      const url = new URL("/", request.url);
+      const url = new URL("/engineers", request.url);
       url.searchParams.set("error", "not_authorized");
       return NextResponse.redirect(url);
     }

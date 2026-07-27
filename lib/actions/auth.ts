@@ -60,10 +60,9 @@ export async function signIn(
     return { error: "This account has been deactivated. Contact an administrator." };
   }
 
-  // /admin/users is the only real screen that exists today. Once Module
-  // 2+ ships (a BD Executive's own leads view), this needs to become
-  // role-aware: Admin -> /admin/users, BD Executive -> their leads view.
-  redirect("/admin/users");
+  // /engineers is already role-aware via RLS (Admin sees all, BD sees
+  // only their assigned engineers) — the same shared home for both roles.
+  redirect("/engineers");
 }
 
 export async function signOutAction() {

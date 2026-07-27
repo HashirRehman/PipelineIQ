@@ -21,3 +21,74 @@ export const setPasswordSchema = z
     message: "Passwords do not match.",
     path: ["confirmPassword"],
   });
+
+// Optional numeric form fields arrive as strings ("" when left blank), so an
+// empty string must become undefined ("not provided"), not 0.
+const optionalNonNegativeNumber = z
+  .string()
+  .optional()
+  .transform((value) => (value ? Number(value) : undefined))
+  .refine((value) => value === undefined || value >= 0, "Must be zero or greater.");
+
+const optionalTrimmedText = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+  });
+
+export const engineerCoreFieldsSchema = z.object({
+  fullName: z.string().trim().min(1, "Full name is required."),
+  email: z.email("Enter a valid email address."),
+  phone: optionalTrimmedText,
+  location: optionalTrimmedText,
+  seniorityLevelId: z.uuid("Select a seniority level."),
+  yearsExperience: optionalNonNegativeNumber,
+  rateExpectation: optionalNonNegativeNumber,
+  rateCurrency: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value.toUpperCase() : "USD"))
+    .refine((value) => value.length === 3, "Currency must be a 3-letter code."),
+  summary: optionalTrimmedText,
+  skillIds: z.array(z.uuid()).default([]),
+});
+
+export const createEngineerSchema = engineerCoreFieldsSchema;
+
+export const updateEngineerSchema = engineerCoreFieldsSchema.extend({
+  engineerId: z.uuid(),
+});
+
+export const setEngineerActiveSchema = z.object({
+  engineerId: z.uuid(),
+  // z.coerce.boolean() would treat the literal string "false" as truthy —
+  // an explicit enum is what makes deactivation actually work.
+  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
+});
+
+export const engineerBdAssignmentSchema = z.object({
+  engineerId: z.uuid(),
+  bdUserId: z.uuid("Select a BD Executive."),
+});
+
+export const createSkillSchema = z.object({
+  name: z.string().trim().min(1, "Name is required."),
+});
+
+export const setSkillActiveSchema = z.object({
+  skillId: z.uuid(),
+  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
+});
+
+export const uploadEngineerCvSchema = z.object({
+  engineerId: z.uuid(),
+  label: z.string().trim().min(1, "Label is required."),
+  // Size/mime-type limits are Admin-tunable (app_settings), so they can't be
+  // expressed statically here — that check happens at runtime against the DB.
+  file: z
+    .instanceof(File)
+    .refine((file) => file.size > 0, "Select a file to upload."),
+});
