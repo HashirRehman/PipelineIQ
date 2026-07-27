@@ -3,6 +3,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { GroqAiClient } from "@/lib/ai/groq-client";
+import {
+  acquireDiscoveryLock,
+  releaseDiscoveryLock,
+  runJobDiscovery,
+  type DiscoverySummary,
+} from "@/lib/cron/discover-jobs";
 import { dismissMatchSchema } from "@/lib/validation/schemas";
 
 export type DismissMatchState = {
@@ -51,4 +59,59 @@ export async function dismissMatch(
 
   revalidatePath("/discovery");
   return { success: true };
+}
+
+export type RunDiscoveryState = {
+  status?: "completed" | "skipped" | "cooldown" | "error";
+  summary?: DiscoverySummary;
+  error?: string;
+  nextRunAvailableAt?: string;
+};
+
+// Open to any authenticated role (Admin or BD) — this app has no
+// self-signup and no anonymous access, so "any real session" already
+// means "a real user of this app," not the public internet. Unlike the
+// Admin-only actions in lib/actions/engineers.ts, this check is not UX
+// polish sitting on top of an RLS policy — runJobDiscovery needs the
+// service-role client regardless of caller (it writes
+// jobs/job_engineer_matches/cron_run_locks, none of which grant
+// authenticated direct write access), which bypasses RLS entirely. That
+// makes this check the ONLY enforcement boundary for this action, so it
+// must run — and be allowed to reject — before the admin client is ever
+// created.
+export async function runDiscoveryNow(
+  _prevState: RunDiscoveryState,
+  _formData: FormData,
+): Promise<RunDiscoveryState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: "error", error: "Not authorized." };
+  }
+
+  const adminClient = createAdminClient();
+
+  const lockResult = await acquireDiscoveryLock(adminClient);
+  if (!lockResult.acquired) {
+    if (lockResult.reason === "cooldown") {
+      return { status: "cooldown", nextRunAvailableAt: lockResult.nextRunAvailableAt };
+    }
+    return { status: "skipped" };
+  }
+
+  let completed = false;
+  try {
+    const summary = await runJobDiscovery(adminClient, new GroqAiClient());
+    completed = true;
+    revalidatePath("/discovery");
+    return { status: "completed", summary };
+  } catch (error) {
+    console.error("runDiscoveryNow: runJobDiscovery failed", error);
+    return { status: "error", error: "Something went wrong. Please try again." };
+  } finally {
+    await releaseDiscoveryLock(adminClient, { completed });
+  }
 }

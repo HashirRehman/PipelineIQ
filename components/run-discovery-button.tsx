@@ -1,0 +1,63 @@
+"use client";
+
+import { useActionState } from "react";
+import { runDiscoveryNow, type RunDiscoveryState } from "@/lib/actions/discovery";
+import { Button } from "@/components/ui/button";
+
+const initialState: RunDiscoveryState = {};
+
+export function RunDiscoveryButton() {
+  const [state, formAction, isPending] = useActionState(runDiscoveryNow, initialState);
+
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <form action={formAction}>
+        <Button type="submit" variant="outline" size="sm" disabled={isPending}>
+          {isPending ? "Running discovery… (can take up to ~30s)" : "Run Discovery Now"}
+        </Button>
+      </form>
+
+      {state.status === "skipped" && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Already running — try again shortly.
+        </p>
+      )}
+
+      {state.status === "cooldown" && state.nextRunAvailableAt && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Next run available at{" "}
+          {new Date(state.nextRunAvailableAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+        </p>
+      )}
+
+      {state.status === "error" && (
+        <p role="alert" className="text-sm text-destructive dark:text-red-400">
+          {state.error}
+        </p>
+      )}
+
+      {state.status === "completed" && state.summary && (
+        <div className="w-full max-w-xs rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <p>Sources processed: {state.summary.sourcesProcessed}</p>
+          <p>Jobs upserted: {state.summary.jobsUpserted}</p>
+          <p>Jobs enriched: {state.summary.jobsEnriched}</p>
+          <p>Matches written: {state.summary.matchesWritten}</p>
+          {state.summary.errors.length > 0 && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-destructive dark:text-red-400">
+                {state.summary.errors.length} error(s)
+              </summary>
+              <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+                {state.summary.errors.map((err, index) => (
+                  <li key={index}>
+                    {err.stage}: {err.error}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

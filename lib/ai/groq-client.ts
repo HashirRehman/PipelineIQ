@@ -49,6 +49,25 @@ async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<u
   }
 }
 
+function normalizeForMatch(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// This engineer skill catalog's "X Js" naming convention ("Node Js",
+// "React Js", "Express Js") frequently doesn't literally appear in real
+// postings, which more often just say "Node", "React", or "Node.js"
+// without a space — a bare substring match on "Node Js" misses "Node.js"
+// entirely. Normalizing punctuation away, plus checking the root token
+// with a trailing "js" stripped, closes that gap.
+function hasLiteralSkillMention(skills: string[], description: string): boolean {
+  const normalizedDescription = normalizeForMatch(description);
+  return skills.some((skill) => {
+    const normalized = normalizeForMatch(skill);
+    const root = normalized.endsWith("js") && normalized.length > 2 ? normalized.slice(0, -2) : normalized;
+    return normalizedDescription.includes(normalized) || normalizedDescription.includes(root);
+  });
+}
+
 export class GroqAiClient implements AiClient {
   async scoreRelevance(
     engineerProfile: EngineerContext,
@@ -56,8 +75,14 @@ export class GroqAiClient implements AiClient {
   ): Promise<{ score: number; modelVersion: string }> {
     const systemPrompt =
       "You score how well an engineer's profile matches a job listing for a recruiting platform. " +
-      'Respond only with JSON: {"score": <integer 0-100>, "rationale": "<one sentence>"}. ' +
-      "0 means completely unrelated, 100 means an ideal match on seniority, skills, and experience.";
+      'Respond only with JSON: {"score": <integer 0-100>, "matched_skills": [<engineer skills found ' +
+      'explicitly named in the job description>], "rationale": "<one sentence>"}. ' +
+      "matched_skills must only include skills from the engineer's own skills list that are explicitly " +
+      "named in the job description — this is an extraction task: list only what is literally present " +
+      "in the text, not what you infer or assume. " +
+      "0 means completely unrelated, 100 means an ideal match on seniority, skills, and experience. " +
+      "If the job description names no specific technology, weight seniority/domain match only — " +
+      "do not treat the absence of a stack mismatch as a strong positive signal.";
 
     const userPrompt = [
       `Engineer seniority: ${engineerProfile.seniorityLevel}`,
@@ -75,13 +100,28 @@ export class GroqAiClient implements AiClient {
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      typeof (parsed as { score?: unknown }).score !== "number"
+      typeof (parsed as { score?: unknown }).score !== "number" ||
+      !Array.isArray((parsed as { matched_skills?: unknown }).matched_skills)
     ) {
       throw new Error(`scoreRelevance: unexpected response shape: ${JSON.stringify(parsed)}`);
     }
 
     const score = (parsed as { score: number }).score;
-    return { score: Math.max(0, Math.min(100, score)), modelVersion: GROQ_MODEL };
+    const matchedSkills = (parsed as { matched_skills: unknown[] }).matched_skills.filter(
+      (skill): skill is string => typeof skill === "string",
+    );
+    const clampedScore = Math.max(0, Math.min(100, score));
+
+    // The model's own extraction is the primary signal; this cheap
+    // substring cross-check only serves as a rescue when the model
+    // wrongly reports zero matches despite obvious textual evidence — it
+    // does not need to be exhaustive, only directionally generous, since
+    // both signals must agree there's no evidence before the cap fires.
+    const noModelMatch = matchedSkills.length === 0;
+    const noTextEvidence = !hasLiteralSkillMention(engineerProfile.skills, job.description ?? "");
+    const cappedScore = noModelMatch && noTextEvidence ? Math.min(clampedScore, 55) : clampedScore;
+
+    return { score: cappedScore, modelVersion: GROQ_MODEL };
   }
 
   async extractRemoteRegion(job: JobListing): Promise<{ region: string | null }> {

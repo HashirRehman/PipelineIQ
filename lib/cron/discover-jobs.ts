@@ -30,6 +30,12 @@ export type DiscoverySummary = {
 
 const CRON_LOCK_ID = "discover-jobs";
 const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 60 * 1000;
+const COOLDOWN_MS = 15 * 60 * 1000;
+
+export type AcquireLockResult =
+  | { acquired: true }
+  | { acquired: false; reason: "already_running" }
+  | { acquired: false; reason: "cooldown"; nextRunAvailableAt: string };
 
 // A single atomic conditional UPDATE, not a session-scoped Postgres
 // advisory lock — this project's Supabase client talks over PostgREST/HTTP
@@ -38,9 +44,31 @@ const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 60 * 1000;
 // needs no such session: Postgres's own row lock during the UPDATE
 // statement is what makes two concurrent callers resolve deterministically
 // (one's WHERE clause matches and wins; the other's no longer matches once
-// it re-evaluates against the just-committed row).
-export async function acquireDiscoveryLock(supabase: SupabaseClient<Database>): Promise<boolean> {
-  const staleCutoff = new Date(Date.now() - STALE_LOCK_THRESHOLD_MS).toISOString();
+// it re-evaluates against the just-committed row). That guarantee is
+// unchanged below — the SELECT added for cooldown/already-running
+// classification is only ever used to produce the right human-facing
+// message; it is not what enforces exclusivity.
+export async function acquireDiscoveryLock(supabase: SupabaseClient<Database>): Promise<AcquireLockResult> {
+  const now = Date.now();
+  const staleCutoff = new Date(now - STALE_LOCK_THRESHOLD_MS).toISOString();
+
+  const { data: lockRow } = await supabase
+    .from("cron_run_locks")
+    .select("is_running, started_at, last_completed_at")
+    .eq("id", CRON_LOCK_ID)
+    .single();
+
+  if (lockRow?.is_running && lockRow.started_at && lockRow.started_at >= staleCutoff) {
+    return { acquired: false, reason: "already_running" };
+  }
+
+  if (lockRow?.last_completed_at) {
+    const nextRunAvailableAt = new Date(new Date(lockRow.last_completed_at).getTime() + COOLDOWN_MS);
+    if (nextRunAvailableAt.getTime() > now) {
+      return { acquired: false, reason: "cooldown", nextRunAvailableAt: nextRunAvailableAt.toISOString() };
+    }
+  }
+
   const { data, error } = await supabase
     .from("cron_run_locks")
     .update({ is_running: true, started_at: new Date().toISOString() })
@@ -48,11 +76,27 @@ export async function acquireDiscoveryLock(supabase: SupabaseClient<Database>): 
     .or(`is_running.eq.false,started_at.lt.${staleCutoff}`)
     .select("id");
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
+
+  if ((data?.length ?? 0) === 0) {
+    // Lost a race against a concurrent acquisition between the SELECT
+    // above and this UPDATE — the same rare, harmless edge case noted
+    // above; classify it as already_running since that's what actually
+    // happened by the time this statement ran.
+    return { acquired: false, reason: "already_running" };
+  }
+
+  return { acquired: true };
 }
 
-export async function releaseDiscoveryLock(supabase: SupabaseClient<Database>): Promise<void> {
-  await supabase.from("cron_run_locks").update({ is_running: false }).eq("id", CRON_LOCK_ID);
+export async function releaseDiscoveryLock(
+  supabase: SupabaseClient<Database>,
+  options: { completed: boolean },
+): Promise<void> {
+  const update: { is_running: boolean; last_completed_at?: string } = { is_running: false };
+  if (options.completed) {
+    update.last_completed_at = new Date().toISOString();
+  }
+  await supabase.from("cron_run_locks").update(update).eq("id", CRON_LOCK_ID);
 }
 
 function computeDedupHash(job: { title: string; company_name: string; location: string | null }): string {

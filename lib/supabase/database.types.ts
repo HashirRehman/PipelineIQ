@@ -64,18 +64,21 @@ export type Database = {
         Row: {
           id: string
           is_running: boolean
+          last_completed_at: string | null
           started_at: string | null
           updated_at: string
         }
         Insert: {
           id: string
           is_running?: boolean
+          last_completed_at?: string | null
           started_at?: string | null
           updated_at?: string
         }
         Update: {
           id?: string
           is_running?: boolean
+          last_completed_at?: string | null
           started_at?: string | null
           updated_at?: string
         }

@@ -14,13 +14,21 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
 
-  const acquired = await acquireDiscoveryLock(supabase);
-  if (!acquired) {
+  const lockResult = await acquireDiscoveryLock(supabase);
+  if (!lockResult.acquired) {
+    if (lockResult.reason === "cooldown") {
+      return NextResponse.json(
+        { status: "skipped", reason: "cooldown", nextRunAvailableAt: lockResult.nextRunAvailableAt },
+        { status: 200 },
+      );
+    }
     return NextResponse.json({ status: "skipped", reason: "already running" }, { status: 200 });
   }
 
+  let completed = false;
   try {
     const summary = await runJobDiscovery(supabase, new GroqAiClient());
+    completed = true;
     return NextResponse.json({ status: "completed", ...summary }, { status: 200 });
   } catch (error) {
     // Only a genuinely unexpected top-level failure lands here (e.g. can't
@@ -29,6 +37,6 @@ export async function GET(request: Request) {
     console.error("discover-jobs: unexpected top-level failure", error);
     return NextResponse.json({ status: "failed", error: String(error) }, { status: 500 });
   } finally {
-    await releaseDiscoveryLock(supabase);
+    await releaseDiscoveryLock(supabase, { completed });
   }
 }
