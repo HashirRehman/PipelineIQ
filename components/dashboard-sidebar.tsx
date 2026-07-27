@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Contact, ListChecks, Menu, Users } from "lucide-react";
+import { Contact, ListChecks, Menu, Sparkles, Users } from "lucide-react";
 import { signOutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +14,12 @@ import {
 import { DashboardNav, type DashboardNavItem } from "@/components/dashboard-nav";
 
 function buildNavItems(isAdmin: boolean): DashboardNavItem[] {
-  // Engineers is unconditional — RLS scopes visibility per role once
-  // there (Admin sees all, BD sees only assigned), so the link itself
-  // isn't role-gated the way "Users" (admin-only management) is.
+  // Engineers and Discovery are unconditional — RLS scopes visibility per
+  // role once there (Admin sees all, BD sees only assigned), so the link
+  // itself isn't role-gated the way "Users" (admin-only management) is.
   const items: DashboardNavItem[] = [
     { href: "/engineers", label: "Engineers", icon: Contact },
+    { href: "/discovery", label: "Discovery", icon: Sparkles },
   ];
 
   if (isAdmin) {

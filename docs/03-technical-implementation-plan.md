@@ -621,12 +621,14 @@ Modules 4–5 (nothing to report on before leads and stages exist).
 - Report queries return in acceptable time at expected MVP data volumes without a materialized view.
 
 
-## 12. Module 9 — AI Capabilities (MVP: scoring only; deeper features Phase 2)
+## 12. Module 9 — AI Capabilities (MVP: scoring + remote-region extraction only; deeper features Phase 2)
 
 
 > **What ships in MVP vs. later**
 >
-> Only relevance scoring (feeding job_engineer_matches in Module 3) is part of the current build. Note summarization, follow-up suggestions, CV recommendation, and "needs attention" flagging all depend on Phase 2 screens (Modules 5–7) to display or act on them, so they ship alongside those modules — the AiClient interface below is designed for all of them up front so no rework is needed when they’re switched on.
+> Relevance scoring (feeding job_engineer_matches) and remote-region extraction (feeding jobs.remote_region) are both part of the current build — both are Module 3 MVP scope, per Part A of the schema catalog. Note summarization, follow-up suggestions, CV recommendation, and "needs attention" flagging all depend on Phase 2 screens (Modules 5–7) to display or act on them, so they ship alongside those modules — the AiClient interface below is designed for all of them up front so no rework is needed when they’re switched on.
+>
+> `extractRemoteRegion` was added to the interface after the fact — it was missing from the original sketch below despite `jobs.remote_region` always being MVP scope (Part A of docs/02-final-schema-table-catalog.md, "filled by AI reading the job description"). This was a gap in this doc, not a deliberate exclusion; closing it here rather than leaving the interface silently incomplete.
 
 Not a screen of its own — a set of capabilities layered into Modules 3–6, all routed through one internal AI service wrapper so the underlying provider can change without touching feature code.
 
@@ -638,6 +640,7 @@ Not a screen of its own — a set of capabilities layered into Modules 3–6, al
 // lib/ai/client.ts
 interface AiClient {
   scoreRelevance(engineerProfile: EngineerContext, job: JobListing): Promise<{ score: number; modelVersion: string }>;
+  extractRemoteRegion(job: JobListing): Promise<{ region: string | null }>;
   summarizeNotes(notes: string[]): Promise<string>;
   suggestFollowUp(leadContext: LeadContext): Promise<string>;
   recommendCv(engineerId: string, job: JobListing): Promise<{ cvId: string; reasoning: string }>;
@@ -651,7 +654,8 @@ interface AiClient {
 
 | Capability | Lands with | Where it writes |
 | --- | --- | --- |
-| Relevance scoring | Module 3 (nightly cron) | job_engineer_matches.relevance_score, ai_model_version |
+| Relevance scoring | Module 3 (nightly cron, once per job × active engineer) | job_engineer_matches.relevance_score, ai_model_version |
+| Remote region extraction | Module 3 (nightly cron, once per new job) | jobs.remote_region |
 | Duplicate detection (same-source) | Module 3 | jobs.dedup_hash comparison; enforced via DB unique constraint for exact duplicates |
 | Note summarization | Module 6 enhancement | lead_events.ai_summary (generated on demand or async after a long note is added) |
 | Follow-up suggestions | Module 5/7 enhancement | Surfaced in the UI on the lead detail page; not persisted for MVP unless a caching need emerges |

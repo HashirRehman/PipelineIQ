@@ -92,3 +92,8 @@ export const uploadEngineerCvSchema = z.object({
     .instanceof(File)
     .refine((file) => file.size > 0, "Select a file to upload."),
 });
+
+export const dismissMatchSchema = z.object({
+  matchId: z.uuid(),
+  reason: z.string().trim().min(1, "A reason is required.").max(500),
+});

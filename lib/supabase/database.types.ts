@@ -60,6 +60,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_run_locks: {
+        Row: {
+          id: string
+          is_running: boolean
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          is_running?: boolean
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          is_running?: boolean
+          started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       engineer_bd_assignments: {
         Row: {
           assigned_at: string
@@ -262,6 +283,156 @@ export type Database = {
           },
         ]
       }
+      job_engineer_matches: {
+        Row: {
+          ai_model_version: string
+          created_at: string
+          dismissed_reason: string | null
+          engineer_id: string
+          id: string
+          job_id: string
+          recommended_cv_id: string | null
+          relevance_score: number
+          status: Database["public"]["Enums"]["match_status"]
+          updated_at: string
+        }
+        Insert: {
+          ai_model_version: string
+          created_at?: string
+          dismissed_reason?: string | null
+          engineer_id: string
+          id?: string
+          job_id: string
+          recommended_cv_id?: string | null
+          relevance_score: number
+          status?: Database["public"]["Enums"]["match_status"]
+          updated_at?: string
+        }
+        Update: {
+          ai_model_version?: string
+          created_at?: string
+          dismissed_reason?: string | null
+          engineer_id?: string
+          id?: string
+          job_id?: string
+          recommended_cv_id?: string | null
+          relevance_score?: number
+          status?: Database["public"]["Enums"]["match_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_engineer_matches_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_engineer_matches_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_engineer_matches_recommended_cv_id_fkey"
+            columns: ["recommended_cv_id"]
+            isOneToOne: false
+            referencedRelation: "engineer_cvs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_sources: {
+        Row: {
+          base_url: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+        }
+        Insert: {
+          base_url?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+        }
+        Update: {
+          base_url?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      jobs: {
+        Row: {
+          apply_url: string
+          company_name: string
+          created_at: string
+          dedup_hash: string | null
+          description: string | null
+          discovered_at: string
+          external_job_id: string
+          id: string
+          is_remote: boolean | null
+          job_source_id: string
+          location: string | null
+          posted_at: string | null
+          remote_region: string | null
+          title: string
+        }
+        Insert: {
+          apply_url: string
+          company_name: string
+          created_at?: string
+          dedup_hash?: string | null
+          description?: string | null
+          discovered_at?: string
+          external_job_id: string
+          id?: string
+          is_remote?: boolean | null
+          job_source_id: string
+          location?: string | null
+          posted_at?: string | null
+          remote_region?: string | null
+          title: string
+        }
+        Update: {
+          apply_url?: string
+          company_name?: string
+          created_at?: string
+          dedup_hash?: string | null
+          description?: string | null
+          discovered_at?: string
+          external_job_id?: string
+          id?: string
+          is_remote?: boolean | null
+          job_source_id?: string
+          location?: string | null
+          posted_at?: string | null
+          remote_region?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_job_source_id_fkey"
+            columns: ["job_source_id"]
+            isOneToOne: false
+            referencedRelation: "job_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_history: {
         Row: {
           id: string
@@ -448,9 +619,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      upsert_job_engineer_match: {
+        Args: {
+          p_ai_model_version: string
+          p_engineer_id: string
+          p_job_id: string
+          p_relevance_score: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      match_status: "suggested" | "dismissed" | "applied"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -580,6 +760,8 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      match_status: ["suggested", "dismissed", "applied"],
+    },
   },
 } as const
