@@ -8,6 +8,24 @@ import type { AiClient, EngineerContext, JobListing, LeadContext } from "./clien
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MAX_429_RETRIES = 3;
+
+// Groq's real rate-limit body (confirmed against a forced live 429, not
+// assumed): {"error":{"message":"Rate limit reached ... Please try again
+// in 2s. ...","type":"requests","code":"rate_limit_exceeded"}} — the
+// number can be an integer ("2s") or fractional ("1.234s"), so both are
+// matched. Returns null (not a guessed default) if Groq's message format
+// ever changes and this can't find a number — the caller decides the
+// fallback explicitly rather than this function silently making one up.
+function parseGroqRetryDelayMs(errorBody: string): number | null {
+  const match = errorBody.match(/try again in (\d+(?:\.\d+)?)s/i);
+  if (!match) return null;
+  return Math.ceil(Number(match[1]) * 1000);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
   const apiKey = process.env.GROQ_API_KEY;
@@ -15,38 +33,57 @@ async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<u
     throw new Error("GROQ_API_KEY is not set.");
   }
 
-  const response = await fetch(GROQ_CHAT_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0,
-    }),
-  });
+  // Only 429s are retried here — any other failure (4xx, 5xx, network)
+  // still fails on the first attempt, same as before this change.
+  for (let attempt = 1; attempt <= MAX_429_RETRIES + 1; attempt++) {
+    const response = await fetch(GROQ_CHAT_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0,
+      }),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Groq request failed: ${response.status} ${await response.text()}`);
+    if (response.ok) {
+      const body = await response.json();
+      const content = body.choices?.[0]?.message?.content;
+      if (typeof content !== "string") {
+        throw new Error("Groq response missing message content.");
+      }
+      try {
+        return JSON.parse(content);
+      } catch {
+        throw new Error(`Groq response was not valid JSON: ${content}`);
+      }
+    }
+
+    const errorText = await response.text();
+
+    if (response.status === 429 && attempt <= MAX_429_RETRIES) {
+      const parsedDelayMs = parseGroqRetryDelayMs(errorText);
+      const waitMs = parsedDelayMs ?? 1000;
+      console.warn(
+        `Groq 429 rate limit — retry ${attempt}/${MAX_429_RETRIES}, waiting ${waitMs}ms ` +
+          `(${parsedDelayMs !== null ? "from Groq's own retry message" : "Groq's message didn't parse, using 1000ms fallback"})`,
+      );
+      await sleep(waitMs);
+      continue;
+    }
+
+    throw new Error(`Groq request failed: ${response.status} ${errorText}`);
   }
 
-  const body = await response.json();
-  const content = body.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new Error("Groq response missing message content.");
-  }
-
-  try {
-    return JSON.parse(content);
-  } catch {
-    throw new Error(`Groq response was not valid JSON: ${content}`);
-  }
+  // Unreachable — the loop above always either returns or throws.
+  throw new Error("Groq request failed: 429 rate limit, retries exhausted.");
 }
 
 function normalizeForMatch(text: string): string {
