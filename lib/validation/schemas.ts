@@ -97,3 +97,12 @@ export const dismissMatchSchema = z.object({
   matchId: z.uuid(),
   reason: z.string().trim().min(1, "A reason is required.").max(500),
 });
+
+export const markAppliedSchema = z.object({
+  matchId: z.uuid(),
+});
+
+export const withdrawLeadSchema = z.object({
+  leadId: z.uuid(),
+  reason: z.string().trim().min(1, "A reason is required.").max(500),
+});

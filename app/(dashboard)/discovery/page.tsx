@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DismissMatchForm } from "@/components/dismiss-match-form";
+import { MarkAppliedForm } from "@/components/mark-applied-form";
 import { RunDiscoveryButton } from "@/components/run-discovery-button";
 
 const PAGE_SIZE = 10;
@@ -108,7 +109,10 @@ export default async function DiscoveryPage({
                   >
                     Apply Now →
                   </a>
-                  <DismissMatchForm matchId={match.id} />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <MarkAppliedForm matchId={match.id} />
+                    <DismissMatchForm matchId={match.id} />
+                  </div>
                 </div>
               </CardContent>
             </Card>
