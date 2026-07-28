@@ -49,6 +49,13 @@ Modules 5–9 (Interview Pipeline Tracking, Lead Timeline & Activity Log, Notifi
 - Never push to any remote (origin/GitHub) without separate, explicit permission each time — local commits are cheap and reversible, pushing is a different, separate decision.
 - If a task naturally produces several distinct commits (e.g. "fix bug" then "add test coverage for it"), that's fine — prefer more small, clear commits over one large vague one.
 
+## Known residual risks
+
+- **Prompt truncation, unverified beyond one data point.** Head+tail truncation (1000+500 chars) was added to `scoreRelevance` and `extractRemoteRegion` in `lib/ai/groq-client.ts` to reduce Groq token cost. It was verified clean on exactly ONE real job (Discovery Education: score 60, unchanged pre/post truncation). The full intended verification — the 6-job scoring battery (Nurse, Marketing, .NET, Holepunch, Dragos) and the Turing/Fed95 eligibility recheck — was never completed, blocked repeatedly by Groq's daily token quota across multiple sessions.
+- **Decision made 2026-07-28**: proceed to deployment without completing this verification. Accepted risk: truncation could theoretically be cutting off signal that affects scoring accuracy or eligibility detection on some postings, unverified beyond the one clean data point and the deliberate head+tail design reasoning.
+- If a scoring or eligibility result looks wrong in real production usage, this truncation work is the first place to check — re-run the originally-planned battery test (fixtures preserved in `.tmp-verify/`, gitignored) before assuming the bug is elsewhere.
+- This is a decision record, not an open bug — don't silently re-run the battery and close this out on your own; if it ever gets completed, surface the result back to the user first.
+
 ## When something in the code and something in `/docs` disagree
 
 Flag it and ask — don't silently pick one. The docs represent decisions made with the team; the code should catch up to them, not the other way around.

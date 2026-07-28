@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude Code scratch/verification scripts (never real project files)
+.tmp-verify/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

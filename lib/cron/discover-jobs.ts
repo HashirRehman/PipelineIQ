@@ -26,7 +26,25 @@ export type DiscoverySummary = {
   jobsEnriched: number;
   matchesWritten: number;
   errors: DiscoveryError[];
+  enrichmentCapped: boolean;
+  enrichmentAttempted: number;
+  enrichmentPendingTotal: number;
+  scoringCapped: boolean;
+  scoringAttempted: number;
+  scoringPendingTotal: number;
 };
+
+// Per-invocation caps keeping a single run's wall-clock time well under
+// Vercel Hobby's 300s ceiling (confirmed hard default+max under Fluid
+// Compute) — at the ~2s/call pacing in groq-client.ts, 60 scoring pairs
+// + 30 enrichment jobs ≈ 120s + 60s of call time, leaving ~120s of real
+// margin for JSearch fetching, DB writes, and safety buffer. Hitting a
+// cap is a clean, deliberate stop, not a failure — the existing
+// DB-state-driven queries below (is_globally_open IS NULL, matchedPairs)
+// are what make next invocation resume exactly where this one stopped,
+// with no new resumption logic.
+const MAX_ENRICHMENT_JOBS_PER_RUN = 30;
+const MAX_SCORING_PAIRS_PER_RUN = 60;
 
 const CRON_LOCK_ID = "discover-jobs";
 const STALE_LOCK_THRESHOLD_MS = 2 * 60 * 60 * 1000;
@@ -116,6 +134,12 @@ export async function runJobDiscovery(
     jobsEnriched: 0,
     matchesWritten: 0,
     errors: [],
+    enrichmentCapped: false,
+    enrichmentAttempted: 0,
+    enrichmentPendingTotal: 0,
+    scoringCapped: false,
+    scoringAttempted: 0,
+    scoringPendingTotal: 0,
   };
 
   // --- Step 1: ingest listings from every active source -------------------
@@ -189,7 +213,12 @@ export async function runJobDiscovery(
     .select("id, title, company_name, location, description")
     .is("is_globally_open", null);
 
-  for (const job of unenrichedJobs ?? []) {
+  summary.enrichmentPendingTotal = unenrichedJobs?.length ?? 0;
+  const enrichmentBatch = (unenrichedJobs ?? []).slice(0, MAX_ENRICHMENT_JOBS_PER_RUN);
+  summary.enrichmentCapped = summary.enrichmentPendingTotal > enrichmentBatch.length;
+
+  for (const job of enrichmentBatch) {
+    summary.enrichmentAttempted++;
     try {
       const dedupHash = computeDedupHash(job);
       const { region, isGloballyOpen, possiblyClosed, possiblyClosedReason } = await aiClient.extractRemoteRegion({
@@ -218,8 +247,11 @@ export async function runJobDiscovery(
   // --- Step 3: score every (job, active engineer) pairing that has no ----
   // match row yet — again DB-state-driven, not "jobs from this run," so an
   // orphaned job (enriched, never scored) is indistinguishable from one
-  // just enriched moments ago, and a newly-active engineer is scored
-  // against the full historical backlog exactly once, by design.
+  // just enriched moments ago. A newly-active engineer is scored once
+  // against every job in freshJobs (below) — bounded to the freshness
+  // window, not the full historical jobs table — since freshJobs is
+  // computed unconditionally before this loop and every engineer's
+  // unscoredJobs is filtered from it, never from the unfiltered allJobs.
   const { data: engineers } = await supabase
     .from("engineers")
     .select("id, years_experience, summary, seniority_levels(name)")
@@ -250,7 +282,17 @@ export async function runJobDiscovery(
 
   const matchedPairs = new Set((existingMatches ?? []).map((m) => `${m.job_id}:${m.engineer_id}`));
 
-  for (const engineer of engineers ?? []) {
+  // Cheap in-memory pass (freshJobs/matchedPairs are already loaded, no
+  // extra query) to know the real total before capping — this is what
+  // makes scoringPendingTotal an honest number, not a guess.
+  summary.scoringPendingTotal = (engineers ?? []).reduce((sum, engineer) => {
+    const unscoredCount = freshJobs.filter((job) => !matchedPairs.has(`${job.id}:${engineer.id}`)).length;
+    return sum + unscoredCount;
+  }, 0);
+
+  scoringLoop: for (const engineer of engineers ?? []) {
+    if (summary.scoringAttempted >= MAX_SCORING_PAIRS_PER_RUN) break scoringLoop;
+
     const { data: engineerSkillRows } = await supabase
       .from("engineer_skills")
       .select("skills(name)")
@@ -266,6 +308,8 @@ export async function runJobDiscovery(
     const unscoredJobs = freshJobs.filter((job) => !matchedPairs.has(`${job.id}:${engineer.id}`));
 
     for (const job of unscoredJobs) {
+      if (summary.scoringAttempted >= MAX_SCORING_PAIRS_PER_RUN) break scoringLoop;
+      summary.scoringAttempted++;
       try {
         const jobListing: JobListing = {
           title: job.title,
@@ -287,6 +331,8 @@ export async function runJobDiscovery(
       }
     }
   }
+
+  summary.scoringCapped = summary.scoringAttempted >= MAX_SCORING_PAIRS_PER_RUN && summary.scoringAttempted < summary.scoringPendingTotal;
 
   return summary;
 }

@@ -10,17 +10,54 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 const MAX_429_RETRIES = 3;
 
+// Proactive pacing at Groq's real 30 RPM limit (60s / 30 = 2s/call) so
+// calls mostly succeed on the first attempt instead of firing
+// sequentially and absorbing reactive 429 backoff — this is what caps a
+// discovery run's real wall-clock time predictably (see the per-run caps
+// in lib/cron/discover-jobs.ts, sized against this exact interval).
+// Module-level state is safe here: this codebase's discovery loop is
+// strictly sequential, never concurrent Groq calls.
+const GROQ_PACE_INTERVAL_MS = 2000;
+let lastCallStartedAt = 0;
+
+async function paceCall(): Promise<void> {
+  const elapsed = Date.now() - lastCallStartedAt;
+  if (elapsed < GROQ_PACE_INTERVAL_MS) {
+    await sleep(GROQ_PACE_INTERVAL_MS - elapsed);
+  }
+  lastCallStartedAt = Date.now();
+}
+
+// Real RPM-driven 429s observed this session honor short waits (single-
+// digit seconds); real daily-token-cap (TPD) 429s honor waits of many
+// minutes. Without a bound, one call hitting an exhausted daily quota
+// could block for 10-20+ minutes through the retry loop below, silently
+// defeating the per-run wall-clock caps this pacing exists to support —
+// so a suggested wait past this threshold fails fast instead of waiting.
+// This only bounds how long a slow failure takes to fail; it makes no
+// attempt to get more calls through the daily cap, and is not a fix for
+// that separate, per-day budget problem.
+const MAX_RETRY_WAIT_MS = 10_000;
+
 // Groq's real rate-limit body (confirmed against a forced live 429, not
 // assumed): {"error":{"message":"Rate limit reached ... Please try again
 // in 2s. ...","type":"requests","code":"rate_limit_exceeded"}} — the
 // number can be an integer ("2s") or fractional ("1.234s"), so both are
-// matched. Returns null (not a guessed default) if Groq's message format
-// ever changes and this can't find a number — the caller decides the
-// fallback explicitly rather than this function silently making one up.
+// matched. Daily-token-cap (TPD) 429s use a longer "Xm Y.Zs" format (e.g.
+// "22m29.568s") — a plain "(\d+(?:\.\d+)?)s" match against that string
+// silently matches only the trailing "29.568s", dropping the "22m"
+// entirely (confirmed against real captured TPD error bodies), so the
+// optional minutes group is required for this to parse TPD waits
+// correctly, not just RPM ones. Returns null (not a guessed default) if
+// Groq's message format ever changes and this can't find a number — the
+// caller decides the fallback explicitly rather than this function
+// silently making one up.
 function parseGroqRetryDelayMs(errorBody: string): number | null {
-  const match = errorBody.match(/try again in (\d+(?:\.\d+)?)s/i);
+  const match = errorBody.match(/try again in (?:(\d+)m)?(\d+(?:\.\d+)?)s/i);
   if (!match) return null;
-  return Math.ceil(Number(match[1]) * 1000);
+  const minutes = match[1] ? Number(match[1]) : 0;
+  const seconds = Number(match[2]);
+  return Math.ceil((minutes * 60 + seconds) * 1000);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -32,6 +69,10 @@ async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<u
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not set.");
   }
+
+  // Paced once per logical call, not per retry below — a retry's own
+  // (now-bounded) wait already provides spacing for that specific attempt.
+  await paceCall();
 
   // Only 429s are retried here — any other failure (4xx, 5xx, network)
   // still fails on the first attempt, same as before this change.
@@ -71,6 +112,21 @@ async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<u
     if (response.status === 429 && attempt <= MAX_429_RETRIES) {
       const parsedDelayMs = parseGroqRetryDelayMs(errorText);
       const waitMs = parsedDelayMs ?? 1000;
+
+      // Real RPM 429s honor short waits (single-digit seconds); real TPD
+      // (daily-cap) 429s honor waits of many minutes. Retrying through a
+      // TPD wait would block this call for that entire duration — failing
+      // fast here instead is what keeps a per-run wall-clock cap honest
+      // when TPD happens to be exhausted, not an attempt to get more
+      // calls through the daily cap itself.
+      if (waitMs > MAX_RETRY_WAIT_MS) {
+        console.warn(
+          `Groq 429 rate limit — suggested wait ${waitMs}ms exceeds ${MAX_RETRY_WAIT_MS}ms, failing fast ` +
+            `instead of retrying (likely the daily token cap, not a per-minute limit).`,
+        );
+        throw new Error(`Groq request failed: ${response.status} ${errorText}`);
+      }
+
       console.warn(
         `Groq 429 rate limit — retry ${attempt}/${MAX_429_RETRIES}, waiting ${waitMs}ms ` +
           `(${parsedDelayMs !== null ? "from Groq's own retry message" : "Groq's message didn't parse, using 1000ms fallback"})`,
@@ -84,6 +140,28 @@ async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<u
 
   // Unreachable — the loop above always either returns or throws.
   throw new Error("Groq request failed: 429 rate limit, retries exhausted.");
+}
+
+// Real measured ratio for llama-3.3-70b on actual job-posting text is
+// ~5.5 chars/token (not the generic "4 chars/token" heuristic often
+// assumed for English prose) — measured directly against 3 real postings
+// via Groq's own usage.prompt_tokens, comparing full-vs-empty description.
+// Real postings frequently bury exactly the signal these calls most need
+// — eligibility/citizenship restrictions, contract-contingency language —
+// in a footer/disclaimer near the END of the text, not the intro (e.g. a
+// real "Candidates must be based in the United States" line appeared in
+// an "Engagement Details" section ~85% through one posting). A head-only
+// truncation would systematically blind both calls to that signal, so
+// this keeps both ends and drops only the middle.
+const DESCRIPTION_HEAD_CHARS = 1000;
+const DESCRIPTION_TAIL_CHARS = 500;
+const TRUNCATION_MARKER = "\n...[truncated]...\n";
+
+function truncateDescription(description: string | null): string | null {
+  if (!description) return description;
+  const budget = DESCRIPTION_HEAD_CHARS + DESCRIPTION_TAIL_CHARS;
+  if (description.length <= budget) return description;
+  return `${description.slice(0, DESCRIPTION_HEAD_CHARS)}${TRUNCATION_MARKER}${description.slice(-DESCRIPTION_TAIL_CHARS)}`;
 }
 
 function normalizeForMatch(text: string): string {
@@ -114,9 +192,8 @@ export class GroqAiClient implements AiClient {
       "You score how well an engineer's profile matches a job listing for a recruiting platform. " +
       'Respond only with JSON: {"score": <integer 0-100>, "matched_skills": [<engineer skills found ' +
       'explicitly named in the job description>], "rationale": "<one sentence>"}. ' +
-      "matched_skills must only include skills from the engineer's own skills list that are explicitly " +
-      "named in the job description — this is an extraction task: list only what is literally present " +
-      "in the text, not what you infer or assume. " +
+      "matched_skills must only include skills from the engineer's own skills list explicitly named " +
+      "in the job description — an extraction task, list only literal terms present in the text. " +
       "0 means completely unrelated, 100 means an ideal match on seniority, skills, and experience. " +
       "If the job description names no specific technology, weight seniority/domain match only — " +
       "do not treat the absence of a stack mismatch as a strong positive signal.";
@@ -130,7 +207,7 @@ export class GroqAiClient implements AiClient {
       `Job title: ${job.title}`,
       `Company: ${job.companyName}`,
       `Location: ${job.location ?? "unspecified"}`,
-      `Job description: ${job.description ?? "none provided"}`,
+      `Job description: ${truncateDescription(job.description) ?? "none provided"}`,
     ].join("\n");
 
     const parsed = await callGroqJson(systemPrompt, userPrompt);
@@ -174,20 +251,19 @@ export class GroqAiClient implements AiClient {
       '"is_globally_open": <true|false>, ' +
       '"possibly_closed": <true|false>, ' +
       '"possibly_closed_reason": "<one sentence>" or null}. ' +
-      "is_globally_open must be true only if the posting states no location/citizenship/region restriction on who " +
-      "may apply (open worldwide, or the description simply never names one) — set it false whenever a specific " +
-      "country, region, or timezone requirement is named (e.g. 'must be US-based', 'authorized to work in the US', " +
-      "'EU timezone only'). is_globally_open and possibly_closed are completely independent judgments — a posting " +
-      "that says the role has been filled can still be is_globally_open: true if it never named a geographic " +
-      "restriction; do not set is_globally_open to false just because the role sounds closed or unavailable. " +
-      "possibly_closed must be true only when the text itself explicitly says the role is filled, closed, or no " +
-      "longer accepting applications — never infer this from how old the posting seems or from vague wording. " +
-      "possibly_closed_reason must quote or closely paraphrase the specific line that justifies possibly_closed, " +
-      "and must be null whenever possibly_closed is false.";
+      "is_globally_open is true only if the posting states no location/citizenship/region restriction on who " +
+      "may apply (open worldwide, or never names one) — false whenever a specific country, region, or timezone " +
+      "requirement is named (e.g. 'must be US-based', 'EU timezone only'). is_globally_open and possibly_closed " +
+      "are independent — a posting saying the role has been filled can still be is_globally_open: true if it " +
+      "never named a geographic restriction; do not set it false just because the role sounds closed. " +
+      "possibly_closed is true only on explicit fill/closed/no-longer-accepting-applications language, never " +
+      "inferred from posting age or vague wording. possibly_closed_reason must quote or closely paraphrase the " +
+      "specific line justifying possibly_closed, and must be null whenever possibly_closed is false.";
 
-    const userPrompt = [`Job title: ${job.title}`, `Job description: ${job.description ?? "none provided"}`].join(
-      "\n",
-    );
+    const userPrompt = [
+      `Job title: ${job.title}`,
+      `Job description: ${truncateDescription(job.description) ?? "none provided"}`,
+    ].join("\n");
 
     const rawParsed = await callGroqJson(systemPrompt, userPrompt);
     if (typeof rawParsed !== "object" || rawParsed === null || !("remote_region" in rawParsed)) {

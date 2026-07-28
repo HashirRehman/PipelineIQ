@@ -6,6 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { GroqAiClient } from "@/lib/ai/groq-client";
 import { acquireDiscoveryLock, releaseDiscoveryLock, runJobDiscovery } from "@/lib/cron/discover-jobs";
 
+// Explicit, not left to the platform default — Vercel Hobby + Fluid
+// Compute gives 300s as both default and hard maximum, no override
+// possible. The per-run scoring/enrichment caps in discover-jobs.ts are
+// the primary control keeping typical runs well under this; this is the
+// outer safety backstop matching Hobby's actual ceiling.
+export const maxDuration = 300;
+
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
