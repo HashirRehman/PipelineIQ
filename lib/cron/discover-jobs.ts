@@ -151,11 +151,9 @@ export async function runJobDiscovery(
   for (const adapter of adapters) {
     const sourceId = sourceIdBySlug.get(adapter.sourceSlug);
     if (!sourceId) {
-      summary.errors.push({
-        stage: "fetch",
-        sourceSlug: adapter.sourceSlug,
-        error: "No matching active job_sources row found for this adapter's slug.",
-      });
+      const message = "No matching active job_sources row found for this adapter's slug.";
+      console.error(`discover-jobs: fetch failed for ${adapter.sourceSlug}`, message);
+      summary.errors.push({ stage: "fetch", sourceSlug: adapter.sourceSlug, error: message });
       continue;
     }
 
@@ -163,6 +161,7 @@ export async function runJobDiscovery(
     try {
       listings = await adapter.fetchListings({});
     } catch (error) {
+      console.error(`discover-jobs: fetch failed for ${adapter.sourceSlug}`, error);
       summary.errors.push({ stage: "fetch", sourceSlug: adapter.sourceSlug, error: String(error) });
       continue;
     }
@@ -188,6 +187,7 @@ export async function runJobDiscovery(
         if (error) throw error;
         summary.jobsUpserted++;
       } catch (error) {
+        console.error(`discover-jobs: ingest failed for ${adapter.sourceSlug}/${listing.externalId}`, error);
         summary.errors.push({
           stage: "ingest",
           sourceSlug: adapter.sourceSlug,
@@ -240,6 +240,7 @@ export async function runJobDiscovery(
       if (error) throw error;
       summary.jobsEnriched++;
     } catch (error) {
+      console.error(`discover-jobs: enrich failed for job ${job.id}`, error);
       summary.errors.push({ stage: "enrich", jobId: job.id, error: String(error) });
     }
   }
@@ -327,6 +328,7 @@ export async function runJobDiscovery(
         if (error) throw error;
         summary.matchesWritten++;
       } catch (error) {
+        console.error(`discover-jobs: score failed for job ${job.id} / engineer ${engineer.id}`, error);
         summary.errors.push({ stage: "score", jobId: job.id, engineerId: engineer.id, error: String(error) });
       }
     }

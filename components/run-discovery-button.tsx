@@ -42,20 +42,6 @@ export function RunDiscoveryButton() {
           <p>Jobs upserted: {state.summary.jobsUpserted}</p>
           <p>Jobs enriched: {state.summary.jobsEnriched}</p>
           <p>Matches written: {state.summary.matchesWritten}</p>
-          {state.summary.errors.length > 0 && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-destructive dark:text-red-400">
-                {state.summary.errors.length} error(s)
-              </summary>
-              <ul className="mt-1 list-disc pl-5 text-muted-foreground">
-                {state.summary.errors.map((err, index) => (
-                  <li key={index}>
-                    {err.stage}: {err.error}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
         </div>
       )}
     </div>
