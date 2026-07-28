@@ -39,7 +39,14 @@ export function InviteUserForm({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="roleId">Role</Label>
-        <Select name="roleId" required>
+        <Select
+          name="roleId"
+          // Base UI's Select.Value resolves the selected label from this
+          // `items` map — without it, it shows the raw value (the role's
+          // UUID) instead of its name.
+          items={roles.map((role) => ({ value: role.id, label: role.name }))}
+          required
+        >
           <SelectTrigger id="roleId" className="w-full">
             <SelectValue placeholder="Select a role" />
           </SelectTrigger>
