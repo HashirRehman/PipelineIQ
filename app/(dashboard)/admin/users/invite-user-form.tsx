@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { inviteUser, type InviteUserState } from "@/lib/actions/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +18,22 @@ const initialState: InviteUserState = {};
 
 export function InviteUserForm({
   roles,
+  redirectOnSuccess = false,
 }: {
   roles: { id: string; name: string }[];
+  redirectOnSuccess?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     inviteUser,
     initialState,
   );
+  const router = useRouter();
+
+  useEffect(() => {
+    if (redirectOnSuccess && state.success) {
+      router.push("/admin/users");
+    }
+  }, [redirectOnSuccess, state.success, router]);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
