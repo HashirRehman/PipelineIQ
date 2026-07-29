@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/select";
 
 type SeniorityLevel = { id: string; name: string };
-type Skill = { id: string; name: string };
 
 type EngineerFieldValues = {
   fullName: string;
@@ -28,6 +27,7 @@ type EngineerFieldValues = {
   rateExpectation: string;
   rateCurrency: string;
   summary: string;
+  skillNames: string;
 };
 
 const BLANK_VALUES: EngineerFieldValues = {
@@ -40,15 +40,14 @@ const BLANK_VALUES: EngineerFieldValues = {
   rateExpectation: "",
   rateCurrency: "USD",
   summary: "",
+  skillNames: "",
 };
 
 export function EngineerCoreFieldsForm({
   action,
   engineerId,
   initialValues = BLANK_VALUES,
-  initialSkillIds = [],
   seniorityLevels,
-  skills,
   submitLabel,
   redirectOnSuccess = false,
 }: {
@@ -58,9 +57,7 @@ export function EngineerCoreFieldsForm({
   ) => Promise<EngineerActionState>;
   engineerId?: string;
   initialValues?: EngineerFieldValues;
-  initialSkillIds?: string[];
   seniorityLevels: SeniorityLevel[];
-  skills: Skill[];
   submitLabel: string;
   redirectOnSuccess?: boolean;
 }) {
@@ -159,24 +156,16 @@ export function EngineerCoreFieldsForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>Skills</Label>
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {skills.map((skill) => (
-            <label key={skill.id} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="skillIds"
-                value={skill.id}
-                defaultChecked={initialSkillIds.includes(skill.id)}
-                className="size-4 rounded border-input"
-              />
-              {skill.name}
-            </label>
-          ))}
-          {skills.length === 0 && (
-            <p className="text-sm text-muted-foreground">No skills defined yet.</p>
-          )}
-        </div>
+        <Label htmlFor="skillNames">Skills</Label>
+        <Input
+          id="skillNames"
+          name="skillNames"
+          placeholder="React, Node.js, PostgreSQL"
+          defaultValue={initialValues.skillNames}
+        />
+        <p className="text-xs text-muted-foreground">
+          Comma-separated. New skills are added automatically.
+        </p>
       </div>
 
       {state.error && (

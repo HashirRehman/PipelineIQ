@@ -44,27 +44,18 @@ export default async function EngineerDetailPage({
   // Only Admin edits core details, so these extra reads (and the form
   // itself) never run for a BD viewer.
   let seniorityLevels: { id: string; name: string }[] = [];
-  let skills: { id: string; name: string }[] = [];
-  let initialSkillIds: string[] = [];
+  let skillNames = "";
 
   if (isAdmin) {
-    const [{ data: levels }, { data: skillsData }, { data: engineerSkills }] = await Promise.all([
+    const [{ data: levels }, { data: engineerSkills }] = await Promise.all([
       supabase.from("seniority_levels").select("id, name").eq("is_active", true).order("rank"),
-      supabase.from("skills").select("id, name, is_active").order("name"),
-      supabase.from("engineer_skills").select("skill_id").eq("engineer_id", engineerId),
+      supabase.from("engineer_skills").select("skills(name)").eq("engineer_id", engineerId),
     ]);
     seniorityLevels = levels ?? [];
-    initialSkillIds = (engineerSkills ?? []).map((row) => row.skill_id);
-
-    // A retired (is_active = false) skill drops out of the picker for new
-    // selections, but if this engineer already has it checked it still
-    // needs to render — otherwise it silently vanishes from their profile
-    // instead of "still resolving," per doc 01's stated reason for
-    // soft-disabling lookups instead of hard-deleting them.
-    const assignedSkillIds = new Set(initialSkillIds);
-    skills = (skillsData ?? [])
-      .filter((skill) => skill.is_active || assignedSkillIds.has(skill.id))
-      .map(({ id, name }) => ({ id, name }));
+    skillNames = (engineerSkills ?? [])
+      .map((row) => row.skills?.name)
+      .filter((name): name is string => Boolean(name))
+      .join(", ");
   }
 
   // engineer_bd_assignments_select RLS already scopes a BD viewer to only
@@ -167,10 +158,9 @@ export default async function EngineerDetailPage({
                 rateExpectation: engineer.rate_expectation?.toString() ?? "",
                 rateCurrency: engineer.rate_currency,
                 summary: engineer.summary ?? "",
+                skillNames,
               }}
-              initialSkillIds={initialSkillIds}
               seniorityLevels={seniorityLevels}
-              skills={skills}
               submitLabel="Save changes"
             />
           </CardContent>

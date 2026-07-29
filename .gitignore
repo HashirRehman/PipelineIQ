@@ -39,6 +39,9 @@ yarn-error.log*
 # Claude Code scratch/verification scripts (never real project files)
 .tmp-verify/
 
+# Supabase CLI local cache (migration diffing artifacts, not source)
+supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

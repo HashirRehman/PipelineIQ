@@ -11,7 +11,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const { data: isAdmin } = await supabase.rpc("is_admin");
+    // Reads is_admin from the JWT's claims (custom_access_token_hook
+    // migration) rather than a live supabase.rpc("is_admin") round trip —
+    // ES256-signed JWTs verify locally via getClaims() (cached JWKS), no
+    // per-request network call. App-layer routing convenience only; RLS
+    // policies still call is_admin() live at query time regardless.
+    const { data: claimsData } = await supabase.auth.getClaims();
+    const isAdmin = claimsData?.claims?.is_admin === true;
     if (!isAdmin) {
       const url = new URL("/engineers", request.url);
       url.searchParams.set("error", "not_authorized");

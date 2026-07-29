@@ -153,7 +153,12 @@ export default async function DiscoveryPage({
           </span>
           <div className="flex gap-2">
             {currentPage > 1 ? (
-              <Button variant="outline" size="sm" render={<Link href={`/discovery?page=${currentPage - 1}`} />}>
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={`/discovery?page=${currentPage - 1}`} />}
+                nativeButton={false}
+              >
                 Previous
               </Button>
             ) : (
@@ -162,7 +167,12 @@ export default async function DiscoveryPage({
               </Button>
             )}
             {currentPage < totalPages ? (
-              <Button variant="outline" size="sm" render={<Link href={`/discovery?page=${currentPage + 1}`} />}>
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={`/discovery?page=${currentPage + 1}`} />}
+                nativeButton={false}
+              >
                 Next
               </Button>
             ) : (

@@ -53,7 +53,10 @@ export const engineerCoreFieldsSchema = z.object({
     .transform((value) => (value ? value.toUpperCase() : "USD"))
     .refine((value) => value.length === 3, "Currency must be a 3-letter code."),
   summary: optionalTrimmedText,
-  skillIds: z.array(z.uuid()).default([]),
+  // Raw comma-separated skill names — parsing, case-insensitive dedup, and
+  // resolving/creating the actual skills rows happens in
+  // lib/actions/engineers.ts's resolveSkillIds(), not here.
+  skillNames: z.string().default(""),
 });
 
 export const createEngineerSchema = engineerCoreFieldsSchema;

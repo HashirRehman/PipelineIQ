@@ -30,15 +30,16 @@ export async function createClient() {
   );
 }
 
-// Both getUser() and is_admin() were getting called separately by
-// (dashboard)/layout.tsx (for sidebar display) and again by whichever page
-// it wraps (for that page's own filtering/copy) — 2 real network round
-// trips each, every single navigation. React's cache() memoizes a call per
-// server request, so layout + page share one real call instead of two.
-// Middleware's own getUser()/is_admin() checks (a separate Edge runtime
-// execution, and the actual /admin/* access-control boundary per this
-// project's RLS-first rule) are intentionally left untouched — they can't
-// share this cache with the Node-side render anyway.
+// getUser() was getting called separately by (dashboard)/layout.tsx (for
+// sidebar display) and again by whichever page it wraps — 2 real network
+// round trips, every single navigation. React's cache() memoizes a call
+// per server request, so layout + page share one real call instead of
+// two. Middleware's own getUser() check (a separate Edge runtime
+// execution, and the real session-revalidation boundary) is intentionally
+// left untouched — it can't share this cache with the Node-side render
+// anyway, and getUser() (vs. getSession()) revalidating against the Auth
+// server rather than trusting a possibly-stale/revoked cookie is a
+// deliberate existing security choice, not renegotiated here.
 export const getCachedUser = cache(async () => {
   const supabase = await createClient();
   const {
@@ -47,8 +48,19 @@ export const getCachedUser = cache(async () => {
   return user;
 });
 
+// Reads is_admin from the JWT's claims (baked in by the
+// custom_access_token_hook migration) instead of a live
+// supabase.rpc("is_admin") round trip — the project's JWTs are ES256
+// (asymmetric), confirmed by decoding a real issued token, so
+// getClaims() verifies locally via cached JWKS with no per-call network
+// request, unlike the RPC it replaces. This is an app-layer convenience
+// only: every RLS policy still calls public.is_admin() directly, live,
+// at query time — that function is untouched and remains the real
+// access-control boundary, per this project's RLS-first rule. A missing
+// claim (hook not enabled somewhere) fails closed to false, never to
+// elevated access.
 export const getCachedIsAdmin = cache(async () => {
   const supabase = await createClient();
-  const { data } = await supabase.rpc("is_admin");
-  return !!data;
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims?.is_admin === true;
 });

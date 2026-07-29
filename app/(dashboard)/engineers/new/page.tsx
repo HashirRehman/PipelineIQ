@@ -13,10 +13,11 @@ export default async function NewEngineerPage() {
     redirect("/engineers");
   }
 
-  const [{ data: seniorityLevels }, { data: skills }] = await Promise.all([
-    supabase.from("seniority_levels").select("id, name").eq("is_active", true).order("rank"),
-    supabase.from("skills").select("id, name").eq("is_active", true).order("name"),
-  ]);
+  const { data: seniorityLevels } = await supabase
+    .from("seniority_levels")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("rank");
 
   return (
     <div className="mx-auto max-w-3xl p-8">
@@ -32,7 +33,6 @@ export default async function NewEngineerPage() {
           <EngineerCoreFieldsForm
             action={createEngineer}
             seniorityLevels={seniorityLevels ?? []}
-            skills={skills ?? []}
             submitLabel="Create engineer"
             redirectOnSuccess
           />

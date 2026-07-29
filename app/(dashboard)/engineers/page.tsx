@@ -44,7 +44,9 @@ export default async function EngineersPage({
           </p>
         </div>
         {isAdmin && (
-          <Button render={<Link href="/engineers/new" />}>New engineer</Button>
+          <Button render={<Link href="/engineers/new" />} nativeButton={false}>
+            New engineer
+          </Button>
         )}
       </div>
 

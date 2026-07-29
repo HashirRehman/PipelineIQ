@@ -93,7 +93,7 @@ export function LeadsFilterForm({
         Filter
       </Button>
       {hasAnyFilter && (
-        <Button variant="outline" size="sm" render={<Link href="/leads" />}>
+        <Button variant="outline" size="sm" render={<Link href="/leads" />} nativeButton={false}>
           Clear
         </Button>
       )}

@@ -26,7 +26,9 @@ export default async function AdminUsersPage() {
             Everyone with access to this platform.
           </p>
         </div>
-        <Button render={<Link href="/admin/users/new" />}>Invite user</Button>
+        <Button render={<Link href="/admin/users/new" />} nativeButton={false}>
+          Invite user
+        </Button>
       </div>
 
       {list.length === 0 ? (
