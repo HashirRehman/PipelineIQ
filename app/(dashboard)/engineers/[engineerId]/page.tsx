@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { updateEngineer } from "@/lib/actions/engineers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
@@ -16,7 +16,7 @@ export default async function EngineerDetailPage({
   const { engineerId } = await params;
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  const isAdmin = await getCachedIsAdmin();
 
   // engineers_select RLS (is_admin() OR id IN assigned_engineer_ids()) means
   // a null result here covers both "doesn't exist" and "exists but isn't

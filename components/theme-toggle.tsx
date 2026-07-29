@@ -9,8 +9,6 @@ export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Theme is unknown during SSR/first paint — avoid rendering the wrong
-  // icon before next-themes' blocking script has resolved the real value.
   useEffect(() => {
     setMounted(true);
   }, []);

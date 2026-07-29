@@ -11,10 +11,6 @@ export default async function LeadDetailPage({
 }) {
   const { leadId } = await params;
   const supabase = await createClient();
-
-  // leads_select RLS (is_admin() OR bd_user_id = auth.uid()) means a null
-  // result here covers both "doesn't exist" and "exists but isn't visible
-  // to you" — same deliberate non-distinction as the engineer detail page.
   const { data: lead } = await supabase
     .from("leads")
     .select("id, status, applied_at, job_id, engineer_id, engineers(full_name), jobs(title, company_name, apply_url)")
@@ -33,20 +29,6 @@ export default async function LeadDetailPage({
     );
   }
 
-  // Reapply is only offered when it would actually succeed. A withdrawn
-  // lead's pairing may already have been superseded by a newer
-  // active/closed lead (e.g. reapplied once already, from this same
-  // page) — create_lead_from_match()'s own duplicate check would reject
-  // that with a clean message regardless, but showing the button anyway
-  // would just be inviting a click that's guaranteed to fail.
-  //
-  // This check is RLS-scoped like everything else on this page, so for a
-  // non-Admin BD it only sees leads *they* own — if some other BD holds
-  // the superseding lead (a real possibility now that engineers can be
-  // reassigned, see the owned-lead visibility carve-out), this won't see
-  // it and the button could still show. That narrower case still fails
-  // safely via the RPC's own check; this is a best-effort UI hide, not a
-  // second authorization boundary.
   let canReapply = false;
   if (lead.status === "withdrawn") {
     const { data: supersedingLead } = await supabase
@@ -93,10 +75,6 @@ export default async function LeadDetailPage({
             </a>
           )}
 
-          {/* No separate owner/admin check here — leads_select already
-              guarantees that if this row was returned at all, the viewer
-              is the owner or Admin, the same predicate withdraw_lead()
-              itself checks. The only real gate left is status. */}
           {lead.status === "active" && (
             <div className="border-t border-border pt-4">
               <WithdrawLeadForm leadId={lead.id} />

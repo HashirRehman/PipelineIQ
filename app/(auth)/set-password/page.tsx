@@ -17,8 +17,6 @@ export default async function SetPasswordPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    // Can't set a password without a session established by
-    // app/auth/confirm/route.ts first.
     redirect("/login");
   }
 

@@ -9,8 +9,6 @@ type CvEntry = {
   downloadUrl: string | null;
 };
 
-// Pure read — visibility follows engineer_cvs_select RLS, same as every
-// other read on this page. No role branching here.
 export function EngineerCvList({ cvs }: { cvs: CvEntry[] }) {
   if (cvs.length === 0) {
     return <p className="text-sm text-muted-foreground">No CVs uploaded yet.</p>;

@@ -7,9 +7,6 @@ import { StatusBadge } from "@/components/status-badge";
 
 export default async function AdminUsersPage() {
   const supabase = await createClient();
-
-  // Two FKs exist between user_roles and profiles (user_id, assigned_by),
-  // so the embed relationship must be disambiguated by constraint name.
   const { data: profiles } = await supabase
     .from("profiles")
     .select(

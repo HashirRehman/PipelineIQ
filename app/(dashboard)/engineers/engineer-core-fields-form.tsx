@@ -42,9 +42,6 @@ const BLANK_VALUES: EngineerFieldValues = {
   summary: "",
 };
 
-// Shared by both createEngineer and updateEngineer — engineerId's presence
-// is what distinguishes create from edit mode (a hidden input only renders
-// when editing an existing row).
 export function EngineerCoreFieldsForm({
   action,
   engineerId,
@@ -65,8 +62,6 @@ export function EngineerCoreFieldsForm({
   seniorityLevels: SeniorityLevel[];
   skills: Skill[];
   submitLabel: string;
-  // Create-mode only (sub-chunk 3) — edit mode (sub-chunk 2) omits this and
-  // keeps its already-verified stay-on-page-and-show-"Saved." behavior.
   redirectOnSuccess?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(action, {});
@@ -110,12 +105,6 @@ export function EngineerCoreFieldsForm({
           <Select
             name="seniorityLevelId"
             defaultValue={initialValues.seniorityLevelId || undefined}
-            // Base UI's Select.Value resolves a selected label from this
-            // `items` map — without it, it falls back to the raw value
-            // whenever the popup list hasn't mounted yet (i.e. edit mode's
-            // initial render with defaultValue set, before the user has
-            // ever opened the dropdown), showing the level's UUID instead
-            // of its name.
             items={seniorityLevels.map((level) => ({ value: level.id, label: level.name }))}
             required
           >

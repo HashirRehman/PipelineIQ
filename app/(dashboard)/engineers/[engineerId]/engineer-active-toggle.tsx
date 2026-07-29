@@ -18,8 +18,6 @@ export function EngineerActiveToggle({
   return (
     <form action={formAction} className="flex items-center gap-3">
       <input type="hidden" name="engineerId" value={engineerId} />
-      {/* Submits the explicit target state, never "flip current" — matches
-          setEngineerActive's own contract. */}
       <input type="hidden" name="isActive" value={String(!isActive)} />
       <Button type="submit" variant="outline" size="sm" disabled={isPending}>
         {isPending ? "Saving…" : isActive ? "Deactivate" : "Activate"}

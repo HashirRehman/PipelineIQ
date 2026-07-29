@@ -36,11 +36,6 @@ export function LeadsFilterForm({
     <form method="get" className="mb-6 flex flex-wrap items-end gap-3">
       <div className="flex flex-col gap-1">
         <Label htmlFor="engineerId">Engineer</Label>
-        {/* "all" is the sentinel for "no filter" — Base UI/Radix-style
-            selects don't support "" as an item value. `items` is what
-            makes a pre-selected option show its real label instead of
-            the raw uuid on first render (same gotcha
-            engineer-core-fields-form.tsx already documents). */}
         <Select
           name="engineerId"
           defaultValue={currentFilters.engineerId ?? "all"}

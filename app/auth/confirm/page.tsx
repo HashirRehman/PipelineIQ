@@ -4,17 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// Using Supabase's default (uncustomized) email templates — this
-// project's tier doesn't allow template customization without custom SMTP
-// or a paid plan. The default templates' links point at GoTrue's own
-// hosted verify endpoint, which redirects back here with the session in
-// the URL *fragment* (never reaches a server), so this has to be a
-// client-side page reading window.location.hash and calling
-// supabase.auth.setSession() in the browser — not a Route Handler reading
-// query params. Handles both invite and recovery links: neither branches
-// on the `type` fragment param, since both flows land the user on
-// /set-password with the same need — a fresh token-derived session, set
-// a (new) password.
 export default function ConfirmAuthPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);

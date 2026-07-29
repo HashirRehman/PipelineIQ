@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,6 @@ export default async function DiscoveryPage({
 }) {
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
-
   const { page: pageParam } = await searchParams;
   const parsedPage = Number(pageParam ?? "1");
   const currentPage = Number.isFinite(parsedPage) && parsedPage >= 1 ? Math.floor(parsedPage) : 1;
@@ -31,12 +29,17 @@ export default async function DiscoveryPage({
 
   // Admin-tunable BD score floor — fail closed to the hardcoded default if
   // app_settings is missing/malformed, same pattern as the CV upload limits.
+  // isAdmin and this setting are independent of each other — fetched
+  // concurrently rather than one after the other.
   const DEFAULT_MIN_RELEVANCE_SCORE = 60;
-  const { data: minScoreSetting } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "discovery_min_relevance_score")
-    .maybeSingle();
+  const [isAdmin, { data: minScoreSetting }] = await Promise.all([
+    getCachedIsAdmin(),
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "discovery_min_relevance_score")
+      .maybeSingle(),
+  ]);
   const minRelevanceScore =
     typeof minScoreSetting?.value === "number" ? minScoreSetting.value : DEFAULT_MIN_RELEVANCE_SCORE;
 

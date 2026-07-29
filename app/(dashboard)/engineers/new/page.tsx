@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { createEngineer } from "@/lib/actions/engineers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EngineerCoreFieldsForm } from "../engineer-core-fields-form";
@@ -7,7 +7,7 @@ import { EngineerCoreFieldsForm } from "../engineer-core-fields-form";
 export default async function NewEngineerPage() {
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  const isAdmin = await getCachedIsAdmin();
 
   if (!isAdmin) {
     redirect("/engineers");

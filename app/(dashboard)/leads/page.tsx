@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { LeadStatusBadge } from "@/components/lead-status-badge";
 import { LeadsFilterForm } from "@/components/leads-filter-form";
@@ -12,8 +12,6 @@ export default async function LeadsPage({
 }) {
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
-
   const rawParams = await searchParams;
   const filters = leadsFilterSchema.parse(rawParams);
   const hasAnyFilter = Boolean(filters.engineerId || filters.status || filters.from || filters.to);
@@ -22,8 +20,12 @@ export default async function LeadsPage({
   // table, unfiltered — a BD only ever sees engineers they actually have
   // leads for, Admin sees everyone. Deliberately separate from the main
   // (filtered) query below so picking one filter never shrinks another
-  // filter's own option list.
-  const { data: engineerRows } = await supabase.from("leads").select("engineer_id, engineers(full_name)");
+  // filter's own option list. isAdmin and this query are independent of
+  // each other — fetched concurrently rather than one after the other.
+  const [isAdmin, { data: engineerRows }] = await Promise.all([
+    getCachedIsAdmin(),
+    supabase.from("leads").select("engineer_id, engineers(full_name)"),
+  ]);
   const engineerOptions = Array.from(
     new Map(
       (engineerRows ?? []).map((row) => [row.engineer_id, row.engineers?.full_name ?? "—"]),

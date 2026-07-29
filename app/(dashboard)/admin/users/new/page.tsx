@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import { InviteUserForm } from "../invite-user-form";
 export default async function NewUserPage() {
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  const isAdmin = await getCachedIsAdmin();
 
   if (!isAdmin) {
     redirect("/admin/users");

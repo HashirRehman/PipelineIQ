@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { SkillCreateForm } from "./skill-create-form";
@@ -8,15 +8,12 @@ import { SkillActiveToggle } from "./skill-active-toggle";
 export default async function AdminSkillsPage() {
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  const isAdmin = await getCachedIsAdmin();
 
   if (!isAdmin) {
     redirect("/engineers");
   }
 
-  // Admin sees both active and retired skills here (unlike the engineer
-  // forms' checkbox lists, which filter to active-only) so a retired skill
-  // can be found and reactivated.
   const { data: skills } = await supabase
     .from("skills")
     .select("id, name, is_active")

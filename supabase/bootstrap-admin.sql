@@ -1,17 +1,3 @@
--- One-time bootstrap: assign the 'admin' role to a manually-invited user.
--- NOT part of supabase/migrations/ — this is a per-environment operational
--- step tied to one real person's email, not a schema change, and must
--- never auto-replay on a fresh clone or teammate setup.
---
--- Prerequisite: invite the user via Supabase Dashboard > Authentication >
--- Users > Invite user first. That fires handle_new_user(), which creates
--- their profiles row automatically (full_name will be blank — the
--- Dashboard invite flow doesn't pass user metadata; fixable later since
--- this user will satisfy is_admin() once this script runs).
---
--- Usage: replace the email below, then run this whole file, e.g.:
---   npx supabase db query --linked --file supabase/bootstrap-admin.sql
-
 do $$
 declare
   target_email  text := 'REPLACE_WITH_ADMIN_EMAIL';

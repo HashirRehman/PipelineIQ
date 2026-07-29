@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
@@ -11,7 +11,7 @@ export default async function EngineersPage({
 }) {
   const supabase = await createClient();
 
-  const { data: isAdmin } = await supabase.rpc("is_admin");
+  const isAdmin = await getCachedIsAdmin();
   const { error } = await searchParams;
 
   // Same query for both roles — the difference in results comes entirely

@@ -14,10 +14,6 @@ import {
 import { DashboardNav, type DashboardNavItem } from "@/components/dashboard-nav";
 
 function buildNavItems(isAdmin: boolean): DashboardNavItem[] {
-  // Engineers, Discovery, and Leads are unconditional — RLS scopes
-  // visibility per role once there (Admin sees all, BD sees only
-  // assigned/owned), so the link itself isn't role-gated the way "Users"
-  // (admin-only management) is.
   const items: DashboardNavItem[] = [
     { href: "/engineers", label: "Engineers", icon: Contact },
     { href: "/discovery", label: "Discovery", icon: Sparkles },

@@ -51,9 +51,6 @@ export function InviteUserForm({
         <Label htmlFor="roleId">Role</Label>
         <Select
           name="roleId"
-          // Base UI's Select.Value resolves the selected label from this
-          // `items` map — without it, it shows the raw value (the role's
-          // UUID) instead of its name.
           items={roles.map((role) => ({ value: role.id, label: role.name }))}
           required
         >

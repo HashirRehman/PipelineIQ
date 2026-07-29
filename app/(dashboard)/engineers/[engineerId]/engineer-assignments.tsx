@@ -85,10 +85,6 @@ function AssignForm({
     </form>
   );
 }
-
-// Read-only for everyone (RLS already scopes a BD viewer to only the
-// engineers assigned to them, so there's nothing further to gate here);
-// assign/unassign controls are Admin-only, passed in as `isAdmin`.
 export function EngineerAssignments({
   engineerId,
   assignments,
