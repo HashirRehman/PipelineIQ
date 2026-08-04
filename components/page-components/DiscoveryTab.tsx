@@ -1,6 +1,19 @@
 import { useState } from 'react'
+import { Search } from 'lucide-react'
 import type { Profile } from '@/app/page'
 import JobDrawer, { type Job } from './JobDrawer'
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
 
 const now = Date.now()
 const JOBS: Job[] = [
@@ -65,18 +78,19 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleApply = (id: string) => {
-    setJobs(j => j.map(job => job.id === id ? { ...job, status: 'applied' } : job))
-    setSelectedJob(prev => prev && prev.id === id ? { ...prev, status: 'applied' } : prev)
+    setJobs(js => js.map(j => j.id === id ? { ...j, status: 'applied' } : j))
+    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: 'applied' } : null)
   }
 
   const handleMarkApplied = (id: string) => {
-    setJobs(j => j.map(job => job.id === id ? { ...job, status: 'applied' } : job))
-    setSelectedJob(prev => prev && prev.id === id ? { ...prev, status: 'applied' } : prev)
+    setJobs(js => js.map(j => j.id === id ? { ...j, status: 'applied' } : j))
+    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: 'applied' } : null)
   }
 
   const handleDismiss = (id: string, reason: string) => {
-    setJobs(j => j.map(job => job.id === id ? { ...job, status: 'dismissed', dismissReason: reason } : job))
-    setSelectedJob(null)
+    setJobs(js => js.map(j => j.id === id ? { ...j, status: 'dismissed', dismissReason: reason } : j))
+    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: 'dismissed', dismissReason: reason } : null)
+    setPendingDismissId(null)
     setDismissReason('')
   }
 
@@ -95,25 +109,44 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
   }
 
   const filterBtn = (label: string, active: boolean, onClick: () => void) => (
-    <button
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={onClick}
-      className={`px-3 py-1.2 rounded-md cursor-pointer text-xs whitespace-nowrap transition-colors ${
+      className={`px-3 h-auto py-1.5 rounded-md text-xs font-medium cursor-pointer whitespace-nowrap shadow-none ${
         active
           ? 'bg-cyan-500/10 border border-cyan-500/30 font-semibold text-[var(--primary)]'
           : 'bg-transparent border border-[var(--border-strong)] font-normal text-[var(--fg)] hover:border-gray-500'
       }`}
     >
       {label}
-    </button>
+    </Button>
+  )
+
+  const filterOption = (active: boolean, onClick: () => void, children: React.ReactNode, withDot?: string) => (
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      className={cn(
+        "w-full h-auto justify-start px-2.5 py-1.5 rounded text-xs text-left shadow-none",
+        active
+          ? 'bg-cyan-500/10 font-semibold text-[var(--primary)] hover:bg-cyan-500/10'
+          : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+      )}
+    >
+      {withDot && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: withDot }} />}
+      {children}
+    </Button>
   )
 
   return (
-    <div className="flex flex-1 h-full overflow-hidden">
+    <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Filters Panel */}
       <div className="w-[230px] border-r border-[var(--border)] p-6 overflow-y-auto shrink-0 bg-[var(--muted)]">
         <div className="text-xs font-bold text-[var(--fg)] mb-4 flex items-center justify-between">
           Filters
-          <button
+          <Button
+            variant="ghost"
             onClick={() => {
               setSearch('')
               setParserFilter('All Sources')
@@ -121,10 +154,10 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               setExpFilter('All Levels')
               setStatusFilter('all')
             }}
-            className="bg-transparent border-none cursor-pointer text-[11px] text-[var(--primary)] hover:underline"
+            className="h-auto p-0 bg-transparent text-[11px] text-[var(--primary)] hover:underline shadow-none"
           >
             Clear all
-          </button>
+          </Button>
         </div>
 
         {/* Status */}
@@ -139,17 +172,9 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               ['applied', 'Applied'],
               ['dismissed', 'Dismissed'],
             ].map(([v, l]) => (
-              <button
-                key={v}
-                onClick={() => setStatusFilter(v)}
-                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left ${
-                  statusFilter === v
-                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
-                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
-              >
-                {l}
-              </button>
+              <div key={v}>
+                {filterOption(statusFilter === v, () => setStatusFilter(v), l)}
+              </div>
             ))}
           </div>
         </div>
@@ -161,23 +186,14 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </div>
           <div className="flex flex-col gap-1">
             {WORK_TYPES.map(t => (
-              <button
-                key={t}
-                onClick={() => setWorkTypeFilter(t)}
-                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left flex items-center gap-1.5 ${
-                  workTypeFilter === t
-                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
-                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
-              >
-                {t !== 'All Types' && (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: workTypeColor[t] }}
-                  />
+              <div key={t}>
+                {filterOption(
+                  workTypeFilter === t,
+                  () => setWorkTypeFilter(t),
+                  t.charAt(0).toUpperCase() + t.slice(1),
+                  t !== 'All Types' ? workTypeColor[t] : undefined
                 )}
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -189,17 +205,9 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </div>
           <div className="flex flex-col gap-1">
             {PARSERS.map(p => (
-              <button
-                key={p}
-                onClick={() => setParserFilter(p)}
-                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left ${
-                  parserFilter === p
-                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
-                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
-              >
-                {p}
-              </button>
+              <div key={p}>
+                {filterOption(parserFilter === p, () => setParserFilter(p), p)}
+              </div>
             ))}
           </div>
         </div>
@@ -211,17 +219,9 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </div>
           <div className="flex flex-col gap-1">
             {EXPERIENCE.map(e => (
-              <button
-                key={e}
-                onClick={() => setExpFilter(e)}
-                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left ${
-                  expFilter === e
-                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
-                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
-              >
-                {e}
-              </button>
+              <div key={e}>
+                {filterOption(expFilter === e, () => setExpFilter(e), e)}
+              </div>
             ))}
           </div>
         </div>
@@ -236,25 +236,12 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{filtered.length} jobs found</p>
             </div>
             <div className="relative">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--muted-fg)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--muted-fg)]" />
+              <Input
                 placeholder="Search jobs…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="py-2.25 pl-8 pr-2.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs outline-none w-[220px] focus:border-[var(--primary)]"
+                className="pl-8 pr-2.5 bg-[var(--card)] border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs w-[220px]"
               />
             </div>
           </div>
@@ -303,14 +290,14 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[15px] font-semibold text-[var(--fg)]">{job.title}</span>
                         {job.status === 'applied' && (
-                          <span className="px-1.75 py-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-500 font-mono">
+                          <Badge variant="outline" className="px-1.75 py-0.5 bg-emerald-500/15 border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-500 font-mono h-auto">
                             APPLIED
-                          </span>
+                          </Badge>
                         )}
                         {job.status === 'dismissed' && (
-                          <span className="px-1.75 py-0.5 bg-red-500/10 border border-red-500/25 rounded-full text-[10px] font-bold text-red-500 font-mono">
+                          <Badge variant="outline" className="px-1.75 py-0.5 bg-red-500/10 border-red-500/25 rounded-full text-[10px] font-bold text-red-500 font-mono h-auto">
                             DISMISSED
-                          </span>
+                          </Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-[var(--muted-fg)]">
@@ -343,29 +330,18 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
 
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex gap-1.5 flex-wrap">
-                      <span
-                        className="px-2 py-0.5 rounded text-[11px] font-semibold font-mono"
-                        style={{
-                          background: workTypeColor[job.workType] + '18',
-                          border: `1px solid ${workTypeColor[job.workType]}30`,
-                          color: workTypeColor[job.workType],
-                        }}
-                      >
+                      <Badge variant="outline" className="px-2 py-0.5 rounded text-[11px] font-semibold font-mono h-auto"
+                        style={{ background: workTypeColor[job.workType] + '18', border: `1px solid ${workTypeColor[job.workType]}30`, color: workTypeColor[job.workType] }}>
                         {job.workType}
-                      </span>
-                      <span
-                        className="px-2 py-0.5 rounded text-[11px] font-medium font-mono"
-                        style={{
-                          background: (parserColor[job.parser] || '#64748b') + '18',
-                          color: parserColor[job.parser] || '#64748b',
-                        }}
-                      >
+                      </Badge>
+                      <Badge variant="outline" className="px-2 py-0.5 rounded text-[11px] font-medium font-mono h-auto"
+                        style={{ background: (parserColor[job.parser] || '#64748b') + '18', color: parserColor[job.parser] || '#64748b' }}>
                         via {job.parser}
-                      </span>
+                      </Badge>
                       {job.salary && (
-                        <span className="px-2 py-0.5 bg-emerald-500/10 rounded text-[11px] font-semibold text-emerald-500 font-mono">
+                        <Badge variant="outline" className="px-2 py-0.5 bg-emerald-500/10 rounded text-[11px] font-semibold text-emerald-500 font-mono h-auto border-transparent">
                           {job.salary}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
@@ -374,24 +350,18 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                       </span>
                       {job.status === 'new' && (
                         <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => handleApply(job.id)}
-                            className="px-3 py-1.25 bg-[var(--primary)] border-none rounded-md cursor-pointer text-xs font-semibold text-white hover:opacity-90 transition-opacity"
-                          >
+                          <Button onClick={() => handleApply(job.id)}
+                            className="px-3 h-auto py-1.25 bg-[var(--primary)] rounded-md text-xs font-semibold text-white hover:opacity-90 shadow-none">
                             Apply
-                          </button>
-                          <button
-                            onClick={() => handleMarkApplied(job.id)}
-                            className="px-2.5 py-1.25 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                          >
+                          </Button>
+                          <Button variant="outline" onClick={() => handleMarkApplied(job.id)}
+                            className="px-2.5 h-auto py-1.25 border-[var(--border-strong)] rounded-md text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 shadow-none">
                             Mark Applied
-                          </button>
-                          <button
-                            onClick={() => startDismiss(job.id)}
-                            className="px-2.5 py-1.25 bg-transparent border border-red-500/30 rounded-md cursor-pointer text-xs text-red-500 hover:bg-red-500/10 transition-colors"
-                          >
+                          </Button>
+                          <Button variant="outline" onClick={() => startDismiss(job.id)}
+                            className="px-2.5 h-auto py-1.25 border-red-500/30 rounded-md text-xs text-red-500 hover:bg-red-500/10 shadow-none">
                             Dismiss
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -403,20 +373,7 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
 
           {filtered.length === 0 && (
             <div className="text-center py-15 text-[var(--muted-fg)]">
-              <svg
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mx-auto mb-3 block"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
+              <Search className="mx-auto mb-3 block text-[var(--muted-fg)]" size={40} strokeWidth={1} />
               <div className="text-sm">No jobs match your filters</div>
             </div>
           )}
@@ -424,86 +381,86 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className={`px-3 py-1.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-xs transition-opacity ${
-                  page === 1
-                    ? 'cursor-default text-[var(--muted-fg)] opacity-50'
-                    : 'cursor-pointer text-[var(--fg)] opacity-100 hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
+                className="px-3 py-1.5 h-auto bg-[var(--card)] border-[var(--border-strong)] rounded-md text-xs shadow-none"
               >
                 ← Prev
-              </button>
+              </Button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button
+                <Button
                   key={p}
+                  variant="ghost"
                   onClick={() => setPage(p)}
-                  className={`w-8 h-8 border border-[var(--border-strong)] rounded-md cursor-pointer text-xs transition-colors ${
+                  className={`w-8 h-8 border border-[var(--border-strong)] rounded-md cursor-pointer text-xs transition-colors shadow-none ${
                     p === page
-                      ? 'bg-[var(--primary)] font-bold text-white border-[var(--primary)]'
+                      ? 'bg-[var(--primary)] font-bold text-white border-[var(--primary)] hover:bg-[var(--primary)]'
                       : 'bg-[var(--card)] font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
                   {p}
-                </button>
+                </Button>
               ))}
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className={`px-3 py-1.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-xs transition-opacity ${
-                  page === totalPages
-                    ? 'cursor-default text-[var(--muted-fg)] opacity-50'
-                    : 'cursor-pointer text-[var(--fg)] opacity-100 hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
+                className="px-3 py-1.5 h-auto bg-[var(--card)] border-[var(--border-strong)] rounded-md text-xs shadow-none"
               >
                 Next →
-              </button>
+              </Button>
             </div>
           )}
         </div>
       </div>
 
       {/* Inline dismiss modal */}
-      {dismissOpen && !selectedJob && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={e => e.target === e.currentTarget && setDismissOpen(false)}
+      <Dialog open={dismissOpen && !selectedJob} onOpenChange={setDismissOpen}>
+        <DialogContent
+          overlayClassName="bg-black/50"
+          showCloseButton={false}
+          className="w-[380px] max-w-[380px] sm:max-w-[380px] bg-[var(--card)] text-[var(--fg)] border border-[var(--border-strong)] rounded-lg p-5 shadow-2xl gap-0 ring-0"
         >
-          <div className="w-[380px] bg-[var(--card)] border border-[var(--border-strong)] rounded-lg p-5 shadow-2xl">
-            <div className="text-[15px] font-semibold text-[var(--fg)] mb-3">Dismiss Job</div>
-            <textarea
-              rows={3}
-              placeholder="Reason for dismissal (required)…"
-              value={dismissReason}
-              onChange={e => setDismissReason(e.target.value)}
-              className="w-full p-2.5 bg-[var(--secondary)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs resize-none outline-none mb-3 focus:border-[var(--primary)]"
-            />
-            <div className="flex gap-2.5">
-              <button
-                onClick={confirmDismiss}
-                disabled={!dismissReason.trim()}
-                className={`flex-1 p-2.25 border-none rounded-md text-xs font-semibold transition-colors ${
-                  dismissReason.trim()
-                    ? 'bg-red-500 text-white cursor-pointer hover:bg-red-600'
-                    : 'bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default'
-                }`}
-              >
-                Confirm Dismiss
-              </button>
-              <button
-                onClick={() => {
-                  setDismissOpen(false)
-                  setPendingDismissId(null)
-                }}
-                className="flex-1 p-2.25 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+          <DialogHeader className="p-0 mb-3">
+            <DialogTitle className="text-[15px] font-semibold text-[var(--fg)]">Dismiss Job</DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="hidden" />
+          <Textarea
+            rows={3}
+            placeholder="Reason for dismissal (required)…"
+            value={dismissReason}
+            onChange={e => setDismissReason(e.target.value)}
+            className="w-full p-2.5 bg-[var(--secondary)] border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs resize-none mb-3 focus:border-[var(--primary)]"
+          />
+          <div className="flex gap-2.5">
+            <Button
+              onClick={confirmDismiss}
+              disabled={!dismissReason.trim()}
+              className={`flex-1 h-auto py-2.25 rounded-md text-xs font-semibold transition-colors shadow-none ${
+                dismissReason.trim()
+                  ? 'bg-red-500 text-white cursor-pointer hover:bg-red-600'
+                  : 'bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default'
+              }`}
+            >
+              Confirm Dismiss
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDismissOpen(false)
+                setPendingDismissId(null)
+              }}
+              className="flex-1 h-auto py-2.25 border-[var(--border-strong)] rounded-md text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 shadow-none"
+            >
+              Cancel
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {selectedJob && (
         <JobDrawer
@@ -524,4 +481,3 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
     </div>
   )
 }
-

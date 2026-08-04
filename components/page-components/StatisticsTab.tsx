@@ -1,5 +1,19 @@
 import { useState } from 'react'
 import type { AppUser, Profile } from '@/app/page'
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug']
 
@@ -21,7 +35,6 @@ const STATUS_DATA = [
 
 function BarChart({ data, labels, color = '#06b6d4' }: { data: number[]; labels: string[]; color?: string }) {
   const max = Math.max(...data, 1)
-  const h = 120
 
   return (
     <div className="flex items-end gap-2 h-[152px]">
@@ -89,20 +102,24 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
   const r = 52
   const cx = 70
   const cy = 70
-  let angle = -Math.PI / 2
+
+  const arcs = segments.reduce<{ label: string; value: number; color: string; startAngle: number; sweep: number }[]>((arr, seg) => {
+    const prev = arr[arr.length - 1]
+    const startAngle = prev ? prev.startAngle + prev.sweep : -Math.PI / 2
+    const sweep = (seg.value / total) * 2 * Math.PI
+    arr.push({ ...seg, startAngle, sweep })
+    return arr
+  }, [])
 
   return (
     <div className="flex items-center gap-5">
       <svg width="140" height="140" viewBox="0 0 140 140" className="shrink-0">
-        {segments.map((seg, i) => {
-          const startAngle = angle
-          const sweep = (seg.value / total) * 2 * Math.PI
-          angle += sweep
-          const x1 = cx + r * Math.cos(startAngle)
-          const y1 = cy + r * Math.sin(startAngle)
-          const x2 = cx + r * Math.cos(startAngle + sweep)
-          const y2 = cy + r * Math.sin(startAngle + sweep)
-          const largeArc = sweep > Math.PI ? 1 : 0
+        {arcs.map((seg, i) => {
+          const x1 = cx + r * Math.cos(seg.startAngle)
+          const y1 = cy + r * Math.sin(seg.startAngle)
+          const x2 = cx + r * Math.cos(seg.startAngle + seg.sweep)
+          const y2 = cy + r * Math.sin(seg.startAngle + seg.sweep)
+          const largeArc = seg.sweep > Math.PI ? 1 : 0
           return (
             <path key={i}
               d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
@@ -166,123 +183,147 @@ export default function StatisticsTab({ profiles, users, currentUser }: Props) {
         </div>
         <div className="flex gap-2.5 flex-wrap">
           {isAdmin && (
-            <select value={userFilter} onChange={e => setUserFilter(e.target.value)}
-              className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs">
-              <option value="all">All Users</option>
-              {bdUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <Select value={userFilter} onValueChange={v => setUserFilter(v ?? 'all')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {bdUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           )}
-          <select value={profileFilter} onChange={e => setProfileFilter(e.target.value)}
-            className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs">
-            <option value="all">All Profiles</option>
-            {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <select value={dateRange} onChange={e => setDateRange(e.target.value)}
-            className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs">
-            <option value="1mo">Last month</option>
-            <option value="3mo">Last 3 months</option>
-            <option value="6mo">Last 6 months</option>
-            <option value="1y">Last year</option>
-          </select>
-          <div className="flex bg-[var(--card)] border border-[var(--border-strong)] rounded-md overflow-hidden">
-            {['daily', 'weekly', 'monthly'].map(g => (
-              <button key={g} onClick={() => setGranularity(g)}
-                className={`p-2 px-3 border-none cursor-pointer text-xs ${
-                  granularity === g
-                    ? 'bg-cyan-500/15 font-semibold text-[var(--primary)]'
-                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
-                }`}>
-                {g.charAt(0).toUpperCase() + g.slice(1)}
-              </button>
-            ))}
-          </div>
+          <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? 'all')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Profiles</SelectItem>
+              {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={dateRange} onValueChange={v => setDateRange(v ?? '6mo')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1mo">Last month</SelectItem>
+              <SelectItem value="3mo">Last 3 months</SelectItem>
+              <SelectItem value="6mo">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+          <Tabs value={granularity} onValueChange={v => setGranularity(v ?? 'monthly')}>
+            <TabsList className="bg-[var(--card)] border border-[var(--border-strong)] rounded-md overflow-hidden p-0 h-auto gap-0 shadow-none">
+              {['daily', 'weekly', 'monthly'].map(g => (
+                <TabsTrigger key={g} value={g}
+                  className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none data-active:bg-cyan-500/15 data-active:text-[var(--primary)] ${
+                    granularity === g
+                      ? 'bg-cyan-500/15 font-semibold text-[var(--primary)]'
+                      : 'bg-transparent font-normal text-[var(--fg)] hover:text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}>
+                  {g.charAt(0).toUpperCase() + g.slice(1)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 gap-3.5 mb-6">
         {statsCards.map(s => (
-          <div key={s.label} className="p-4.5 px-5 bg-[var(--card)] border border-[var(--border)] rounded-lg">
-            <div className="font-mono text-[26px] font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
-            <div className="text-xs font-medium text-[var(--fg)] mb-0.5">{s.label}</div>
-            <div className="text-[11px] text-[var(--muted-fg)]">{s.sub}</div>
-          </div>
+          <Card key={s.label} className="py-4.5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
+            <CardContent className="p-0">
+              <div className="font-mono text-[26px] font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
+              <div className="text-xs font-medium text-[var(--fg)] mb-0.5">{s.label}</div>
+              <div className="text-[11px] text-[var(--muted-fg)]">{s.sub}</div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         {/* Line chart */}
-        <div className="p-5 bg-[var(--card)] border border-[var(--border)] rounded-lg">
-          <div className="text-xs font-semibold text-[var(--fg)] mb-1">Leads Over Time</div>
-          <div className="text-[11px] text-[var(--muted-fg)] mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
-          <LineChart data={chartData} labels={MONTHS} />
-        </div>
+        <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
+          <CardContent className="p-0">
+            <div className="text-xs font-semibold text-[var(--fg)] mb-1">Leads Over Time</div>
+            <div className="text-[11px] text-[var(--muted-fg)] mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
+            <LineChart data={chartData} labels={MONTHS} />
+          </CardContent>
+        </Card>
 
         {/* Status donut */}
-        <div className="p-5 bg-[var(--card)] border border-[var(--border)] rounded-lg">
-          <div className="text-xs font-semibold text-[var(--fg)] mb-1">Status Breakdown</div>
-          <div className="text-[11px] text-[var(--muted-fg)] mb-4">Current lead distribution</div>
-          <DonutChart segments={STATUS_DATA} />
-        </div>
+        <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
+          <CardContent className="p-0">
+            <div className="text-xs font-semibold text-[var(--fg)] mb-1">Status Breakdown</div>
+            <div className="text-[11px] text-[var(--muted-fg)] mb-4">Current lead distribution</div>
+            <DonutChart segments={STATUS_DATA} />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Per-BD bar charts (admin only) */}
       {isAdmin && userFilter === 'all' && (
-        <div className="p-5 bg-[var(--card)] border border-[var(--border)] rounded-lg mb-4">
-          <div className="text-xs font-semibold text-[var(--fg)] mb-1">Leads by Team Member</div>
-          <div className="text-[11px] text-[var(--muted-fg)] mb-5">Monthly totals per BD</div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6">
-            {bdUsers.map((u, i) => {
-              const colors = ['#06b6d4', '#6366f1', '#10b981', '#f59e0b']
-              const data = LEAD_DATA_BY_USER[u.id] ?? MONTHS.map(() => 0)
-              return (
-                <div key={u.id}>
-                  <div className="flex items-center gap-1.75 mb-2.5">
-                    <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: colors[i % colors.length] }}>
-                      {u.name.split(' ').map(n => n[0]).join('')}
+        <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0 mb-4">
+          <CardContent className="p-0">
+            <div className="text-xs font-semibold text-[var(--fg)] mb-1">Leads by Team Member</div>
+            <div className="text-[11px] text-[var(--muted-fg)] mb-5">Monthly totals per BD</div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6">
+              {bdUsers.map((u, i) => {
+                const colors = ['#06b6d4', '#6366f1', '#10b981', '#f59e0b']
+                const data = LEAD_DATA_BY_USER[u.id] ?? MONTHS.map(() => 0)
+                return (
+                  <div key={u.id}>
+                    <div className="flex items-center gap-1.75 mb-2.5">
+                      <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: colors[i % colors.length] }}>
+                        {u.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-[var(--fg)]">{u.name.split(' ')[0]}</div>
+                        <div className="font-mono text-[10px]" style={{ color: colors[i % colors.length] }}>{data.reduce((s, v) => s + v, 0)} total</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-medium text-[var(--fg)]">{u.name.split(' ')[0]}</div>
-                      <div className="font-mono text-[10px]" style={{ color: colors[i % colors.length] }}>{data.reduce((s, v) => s + v, 0)} total</div>
-                    </div>
+                    <BarChart data={data.slice(-5)} labels={MONTHS.slice(-5)} color={colors[i % colors.length]} />
                   </div>
-                  <BarChart data={data.slice(-5)} labels={MONTHS.slice(-5)} color={colors[i % colors.length]} />
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Profile performance */}
+      <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
+        <CardContent className="p-0">
+          <div className="text-xs font-semibold text-[var(--fg)] mb-4">Profile Activity</div>
+          <div className="flex flex-col">
+            {profiles.map((p, i) => {
+              const leads = [8, 12, 4, 2, 6][i % 5]
+              const maxLeads = 15
+              const pct = (leads / maxLeads) * 100
+              return (
+                <div key={p.id} className={`flex items-center gap-3 py-2.75 ${i < profiles.length - 1 ? 'border-b border-[var(--border)]' : ''}`}>
+                  <div className="w-7.5 h-7.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                    {p.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div className="w-[140px] shrink-0">
+                    <div className="text-xs font-medium text-[var(--fg)]">{p.name}</div>
+                    <div className="font-mono text-[10px] text-[var(--muted-fg)]">{p.seniority} · {p.status}</div>
+                  </div>
+                  <Progress value={pct} className="flex-1 gap-0"
+                    trackClassName="h-1.5 bg-[var(--secondary)]"
+                    indicatorClassName="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full" />
+                  <div className="font-mono w-[60px] text-right text-xs font-bold text-[var(--fg)] shrink-0">
+                    {leads} <span className="font-normal text-[var(--muted-fg)] text-[10px]">leads</span>
+                  </div>
                 </div>
               )
             })}
           </div>
-        </div>
-      )}
-
-      {/* Profile performance */}
-      <div className="p-5 bg-[var(--card)] border border-[var(--border)] rounded-lg">
-        <div className="text-xs font-semibold text-[var(--fg)] mb-4">Profile Activity</div>
-        <div className="flex flex-col">
-          {profiles.map((p, i) => {
-            const leads = [8, 12, 4, 2, 6][i % 5]
-            const maxLeads = 15
-            const pct = (leads / maxLeads) * 100
-            return (
-              <div key={p.id} className={`flex items-center gap-3 py-2.75 ${i < profiles.length - 1 ? 'border-b border-[var(--border)]' : ''}`}>
-                <div className="w-7.5 h-7.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
-                  {p.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div className="w-[140px] shrink-0">
-                  <div className="text-xs font-medium text-[var(--fg)]">{p.name}</div>
-                  <div className="font-mono text-[10px] text-[var(--muted-fg)]">{p.seniority} · {p.status}</div>
-                </div>
-                <div className="flex-1 h-1.5 bg-[var(--secondary)] rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-[width] duration-500 ease-in-out" style={{ width: `${pct}%` }} />
-                </div>
-                <div className="font-mono w-[60px] text-right text-xs font-bold text-[var(--fg)] shrink-0">
-                  {leads} <span className="font-normal text-[var(--muted-fg)] text-[10px]">leads</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

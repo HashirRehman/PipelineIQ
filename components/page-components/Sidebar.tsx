@@ -1,6 +1,43 @@
+"use client";
+
 import React, { useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  BarChart3,
+  Briefcase,
+  ChevronDown,
+  Moon,
+  Search,
+  Sun,
+  UserRound,
+  Users,
+} from "lucide-react";
 import type { TabId, Profile } from "@/app/page";
 import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import {
+  Sidebar as SidebarRoot,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 const RecursoLogo = () => (
   <svg
@@ -30,320 +67,237 @@ const RecursoLogo = () => (
 const NAV: {
   id: TabId;
   label: string;
-  icon: (a: boolean) => React.ReactElement;
+  icon: LucideIcon;
 }[] = [
-  {
-    id: "profiles",
-    label: "Profiles",
-    icon: (a) => (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={a ? 2.5 : 1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-      </svg>
-    ),
-  },
-  {
-    id: "discovery",
-    label: "Discovery",
-    icon: (a) => (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={a ? 2.5 : 1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-    ),
-  },
-  {
-    id: "leads",
-    label: "Leads",
-    icon: (a) => (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={a ? 2.5 : 1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
-      </svg>
-    ),
-  },
-  {
-    id: "users",
-    label: "Users",
-    icon: (a) => (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={a ? 2.5 : 1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-  },
-  {
-    id: "statistics",
-    label: "Statistics",
-    icon: (a) => (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={a ? 2.5 : 1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
+  { id: "profiles", label: "Profiles", icon: UserRound },
+  { id: "discovery", label: "Discovery", icon: Search },
+  { id: "leads", label: "Leads", icon: Briefcase },
+  { id: "users", label: "Users", icon: Users },
+  { id: "statistics", label: "Statistics", icon: BarChart3 },
 ];
 
-interface Props {
+function ProfileAvatar({
+  name,
+  size = 24,
+  fontSize = 10,
+}: {
+  name: string;
+  size?: number;
+  fontSize?: number;
+}) {
+  return (
+    <div
+      className="rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center font-bold text-white shrink-0"
+      style={{ width: size, height: size, fontSize }}
+    >
+      {name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")}
+    </div>
+  );
+}
+
+interface SidebarProps {
   activeTab: TabId;
   setActiveTab: (t: TabId) => void;
+  profiles: Profile[];
   activeProfile: Profile;
   setActiveProfile: (p: Profile) => void;
-  profiles: Profile[];
+  counts?: Record<string, number>;
 }
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
+  profiles,
   activeProfile,
   setActiveProfile,
-  profiles,
-}: Props) {
-  const [open, setOpen] = useState(false);
+  counts,
+}: SidebarProps) {
+  const [profileOpen, setProfileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
-  const s: React.CSSProperties = {
-    width: 216,
-    minWidth: 216,
-    background: "var(--sidebar)",
-    borderRight: "1px solid var(--border)",
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    position: "relative",
-    zIndex: 20,
-  };
-
   return (
-    <aside className="w-[216px] min-w-[216px] bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col h-screen relative z-20">
-      {/* Logo */}
-      <div className="p-4.5 px-3.5 pb-3.5 border-b border-[var(--border)] flex items-center gap-2.5">
-        <RecursoLogo />
-        <div>
-          <div className="text-sm font-bold text-slate-200 tracking-tight leading-none">
-            Recurso
-          </div>
-          <div className="font-mono text-[9px] font-medium text-[var(--muted-fg)] tracking-[1.2px] uppercase mt-0.5">
-            Labs
-          </div>
-        </div>
-      </div>
-
-      {/* Profile Selector */}
-      <div className="p-2.5 px-3 border-b border-[var(--border)]">
-        <div className="font-mono text-[9px] font-semibold text-[var(--muted-fg)] tracking-[0.9px] uppercase mb-1.5">
-          Active Profile
-        </div>
-        <button
-          onClick={() => setOpen(!open)}
-          className="w-full p-1.75 px-2.5 bg-white/[0.04] border border-[var(--border-strong)] rounded-md cursor-pointer flex items-center justify-between gap-2 hover:bg-white/[0.08] transition-colors"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-5.5 h-5.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-              {activeProfile.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+    <SidebarProvider
+      defaultOpen
+      className="h-full w-[216px] min-h-0 shrink-0"
+      style={{ "--sidebar-width": "216px" } as React.CSSProperties}
+    >
+      <SidebarRoot
+        collapsible="none"
+        className="bg-[var(--sidebar)] text-[var(--sidebar-fg)] border-r border-[var(--border)] select-none"
+      >
+        {/* Logo */}
+        <SidebarHeader className="p-2 px-2.5 mb-4">
+          <div className="flex items-center gap-2.5">
+            <RecursoLogo />
+            <div>
+              <div className="font-mono text-sm font-bold tracking-tight text-[var(--sidebar-fg)]">
+                Pipeline<span className="text-[var(--primary)]">IQ</span>
+              </div>
+              <div className="text-[10px] text-[var(--muted-fg)] tracking-wider uppercase font-mono">
+                Recurso Labs
+              </div>
             </div>
-            <span className="text-xs font-medium text-slate-200 truncate">
-              {activeProfile.name}
-            </span>
           </div>
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--muted-fg)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d={open ? "m18 15-6-6-6 6" : "m6 9 6 6 6-6"} />
-          </svg>
-        </button>
+        </SidebarHeader>
 
-        {open && (
-          <div className="absolute left-3 right-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-lg mt-1 z-50 shadow-2xl p-1">
-            {profiles.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => {
-                  setActiveProfile(p);
-                  setOpen(false);
-                }}
-                className={`w-full p-1.75 px-2.5 border-none rounded-md cursor-pointer flex items-center gap-2 text-left ${
-                  p.id === activeProfile.id
-                    ? "bg-cyan-500/10"
-                    : "bg-transparent hover:bg-black/5 dark:hover:bg-white/5"
-                }`}
+        <SidebarContent className="px-2.5">
+          {/* Profile Switcher */}
+          <div className="mb-4">
+            <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    className="w-full h-auto p-2 px-2.5 justify-between gap-2 bg-[var(--card)] border border-[var(--border)] rounded-lg cursor-pointer text-left hover:bg-[var(--card)] hover:border-[var(--border-strong)] transition-colors shadow-none"
+                  />
+                }
               >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
-                    p.id === activeProfile.id
-                      ? "bg-gradient-to-br from-cyan-500 to-indigo-500 text-white"
-                      : "bg-[var(--secondary)] text-[var(--muted-fg)]"
-                  }`}
-                >
-                  {p.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </div>
+                <ProfileAvatar name={activeProfile.name} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium text-[var(--fg)] truncate">
-                    {p.name}
+                  <div className="text-xs font-semibold text-[var(--fg)] truncate">
+                    {activeProfile.name}
                   </div>
-                  <div className="font-mono text-[10px] text-[var(--muted-fg)]">
-                    {p.seniority} · {p.rateCurrency}
-                    {p.rate}/hr
+                  <div className="font-mono text-[10px] text-[var(--muted-fg)] truncate">
+                    {activeProfile.seniority}
                   </div>
                 </div>
-                {p.id === activeProfile.id && (
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--primary)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                <ChevronDown
+                  className={cn(
+                    "shrink-0 text-[var(--muted-fg)] transition-transform",
+                    profileOpen && "rotate-180"
+                  )}
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                sideOffset={4}
+                className="p-1 bg-[var(--card)] text-[var(--fg)] border border-[var(--border-strong)] rounded-lg shadow-xl"
+              >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-2.5 py-1 text-[10px] font-semibold text-[var(--muted-fg)] uppercase font-mono border-b border-[var(--border)] rounded-none">
+                    Switch Profile
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                {profiles.map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    onClick={() => {
+                      setActiveProfile(p);
+                      setProfileOpen(false);
+                    }}
+                    className={cn(
+                      "w-full gap-2 rounded-none px-2.5 py-2 text-left cursor-pointer",
+                      p.id === activeProfile.id
+                        ? "bg-[var(--secondary)] font-medium focus:bg-[var(--secondary)]"
+                        : "hover:bg-black/5 dark:hover:bg-white/5"
+                    )}
                   >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
-            ))}
+                    <ProfileAvatar name={p.name} size={20} fontSize={9} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs text-[var(--fg)] truncate">
+                        {p.name}
+                      </div>
+                      <div className="font-mono text-[9px] text-[var(--muted-fg)] truncate">
+                        {p.seniority}
+                      </div>
+                    </div>
+                    {p.id === activeProfile.id && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        )}
-      </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-1.5 px-2 flex flex-col gap-0.25">
-        {NAV.map((item) => {
-          const active = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`nav-btn w-full p-2.25 px-2.5 border-none rounded-md cursor-pointer flex items-center gap-2.5 text-left transition-all duration-150 ${
-                active
-                  ? "bg-cyan-500/12 text-[var(--primary)] font-semibold"
-                  : "bg-transparent text-[var(--sidebar-fg)] font-normal hover:bg-black/5 dark:hover:bg-white/5"
-              }`}
-            >
-              {item.icon(active)}
-              <span className="text-xs">{item.label}</span>
-              {active && (
-                <div className="ml-auto w-1.25 h-1.25 rounded-full bg-[var(--primary)]" />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+          {/* Nav Links */}
+          <SidebarGroup>
+            <SidebarGroupLabel className="px-2.5 py-1 h-auto text-[10px] font-semibold text-[var(--muted-fg)] uppercase font-mono tracking-wider">
+              Menu
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="flex flex-col gap-0.5">
+                {NAV.map((item) => {
+                  const isActive = activeTab === item.id;
+                  const count = counts?.[item.id];
+                  const Icon = item.icon;
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton
+                        onClick={() => setActiveTab(item.id)}
+                        className={cn(
+                          "h-auto justify-start p-2 px-2.5 rounded-md text-xs font-medium transition-all shadow-none cursor-pointer",
+                          isActive
+                            ? "bg-cyan-500/15 text-[var(--primary)] font-semibold hover:bg-cyan-500/15"
+                            : "text-[var(--sidebar-fg)] hover:bg-black/5 dark:hover:bg-white/5",
+                          count !== undefined && count > 0 && "pr-8"
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "size-4",
+                            isActive
+                              ? "text-[var(--primary)]"
+                              : "text-[var(--muted-fg)]"
+                          )}
+                        />
+                        <span className="flex-1 text-left ml-2">
+                          {item.label}
+                        </span>
+                      </SidebarMenuButton>
+                      {count !== undefined && count > 0 && (
+                        <SidebarMenuBadge
+                          className={cn(
+                            "min-w-0 h-4 px-1.5 font-mono text-[10px] rounded-full",
+                            isActive
+                              ? "bg-[var(--primary)] text-white font-bold"
+                              : "bg-[var(--secondary)] text-[var(--muted-fg)]"
+                          )}
+                        >
+                          {count}
+                        </SidebarMenuBadge>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
 
-      {/* Bottom */}
-      <div className="p-2.5 px-2.5 pb-3.5 border-t border-[var(--border)] flex flex-col gap-2">
-        <button
-          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          className="btn-ghost flex items-center gap-2 w-full p-1.75 px-2.5 bg-white/[0.04] border border-[var(--border)] rounded-md cursor-pointer text-[var(--sidebar-fg)] transition-all duration-150 hover:bg-white/[0.08]"
-        >
-          {resolvedTheme === "dark" ? (
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-            </svg>
-          ) : (
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          )}
-          <span className="text-xs">
-            {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
-          </span>
-        </button>
+        {/* Bottom */}
+        <SidebarFooter className="p-2.5 border-t border-[var(--border)]">
+          <Button
+            variant="ghost"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            className="w-full h-auto justify-start gap-2 p-2 px-2.5 rounded-md text-xs text-[var(--sidebar-fg)] hover:bg-black/5 dark:hover:bg-white/5 shadow-none cursor-pointer"
+          >
+            {resolvedTheme === "dark" ? (
+              <Sun className="size-[13px]" />
+            ) : (
+              <Moon className="size-[13px]" />
+            )}
+            <span className="text-xs">
+              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+            </span>
+          </Button>
 
-        <div className="flex items-center gap-2 p-0.5">
-          <div className="w-7.5 h-7.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
-            AR
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-slate-200 truncate">
-              Alex Rivera
+          <div className="flex items-center gap-2 p-0.5">
+            <ProfileAvatar name="Alex Rivera" size={30} fontSize={11} />
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-[var(--sidebar-fg)] truncate">
+                Alex Rivera
+              </div>
+              <div className="font-mono text-[10px] text-[var(--primary)]">
+                admin
+              </div>
             </div>
-            <div className="font-mono text-[10px] text-[var(--primary)]">
-              admin
-            </div>
           </div>
-        </div>
-      </div>
-    </aside>
+        </SidebarFooter>
+      </SidebarRoot>
+    </SidebarProvider>
   );
 }
