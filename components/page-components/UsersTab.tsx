@@ -1,9 +1,14 @@
 import { useState } from 'react'
+import { Check, Plus, X } from 'lucide-react'
 import type { AppUser, UserRole } from '@/app/page'
 import { APP_USERS } from '@/app/page'
+import { Avatar } from "@/components/avatar"
+import { StatCard } from "@/components/stat-card"
+import { SearchInput } from "@/components/search-input"
+import { TintedBadge } from "@/components/tinted-badge"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -24,31 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-const roleColor: Record<UserRole, string> = { admin: '#ef4444', lead: '#f59e0b', bd: '#6366f1' }
-const statusColor: Record<string, string> = { active: '#10b981', inactive: '#64748b' }
-
-function timeFormat(date: string) {
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function Avatar({ name, size = 34 }: { name: string; size?: number }) {
-  const initials = name.split(' ').map(n => n[0]).join('')
-  const colors = ['#06b6d4,#6366f1', '#10b981,#06b6d4', '#f59e0b,#ef4444', '#6366f1,#ec4899', '#06b6d4,#10b981']
-  const idx = name.charCodeAt(0) % colors.length
-  return (
-    <div
-      className="rounded-full shrink-0 flex items-center justify-center font-bold text-white"
-      style={{
-        width: size, height: size,
-        background: `linear-gradient(135deg,${colors[idx]})`,
-        fontSize: size * 0.3,
-      }}
-    >
-      {initials}
-    </div>
-  )
-}
+import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
+import { formatDate } from "@/lib/format"
 
 interface InviteModalProps { onClose: () => void; onInvite: (u: AppUser) => void }
 
@@ -78,13 +60,13 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
         <div className="p-5 px-6 border-b border-[var(--border)] flex items-center justify-between">
           <DialogTitle className="text-base font-semibold text-[var(--fg)] m-0">Invite Team Member</DialogTitle>
           <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-[var(--muted-fg)] hover:text-[var(--fg)]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <X size={16} />
           </Button>
         </div>
         {sent
           ? <div className="p-8 px-6 text-center">
               <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <Check size={22} strokeWidth={2.5} className="text-[#10b981]" />
               </div>
               <div className="text-[15px] font-semibold text-[var(--fg)] mb-1.5">Invitation sent!</div>
               <div className="text-xs text-[var(--muted-fg)] mb-5">An invite email has been sent to {email}</div>
@@ -109,10 +91,10 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
                       <Button key={r} variant="ghost" onClick={() => setRole(r)}
                         className="flex-1 h-9 rounded-md text-xs capitalize font-mono shadow-none"
                         style={{
-                          background: role === r ? (roleColor[r] + '18') : 'var(--secondary)',
-                          border: role === r ? `1px solid ${roleColor[r]}40` : '1px solid var(--border-strong)',
+                          background: role === r ? (ROLE_COLOR[r] + '18') : 'var(--secondary)',
+                          border: role === r ? `1px solid ${ROLE_COLOR[r]}40` : '1px solid var(--border-strong)',
                           fontWeight: role === r ? 700 : 400,
-                          color: role === r ? roleColor[r] : 'var(--fg)',
+                          color: role === r ? ROLE_COLOR[r] : 'var(--fg)',
                         }}>
                         {r}
                       </Button>
@@ -164,42 +146,35 @@ export default function UsersTab({ currentUser }: Props) {
 
   return (
     <div className="p-7 px-8 flex-1">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Users</h1>
-          <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{users.length} team members</p>
-        </div>
-        <Button onClick={() => setInviting(true)}
-          className="h-auto flex items-center gap-1.75 p-2.25 px-4 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90 shadow-none">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Invite User
-        </Button>
-      </div>
+      <PageHeader
+        title="Users"
+        subtitle={`${users.length} team members`}
+        className="mb-6"
+        actions={
+          <Button onClick={() => setInviting(true)}
+            className="h-auto flex items-center gap-1.75 p-2.25 px-4 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90 shadow-none">
+            <Plus size={14} strokeWidth={2.5} />
+            Invite User
+          </Button>
+        }
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-3 mb-6">
-        {[
-          { label: 'Total Users', value: users.length, color: 'var(--primary)' },
-          { label: 'Admins', value: users.filter(u => u.role === 'admin').length, color: '#ef4444' },
-          { label: 'Leads', value: users.filter(u => u.role === 'lead').length, color: '#f59e0b' },
-          { label: 'BDs', value: users.filter(u => u.role === 'bd').length, color: '#6366f1' },
-        ].map(s => (
-          <Card key={s.label} className="py-3.5 px-4 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
-            <CardContent className="p-0">
-              <div className="font-mono text-[22px] font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
-              <div className="text-xs text-[var(--muted-fg)]">{s.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <StatCard label="Total Users" value={users.length} color="var(--primary)" className="py-3.5 px-4" valueClassName="text-[22px]" labelClassName="text-[var(--muted-fg)]" />
+        <StatCard label="Admins" value={users.filter(u => u.role === 'admin').length} color="#ef4444" className="py-3.5 px-4" valueClassName="text-[22px]" labelClassName="text-[var(--muted-fg)]" />
+        <StatCard label="Leads" value={users.filter(u => u.role === 'lead').length} color="#f59e0b" className="py-3.5 px-4" valueClassName="text-[22px]" labelClassName="text-[var(--muted-fg)]" />
+        <StatCard label="BDs" value={users.filter(u => u.role === 'bd').length} color="#6366f1" className="py-3.5 px-4" valueClassName="text-[22px]" labelClassName="text-[var(--muted-fg)]" />
       </div>
 
       {/* Filters */}
       <div className="flex gap-2.5 mb-4.5">
-        <div className="flex-1 relative">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <Input placeholder="Search users…" value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full py-2 pl-7.5 pr-2.5 bg-[var(--card)] border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
-        </div>
+        <SearchInput
+          placeholder="Search users…"
+          value={search}
+          onChange={setSearch}
+          className="flex-1"
+        />
         <Select value={roleFilter} onValueChange={v => setRoleFilter(v ?? 'all')}>
           <SelectTrigger className="min-w-[130px]">
             <SelectValue />
@@ -247,15 +222,15 @@ export default function UsersTab({ currentUser }: Props) {
                 </TableCell>
                 <TableCell className="p-3.25 px-4 text-[var(--muted-fg)]">{u.email}</TableCell>
                 <TableCell className="p-3.25 px-4">
-                  <span className="font-mono p-0.75 px-2 rounded text-[11px] font-semibold" style={{ background: roleColor[u.role] + '18', border: `1px solid ${roleColor[u.role]}35`, color: roleColor[u.role] }}>{u.role}</span>
+                  <TintedBadge color={ROLE_COLOR[u.role]}>{u.role}</TintedBadge>
                 </TableCell>
                 <TableCell className="p-3.25 px-4">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor[u.status] }} />
-                    <span className="text-xs" style={{ color: statusColor[u.status] }}>{u.status}</span>
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: USER_STATUS_COLOR[u.status] }} />
+                    <span className="text-xs" style={{ color: USER_STATUS_COLOR[u.status] }}>{u.status}</span>
                   </div>
                 </TableCell>
-                <TableCell className="p-3.25 px-4 font-mono"><span className="text-xs text-[var(--muted-fg)]">{timeFormat(u.joinedAt)}</span></TableCell>
+                <TableCell className="p-3.25 px-4 font-mono"><span className="text-xs text-[var(--muted-fg)]">{formatDate(u.joinedAt)}</span></TableCell>
                 <TableCell className="p-3.25 px-4">
                   {u.id !== currentUser.id && (
                     <Button onClick={() => toggleStatus(u.id)}

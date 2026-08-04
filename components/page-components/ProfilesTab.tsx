@@ -1,10 +1,14 @@
 import { useState, useRef } from 'react'
 import type { CSSProperties } from 'react'
+import { FileText, MapPin, Plus, Upload, Users, X } from 'lucide-react'
 import type { Profile, AppUser, Resume } from '@/app/page'
+import { Avatar } from "@/components/avatar"
+import { TintedBadge } from "@/components/tinted-badge"
+import { SearchInput } from "@/components/search-input"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -21,40 +25,11 @@ import {
   Drawer,
   DrawerContent,
 } from "@/components/ui/drawer"
+import { PROFILE_STATUS_COLOR } from "@/lib/constants"
 
 const SENIORITY = ['Junior', 'Mid', 'Senior', 'Lead', 'Principal', 'Staff']
 const CURRENCIES = ['USD', 'GBP', 'EUR', 'CAD', 'AUD']
 const STATUSES: Profile['status'][] = ['active', 'inactive', 'archived']
-
-const statusColor: Record<string, string> = {
-  active: '#10b981', inactive: '#f59e0b', archived: '#64748b',
-}
-
-function CustomBadge({ label, color }: { label: string; color: string }) {
-  return (
-    <Badge variant="outline" className="font-mono px-1.75 py-0.5 rounded text-[10px] font-semibold tracking-wider" style={{ background: color + '22', color, borderColor: 'transparent' }}>
-      {label}
-    </Badge>
-  )
-}
-
-function Avatar({ name, size = 36 }: { name: string; size?: number }) {
-  const initials = name.split(' ').map(n => n[0]).join('')
-  const colors = ['#06b6d4,#6366f1', '#10b981,#06b6d4', '#f59e0b,#ef4444', '#6366f1,#ec4899', '#06b6d4,#10b981']
-  const idx = name.charCodeAt(0) % colors.length
-  return (
-    <div
-      className="rounded-full shrink-0 flex items-center justify-center font-bold text-white"
-      style={{
-        width: size, height: size,
-        background: `linear-gradient(135deg, ${colors[idx]})`,
-        fontSize: size * 0.32,
-      }}
-    >
-      {initials}
-    </div>
-  )
-}
 
 const emptyProfile: Omit<Profile, 'id' | 'createdAt' | 'resumes' | 'assignedBDs'> = {
   name: '', email: '', phone: '', location: '', seniority: 'Mid', yearsExp: 0,
@@ -152,8 +127,8 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
             <div className="flex-1 min-w-0">
               <div className="text-5xl font-semibold text-[var(--fg)] text-[17px]">{profile.name}</div>
               <div className="flex items-center gap-2 mt-1">
-                <CustomBadge label={profile.status} color={statusColor[profile.status]} />
-                <CustomBadge label={profile.seniority} color="#6366f1" />
+                <TintedBadge color={PROFILE_STATUS_COLOR[profile.status]}>{profile.status}</TintedBadge>
+                <TintedBadge color="#6366f1">{profile.seniority}</TintedBadge>
                 <span className="font-mono text-[11px] text-[var(--muted-fg)]">{profile.rateCurrency}{profile.rate}/hr</span>
               </div>
             </div>
@@ -163,7 +138,7 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
                 {editing ? 'Save' : 'Edit'}
               </Button>
               <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-[var(--muted-fg)] hover:text-[var(--fg)]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <X size={14} />
               </Button>
             </div>
           </div>
@@ -219,7 +194,7 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
                         {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                  : <CustomBadge label={form.status} color={statusColor[form.status]} />
+                  : <TintedBadge color={PROFILE_STATUS_COLOR[form.status]}>{form.status}</TintedBadge>
                 }
               </div>
             </div>
@@ -239,11 +214,11 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
               <div className="text-[11px] font-medium text-[var(--muted-fg)] mb-2">Skills</div>
               <div className={`flex flex-wrap gap-1.5 ${editing ? 'mb-2' : 'mb-0'}`}>
                 {form.skills.map((s, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.25 px-2 py-0.75 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-[var(--primary)]">
+                  <TintedBadge key={i} color="#06b6d4" className="inline-flex items-center gap-1.25">
                     {s}
                     {editing && <Button onClick={() => setForm(f => ({ ...f, skills: f.skills.filter((_, j) => j !== i) }))}
                       className="h-auto p-0 bg-transparent border-none cursor-pointer text-[var(--muted-fg)] leading-none text-xs hover:text-[var(--fg)] shadow-none">×</Button>}
-                  </span>
+                  </TintedBadge>
                 ))}
               </div>
               {editing && (
@@ -261,9 +236,12 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
                   return (
                     <div key={u.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${assigned ? 'bg-gradient-to-br from-cyan-500 to-indigo-500 text-white' : 'bg-[var(--secondary)] text-[var(--muted-fg)]'}`}>
-                          {u.name.split(' ').map(n => n[0]).join('')}
-                        </div>
+                        {assigned
+                          ? <Avatar name={u.name} size={28} />
+                          : <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-[var(--secondary)] text-[var(--muted-fg)]">
+                              {u.name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                        }
                         <div>
                           <div className="text-xs font-medium text-[var(--fg)]">{u.name}</div>
                           <div className="font-mono text-[10px] text-[var(--muted-fg)]">{u.role} · {u.email}</div>
@@ -296,7 +274,7 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
                       <span className="text-xs text-[var(--muted-fg)]">Parsing resume…</span>
                     </div>
                   : <>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <Upload size={24} strokeWidth={1.5} className="mx-auto mb-2 text-[var(--muted-fg)]" />
                       <div className="text-xs text-[var(--muted-fg)]">Drop PDF or Word resume · <span className="text-[var(--primary)]">browse</span></div>
                     </>
                 }
@@ -307,7 +285,7 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
                 <div key={r.id} className="mt-2.5 border border-[var(--border)] rounded-lg overflow-hidden">
                   <div className="p-2.5 px-3.5 flex items-center justify-between bg-[var(--muted)]">
                     <div className="flex items-center gap-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <FileText size={16} strokeWidth={1.8} className="text-[var(--muted-fg)]" />
                       <span className="text-xs font-medium text-[var(--fg)]">{r.filename}</span>
                       <span className="font-mono text-[10px] text-[var(--muted-fg)]">{r.size}</span>
                     </div>
@@ -322,7 +300,7 @@ function DetailDrawer({ profile, onClose, onUpdate, users }: DetailDrawerProps) 
                       <p className="text-xs text-[var(--fg)] leading-relaxed m-0 mb-2.5">{r.parsed.summary}</p>
                       <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-1.5 uppercase tracking-wider">Skills Detected</div>
                       <div className="flex flex-wrap gap-1.25 mb-2.5">
-                        {r.parsed.skills.map(s => <span key={s} className="px-1.75 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded text-[11px] text-[var(--primary)]">{s}</span>)}
+                        {r.parsed.skills.map(s => <TintedBadge key={s} color="#06b6d4" className="text-[11px]">{s}</TintedBadge>)}
                       </div>
                       <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-1.5 uppercase tracking-wider">Experience</div>
                       {r.parsed.experience.map((e, i) => <div key={i} className="text-xs text-[var(--fg)] mb-0.75">· {e}</div>)}
@@ -377,7 +355,7 @@ function CreateModal({ onClose, onCreate }: CreateModalProps) {
         <div className="p-5 px-6 border-b border-[var(--border)] flex items-center justify-between">
           <DialogTitle className="text-base font-semibold text-[var(--fg)] m-0">New Profile</DialogTitle>
           <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-[var(--muted-fg)] hover:text-[var(--fg)]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <X size={16} />
           </Button>
         </div>
         <div className="p-5 px-6 max-h-[500px] overflow-auto">
@@ -420,9 +398,9 @@ function CreateModal({ onClose, onCreate }: CreateModalProps) {
             <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.5">Skills</label>
             <div className="flex flex-wrap gap-1.25 mb-1.5">
               {form.skills.map((s, i) => (
-                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-[var(--primary)]">
+                <TintedBadge key={i} color="#06b6d4" className="inline-flex items-center gap-1">
                   {s} <Button onClick={() => setForm(f => ({ ...f, skills: f.skills.filter((_, j) => j !== i) }))} className="h-auto p-0 bg-transparent border-none cursor-pointer text-[var(--muted-fg)] leading-none text-xs hover:text-[var(--fg)] shadow-none">×</Button>
-                </span>
+                </TintedBadge>
               ))}
             </div>
             <Input placeholder="Add skill (press Enter)" value={form.skillInput} onChange={e => setForm(f => ({ ...f, skillInput: e.target.value }))} onKeyDown={handleAddSkill}
@@ -468,25 +446,28 @@ export default function ProfilesTab({ profiles, setProfiles, users }: Props) {
   return (
     <div className="p-7 px-8 flex-1">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Profiles</h1>
-          <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{profiles.length} candidate profiles</p>
-        </div>
-        <Button onClick={() => setCreating(true)}
-          className="h-auto flex items-center gap-1.75 p-2.25 px-4 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90 shadow-none">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New Profile
-        </Button>
-      </div>
+      <PageHeader
+        title="Profiles"
+        subtitle={`${profiles.length} candidate profiles`}
+        className="mb-6"
+        actions={
+          <Button onClick={() => setCreating(true)}
+            className="h-auto flex items-center gap-1.75 p-2.25 px-4 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90 shadow-none">
+            <Plus size={14} strokeWidth={2.5} />
+            New Profile
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex gap-2.5 mb-5.5">
-        <div className="flex-1 relative">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <Input placeholder="Search by name, skill, location…" value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full py-2.25 pl-8 pr-2.5 bg-[var(--card)] border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
-        </div>
+        <SearchInput
+          placeholder="Search by name, skill, location…"
+          value={search}
+          onChange={setSearch}
+          className="flex-1"
+          inputClassName="py-2.25 pl-8 rounded-[7px]"
+        />
         <Select value={statusFilter} onValueChange={v => setStatusFilter(v ?? 'all')}>
           <SelectTrigger className="min-w-[130px]">
             <SelectValue />
@@ -510,13 +491,13 @@ export default function ProfilesTab({ profiles, setProfiles, users }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-[var(--fg)] mb-1">{p.name}</div>
                   <div className="flex gap-1.25 flex-wrap">
-                    <CustomBadge label={p.status} color={statusColor[p.status]} />
-                    <CustomBadge label={p.seniority} color="#6366f1" />
+                    <TintedBadge color={PROFILE_STATUS_COLOR[p.status]}>{p.status}</TintedBadge>
+                    <TintedBadge color="#6366f1">{p.seniority}</TintedBadge>
                   </div>
                 </div>
               </div>
               <div className="text-xs text-[var(--muted-fg)] mb-2.5 flex items-center gap-1.25">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <MapPin size={11} />
                 {p.location}
               </div>
               <div className="flex flex-wrap gap-1 mb-3">
@@ -541,7 +522,7 @@ export default function ProfilesTab({ profiles, setProfiles, users }: Props) {
 
       {filtered.length === 0 && (
         <div className="text-center py-15 text-[var(--muted-fg)]">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 block"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <Users size={40} strokeWidth={1} className="mx-auto mb-3 block text-[var(--muted-fg)]" />
           <div className="text-sm">No profiles match your search</div>
         </div>
       )}

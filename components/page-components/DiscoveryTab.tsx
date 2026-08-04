@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { Search } from 'lucide-react'
-import type { Profile } from '@/app/page'
-import JobDrawer, { type Job } from './JobDrawer'
-import { Input } from "@/components/ui/input"
+import { useState } from "react"
+import { Search } from "lucide-react"
+
+import type { Profile } from "@/app/page"
+import { PageHeader } from "@/components/page-header"
+import { SearchInput } from "@/components/search-input"
+import { TintedBadge } from "@/components/tinted-badge"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
@@ -13,7 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  JOB_STATUS_BG,
+  JOB_STATUS_BORDER,
+  PARSER_COLOR,
+  WORK_TYPE_COLOR,
+} from "@/lib/constants"
+import { timeAgo } from "@/lib/format"
+import { computeMatchScore } from "@/lib/matching"
 import { cn } from "@/lib/utils"
+import JobDrawer, { type Job } from "./JobDrawer"
 
 const now = Date.now()
 const JOBS: Job[] = [
@@ -27,22 +37,9 @@ const JOBS: Job[] = [
   { id: 'j8', title: 'Senior Backend Engineer – AI', company: 'Anthropic', location: 'San Francisco, CA', workType: 'onsite', postedAt: new Date(now - 3 * 86400000), salary: '$200k – $250k', description: 'Anthropic is hiring backend engineers to work on Claude\'s API infrastructure, tool use capabilities, and developer platform. You\'ll work alongside ML researchers and product teams to ship AI products used by millions.', requirements: ['6+ years backend engineering', 'Python or Go proficiency', 'Experience with high-scale API systems', 'Understanding of LLM inference'], niceToHave: ['ML systems experience', 'Knowledge of transformers', 'Safety-critical systems'], parser: 'Indeed', status: 'new', applyUrl: '#', companySize: '201–500', companyIndustry: 'AI / ML', experienceLevel: 'Senior' },
 ]
 
-const PARSERS = ['All Sources', 'LinkedIn', 'Indeed', 'Greenhouse', 'Lever', 'Workday']
-const WORK_TYPES = ['All Types', 'remote', 'hybrid', 'onsite']
-const EXPERIENCE = ['All Levels', 'Junior', 'Mid', 'Senior', 'Lead', 'Staff', 'Principal', 'Manager']
-
-function timeAgo(date: Date): string {
-  const diff = (Date.now() - date.getTime()) / 1000
-  if (diff < 60) return 'just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
-}
-
-const workTypeColor: Record<string, string> = { remote: '#10b981', onsite: '#6366f1', hybrid: '#f59e0b' }
-const parserColor: Record<string, string> = { LinkedIn: '#0a66c2', Indeed: '#003a9b', Greenhouse: '#24a148', Lever: '#7c3aed', Workday: '#f59e0b' }
-const statusBg: Record<string, string> = { new: 'transparent', applied: 'rgba(16,185,129,0.06)', dismissed: 'rgba(239,68,68,0.04)' }
-const statusBorder: Record<string, string> = { new: 'var(--border)', applied: 'rgba(16,185,129,0.2)', dismissed: 'rgba(239,68,68,0.15)' }
+const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
+const WORK_TYPES = ["All Types", "remote", "hybrid", "onsite"]
+const EXPERIENCE = ["All Levels", "Junior", "Mid", "Senior", "Lead", "Staff", "Principal", "Manager"]
 
 interface Props {
   activeProfile: Profile
@@ -53,24 +50,24 @@ const PAGE_SIZE = 5
 
 export default function DiscoveryTab({ activeProfile, profiles }: Props) {
   const [jobs, setJobs] = useState<Job[]>(JOBS)
-  const [search, setSearch] = useState('')
-  const [parserFilter, setParserFilter] = useState('All Sources')
-  const [workTypeFilter, setWorkTypeFilter] = useState('All Types')
-  const [expFilter, setExpFilter] = useState('All Levels')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [search, setSearch] = useState("")
+  const [parserFilter, setParserFilter] = useState("All Sources")
+  const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
+  const [expFilter, setExpFilter] = useState("All Levels")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [page, setPage] = useState(1)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [dismissOpen, setDismissOpen] = useState(false)
-  const [dismissReason, setDismissReason] = useState('')
+  const [dismissReason, setDismissReason] = useState("")
   const [pendingDismissId, setPendingDismissId] = useState<string | null>(null)
 
   const filtered = jobs.filter(j => {
     const q = search.toLowerCase()
     const matchQ = !q || j.title.toLowerCase().includes(q) || j.company.toLowerCase().includes(q) || j.location.toLowerCase().includes(q)
-    const matchParser = parserFilter === 'All Sources' || j.parser === parserFilter
-    const matchType = workTypeFilter === 'All Types' || j.workType === workTypeFilter
-    const matchExp = expFilter === 'All Levels' || j.experienceLevel === expFilter
-    const matchStatus = statusFilter === 'all' || j.status === statusFilter
+    const matchParser = parserFilter === "All Sources" || j.parser === parserFilter
+    const matchType = workTypeFilter === "All Types" || j.workType === workTypeFilter
+    const matchExp = expFilter === "All Levels" || j.experienceLevel === expFilter
+    const matchStatus = statusFilter === "all" || j.status === statusFilter
     return matchQ && matchParser && matchType && matchExp && matchStatus
   })
 
@@ -78,26 +75,26 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleApply = (id: string) => {
-    setJobs(js => js.map(j => j.id === id ? { ...j, status: 'applied' } : j))
-    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: 'applied' } : null)
+    setJobs(js => js.map(j => j.id === id ? { ...j, status: "applied" } : j))
+    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "applied" } : null)
   }
 
   const handleMarkApplied = (id: string) => {
-    setJobs(js => js.map(j => j.id === id ? { ...j, status: 'applied' } : j))
-    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: 'applied' } : null)
+    setJobs(js => js.map(j => j.id === id ? { ...j, status: "applied" } : j))
+    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "applied" } : null)
   }
 
   const handleDismiss = (id: string, reason: string) => {
-    setJobs(js => js.map(j => j.id === id ? { ...j, status: 'dismissed', dismissReason: reason } : j))
-    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: 'dismissed', dismissReason: reason } : null)
+    setJobs(js => js.map(j => j.id === id ? { ...j, status: "dismissed", dismissReason: reason } : j))
+    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "dismissed", dismissReason: reason } : null)
     setPendingDismissId(null)
-    setDismissReason('')
+    setDismissReason("")
   }
 
   const startDismiss = (id: string) => {
     setPendingDismissId(id)
     setDismissOpen(true)
-    setDismissReason('')
+    setDismissReason("")
   }
 
   const confirmDismiss = () => {
@@ -115,8 +112,8 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
       onClick={onClick}
       className={`px-3 h-auto py-1.5 rounded-md text-xs font-medium cursor-pointer whitespace-nowrap shadow-none ${
         active
-          ? 'bg-cyan-500/10 border border-cyan-500/30 font-semibold text-[var(--primary)]'
-          : 'bg-transparent border border-[var(--border-strong)] font-normal text-[var(--fg)] hover:border-gray-500'
+          ? "bg-cyan-500/10 border border-cyan-500/30 font-semibold text-[var(--primary)]"
+          : "bg-transparent border border-[var(--border-strong)] font-normal text-[var(--fg)] hover:border-gray-500"
       }`}
     >
       {label}
@@ -130,8 +127,8 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
       className={cn(
         "w-full h-auto justify-start px-2.5 py-1.5 rounded text-xs text-left shadow-none",
         active
-          ? 'bg-cyan-500/10 font-semibold text-[var(--primary)] hover:bg-cyan-500/10'
-          : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+          ? "bg-cyan-500/10 font-semibold text-[var(--primary)] hover:bg-cyan-500/10"
+          : "bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5"
       )}
     >
       {withDot && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: withDot }} />}
@@ -148,11 +145,11 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           <Button
             variant="ghost"
             onClick={() => {
-              setSearch('')
-              setParserFilter('All Sources')
-              setWorkTypeFilter('All Types')
-              setExpFilter('All Levels')
-              setStatusFilter('all')
+              setSearch("")
+              setParserFilter("All Sources")
+              setWorkTypeFilter("All Types")
+              setExpFilter("All Levels")
+              setStatusFilter("all")
             }}
             className="h-auto p-0 bg-transparent text-[11px] text-[var(--primary)] hover:underline shadow-none"
           >
@@ -160,17 +157,16 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </Button>
         </div>
 
-        {/* Status */}
         <div className="mb-5">
           <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
             Status
           </div>
           <div className="flex flex-col gap-1">
             {[
-              ['all', 'All Jobs'],
-              ['new', 'New'],
-              ['applied', 'Applied'],
-              ['dismissed', 'Dismissed'],
+              ["all", "All Jobs"],
+              ["new", "New"],
+              ["applied", "Applied"],
+              ["dismissed", "Dismissed"],
             ].map(([v, l]) => (
               <div key={v}>
                 {filterOption(statusFilter === v, () => setStatusFilter(v), l)}
@@ -179,7 +175,6 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </div>
         </div>
 
-        {/* Work Type */}
         <div className="mb-5">
           <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
             Work Type
@@ -191,14 +186,13 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                   workTypeFilter === t,
                   () => setWorkTypeFilter(t),
                   t.charAt(0).toUpperCase() + t.slice(1),
-                  t !== 'All Types' ? workTypeColor[t] : undefined
+                  t !== "All Types" ? WORK_TYPE_COLOR[t] : undefined
                 )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Parser Source */}
         <div className="mb-5">
           <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
             Source Parser
@@ -212,7 +206,6 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </div>
         </div>
 
-        {/* Experience */}
         <div>
           <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
             Experience Level
@@ -230,36 +223,34 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
       {/* Job List */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="px-7 pt-6 pb-0 shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Discovery</h1>
-              <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{filtered.length} jobs found</p>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--muted-fg)]" />
-              <Input
+          <PageHeader
+            title="Discovery"
+            subtitle={`${filtered.length} jobs found`}
+            className="mb-4"
+            actions={
+              <SearchInput
                 placeholder="Search jobs…"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-8 pr-2.5 bg-[var(--card)] border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs w-[220px]"
+                onChange={setSearch}
+                className="w-[220px]"
+                inputClassName="rounded-[7px]"
               />
-            </div>
-          </div>
+            }
+          />
 
-          {/* Quick filter pills */}
           <div className="flex gap-1.5 overflow-x-auto pb-3.5">
-            {filterBtn('All', statusFilter === 'all', () => setStatusFilter('all'))}
-            {filterBtn('Remote', workTypeFilter === 'remote', () =>
-              setWorkTypeFilter(workTypeFilter === 'remote' ? 'All Types' : 'remote')
+            {filterBtn("All", statusFilter === "all", () => setStatusFilter("all"))}
+            {filterBtn("Remote", workTypeFilter === "remote", () =>
+              setWorkTypeFilter(workTypeFilter === "remote" ? "All Types" : "remote")
             )}
-            {filterBtn('Hybrid', workTypeFilter === 'hybrid', () =>
-              setWorkTypeFilter(workTypeFilter === 'hybrid' ? 'All Types' : 'hybrid')
+            {filterBtn("Hybrid", workTypeFilter === "hybrid", () =>
+              setWorkTypeFilter(workTypeFilter === "hybrid" ? "All Types" : "hybrid")
             )}
-            {filterBtn('Onsite', workTypeFilter === 'onsite', () =>
-              setWorkTypeFilter(workTypeFilter === 'onsite' ? 'All Types' : 'onsite')
+            {filterBtn("Onsite", workTypeFilter === "onsite", () =>
+              setWorkTypeFilter(workTypeFilter === "onsite" ? "All Types" : "onsite")
             )}
-            {filterBtn('Applied', statusFilter === 'applied', () =>
-              setStatusFilter(statusFilter === 'applied' ? 'all' : 'applied')
+            {filterBtn("Applied", statusFilter === "applied", () =>
+              setStatusFilter(statusFilter === "applied" ? "all" : "applied")
             )}
           </div>
         </div>
@@ -267,21 +258,15 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
         <div className="flex-1 overflow-auto px-7 pb-6">
           <div className="flex flex-col gap-2.5">
             {paginated.map(job => {
-              const matchSkills = activeProfile.skills.filter(s =>
-                job.requirements.some(r => r.toLowerCase().includes(s.toLowerCase()))
-              )
-              const matchScore = Math.min(
-                100,
-                Math.round((matchSkills.length / Math.max(job.requirements.length, 1)) * 100) + 15
-              )
+              const { score: matchScore } = computeMatchScore(activeProfile.skills, job.requirements)
 
               return (
                 <div
                   key={job.id}
                   className="job-card rounded-[10px] px-4.5 py-4 cursor-pointer transition-all duration-150 ease-in-out"
                   style={{
-                    background: statusBg[job.status] || 'var(--card)',
-                    border: `1px solid ${statusBorder[job.status] || 'var(--border)'}`,
+                    background: JOB_STATUS_BG[job.status] || "var(--card)",
+                    border: `1px solid ${JOB_STATUS_BORDER[job.status] || "var(--border)"}`,
                   }}
                   onClick={() => setSelectedJob(job)}
                 >
@@ -289,15 +274,15 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[15px] font-semibold text-[var(--fg)]">{job.title}</span>
-                        {job.status === 'applied' && (
-                          <Badge variant="outline" className="px-1.75 py-0.5 bg-emerald-500/15 border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-500 font-mono h-auto">
+                        {job.status === "applied" && (
+                          <TintedBadge color="#10b981" className="px-1.75 py-0.5 rounded-full text-[10px] font-bold">
                             APPLIED
-                          </Badge>
+                          </TintedBadge>
                         )}
-                        {job.status === 'dismissed' && (
-                          <Badge variant="outline" className="px-1.75 py-0.5 bg-red-500/10 border-red-500/25 rounded-full text-[10px] font-bold text-red-500 font-mono h-auto">
+                        {job.status === "dismissed" && (
+                          <TintedBadge color="#ef4444" className="px-1.75 py-0.5 rounded-full text-[10px] font-bold">
                             DISMISSED
-                          </Badge>
+                          </TintedBadge>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-[var(--muted-fg)]">
@@ -308,15 +293,14 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Match score */}
                       <div className="text-center">
                         <div
                           className={`font-mono text-[15px] font-bold ${
                             matchScore >= 70
-                              ? 'text-emerald-500'
+                              ? "text-emerald-500"
                               : matchScore >= 40
-                              ? 'text-amber-500'
-                              : 'text-red-500'
+                              ? "text-amber-500"
+                              : "text-red-500"
                           }`}
                         >
                           {matchScore}%
@@ -330,25 +314,23 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
 
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex gap-1.5 flex-wrap">
-                      <Badge variant="outline" className="px-2 py-0.5 rounded text-[11px] font-semibold font-mono h-auto"
-                        style={{ background: workTypeColor[job.workType] + '18', border: `1px solid ${workTypeColor[job.workType]}30`, color: workTypeColor[job.workType] }}>
+                      <TintedBadge color={WORK_TYPE_COLOR[job.workType]}>
                         {job.workType}
-                      </Badge>
-                      <Badge variant="outline" className="px-2 py-0.5 rounded text-[11px] font-medium font-mono h-auto"
-                        style={{ background: (parserColor[job.parser] || '#64748b') + '18', color: parserColor[job.parser] || '#64748b' }}>
+                      </TintedBadge>
+                      <TintedBadge color={PARSER_COLOR[job.parser] || "#64748b"} className="font-medium">
                         via {job.parser}
-                      </Badge>
+                      </TintedBadge>
                       {job.salary && (
-                        <Badge variant="outline" className="px-2 py-0.5 bg-emerald-500/10 rounded text-[11px] font-semibold text-emerald-500 font-mono h-auto border-transparent">
+                        <TintedBadge color="#10b981" bordered={false}>
                           {job.salary}
-                        </Badge>
+                        </TintedBadge>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-[11px] text-[var(--muted-fg)]">
                         {timeAgo(job.postedAt)}
                       </span>
-                      {job.status === 'new' && (
+                      {job.status === "new" && (
                         <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                           <Button onClick={() => handleApply(job.id)}
                             className="px-3 h-auto py-1.25 bg-[var(--primary)] rounded-md text-xs font-semibold text-white hover:opacity-90 shadow-none">
@@ -378,7 +360,6 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
             </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
               <Button
@@ -397,8 +378,8 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                   onClick={() => setPage(p)}
                   className={`w-8 h-8 border border-[var(--border-strong)] rounded-md cursor-pointer text-xs transition-colors shadow-none ${
                     p === page
-                      ? 'bg-[var(--primary)] font-bold text-white border-[var(--primary)] hover:bg-[var(--primary)]'
-                      : 'bg-[var(--card)] font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                      ? "bg-[var(--primary)] font-bold text-white border-[var(--primary)] hover:bg-[var(--primary)]"
+                      : "bg-[var(--card)] font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
                   {p}
@@ -442,8 +423,8 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               disabled={!dismissReason.trim()}
               className={`flex-1 h-auto py-2.25 rounded-md text-xs font-semibold transition-colors shadow-none ${
                 dismissReason.trim()
-                  ? 'bg-red-500 text-white cursor-pointer hover:bg-red-600'
-                  : 'bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default'
+                  ? "bg-red-500 text-white cursor-pointer hover:bg-red-600"
+                  : "bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default"
               }`}
             >
               Confirm Dismiss

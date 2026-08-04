@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { LayoutGrid, List } from 'lucide-react'
 import type { AppUser, Profile } from '@/app/page'
 import JobDrawer, { type Job } from './JobDrawer'
+import { Avatar } from "@/components/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
+import { SearchInput } from "@/components/search-input"
+import { TintedBadge } from "@/components/tinted-badge"
 import {
   Select,
   SelectContent,
@@ -19,17 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-const STATUSES = ['Applied', 'Screening', 'Interview', 'Technical', 'Offer', 'Closed']
-const statusColor: Record<string, string> = {
-  Applied: '#6366f1', Screening: '#f59e0b', Interview: '#06b6d4',
-  Technical: '#ec4899', Offer: '#10b981', Closed: '#64748b',
-}
-const statusBg: Record<string, string> = {
-  Applied: 'rgba(99,102,241,0.1)', Screening: 'rgba(245,158,11,0.1)',
-  Interview: 'rgba(6,182,212,0.1)', Technical: 'rgba(236,72,153,0.1)',
-  Offer: 'rgba(16,185,129,0.1)', Closed: 'rgba(100,116,139,0.1)',
-}
+import {
+  LEAD_STATUS_BG,
+  LEAD_STATUS_COLOR,
+  LEAD_STATUSES,
+  WORK_TYPE_COLOR,
+} from "@/lib/constants"
+import { timeAgo } from "@/lib/format"
 
 export interface Lead {
   id: string
@@ -57,15 +56,6 @@ const MOCK_LEADS: Lead[] = [
   { id: 'l7', profileId: 'p4', profileName: 'Jordan Kim', jobTitle: 'Principal Infrastructure Engineer', company: 'Cloudflare', jobLocation: 'Remote', workType: 'remote', appliedAt: '2026-08-01', status: 'Screening', assignedTo: 'u3', bdNotes: 'Very strong match on Rust + distributed systems.', salary: '$210k – $260k', parser: 'Lever' },
   { id: 'l8', profileId: 'p3', profileName: 'Priya Nair', jobTitle: 'ML Infrastructure Engineer', company: 'Anthropic', jobLocation: 'San Francisco', workType: 'onsite', appliedAt: '2026-08-02', status: 'Applied', assignedTo: 'u3', bdNotes: '', salary: '$180k – $220k', parser: 'Indeed' },
 ]
-
-function timeAgo(date: string): string {
-  const diff = (Date.now() - new Date(date).getTime()) / 1000
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  const d = Math.floor(diff / 86400)
-  return d === 1 ? '1 day ago' : `${d} days ago`
-}
-
-const workTypeColor: Record<string, string> = { remote: '#10b981', onsite: '#6366f1', hybrid: '#f59e0b' }
 
 interface Props {
   users: AppUser[]
@@ -125,16 +115,12 @@ export default function LeadsTab({ users, profiles }: Props) {
         <div className="text-xs font-semibold text-[var(--fg)] mb-0.5">{lead.jobTitle}</div>
         <div className="text-xs text-[var(--muted-fg)] mb-2">{lead.company} · {lead.jobLocation}</div>
         <div className="flex items-center justify-between mb-2">
-          <Badge variant="outline" className="px-1.75 py-0.5 rounded text-[10px] font-semibold font-mono" style={{ background: workTypeColor[lead.workType] + '18', border: `1px solid ${workTypeColor[lead.workType]}30`, color: workTypeColor[lead.workType] }}>
-            {lead.workType}
-          </Badge>
+          <TintedBadge color={WORK_TYPE_COLOR[lead.workType]}>{lead.workType}</TintedBadge>
           <span className="font-mono text-[10px] text-[var(--muted-fg)]">{timeAgo(lead.appliedAt)}</span>
         </div>
         <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
           <div className="flex items-center gap-1.25">
-            <div className="w-4.5 h-4.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[8px] font-bold text-white">
-              {lead.profileName.split(' ').map(n => n[0]).join('')}
-            </div>
+            <Avatar name={lead.profileName} size={18} />
             <span className="text-[11px] text-[var(--muted-fg)]">{lead.profileName.split(' ')[0]}</span>
           </div>
           {bd && <span className="text-[10px] text-[var(--muted-fg)]">→ {bd.name.split(' ')[0]}</span>}
@@ -168,10 +154,10 @@ export default function LeadsTab({ users, profiles }: Props) {
                   ? 'bg-cyan-500/12 border border-cyan-500/30 font-semibold text-[var(--primary)]'
                   : 'bg-transparent border border-[var(--border-strong)] font-normal text-[var(--fg)] hover:border-gray-500'
               }`}>
-              {v === 'list'
-                ? <span className="flex items-center gap-1.25"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> List</span>
-                : <span className="flex items-center gap-1.25"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Board</span>
-              }
+              <span className="flex items-center gap-1.25">
+                {v === 'list' ? <List size={12} /> : <LayoutGrid size={12} />}
+                {v === 'list' ? 'List' : 'Board'}
+              </span>
             </Button>
           ))}
         </div>
@@ -179,18 +165,19 @@ export default function LeadsTab({ users, profiles }: Props) {
 
       {/* Filters */}
       <div className="flex gap-2.5 mb-5 shrink-0 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <Input placeholder="Search leads…" value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full py-2 pl-7.5 pr-2.5 bg-[var(--card)] border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
-        </div>
+        <SearchInput
+          placeholder="Search leads…"
+          value={search}
+          onChange={setSearch}
+          className="flex-1 min-w-[180px]"
+        />
         <Select value={statusFilter} onValueChange={v => setStatusFilter(v ?? 'all')}>
           <SelectTrigger className="min-w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            {LEAD_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? 'all')}>
@@ -231,25 +218,23 @@ export default function LeadsTab({ users, profiles }: Props) {
                   <TableRow key={l.id} className="border-b border-[var(--border)] transition-colors hover:bg-[var(--muted)]">
                     <TableCell className="p-3 px-3">
                       <div className="flex items-center gap-1.75">
-                        <div className="w-6.5 h-6.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                          {l.profileName.split(' ').map(n => n[0]).join('')}
-                        </div>
+                        <Avatar name={l.profileName} size={26} />
                         <span className="font-medium text-[var(--fg)] whitespace-nowrap">{l.profileName}</span>
                       </div>
                     </TableCell>
                     <TableCell className="p-3 px-3 text-[var(--fg)] font-medium">{l.jobTitle}</TableCell>
                     <TableCell className="p-3 px-3 text-[var(--muted-fg)]">{l.company}</TableCell>
                     <TableCell className="p-3 px-3">
-                      <span className="px-1.75 py-0.5 rounded text-[10px] font-semibold font-mono" style={{ background: workTypeColor[l.workType] + '18', border: `1px solid ${workTypeColor[l.workType]}30`, color: workTypeColor[l.workType] }}>{l.workType}</span>
+                      <TintedBadge color={WORK_TYPE_COLOR[l.workType]}>{l.workType}</TintedBadge>
                     </TableCell>
                     <TableCell className="p-3 px-3">
                       <Select value={l.status} onValueChange={s => updateStatus(l.id, s ?? 'Applied')}>
                         <SelectTrigger size="sm" className="h-auto px-2 py-0.75 rounded-md text-[11px] font-semibold cursor-pointer font-mono border"
-                          style={{ background: statusBg[l.status], borderColor: statusColor[l.status] + '40', color: statusColor[l.status] }}>
+                          style={{ background: LEAD_STATUS_BG[l.status], borderColor: LEAD_STATUS_COLOR[l.status] + '40', color: LEAD_STATUS_COLOR[l.status] }}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          {LEAD_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -284,7 +269,7 @@ export default function LeadsTab({ users, profiles }: Props) {
       {view === 'board' && (
         <div className="flex-1 overflow-auto">
           <div className="flex gap-3.5 min-w-max h-full">
-            {STATUSES.map(status => {
+            {LEAD_STATUSES.map(status => {
               const columnLeads = filtered.filter(l => l.status === status)
               return (
                 <div key={status}
@@ -293,14 +278,14 @@ export default function LeadsTab({ users, profiles }: Props) {
                   className="w-[240px] flex flex-col shrink-0">
                   <div className="flex items-center justify-between mb-2.5 px-0.5">
                     <div className="flex items-center gap-1.75">
-                      <div className="w-2 h-2 rounded-full" style={{ background: statusColor[status] }} />
+                      <div className="w-2 h-2 rounded-full" style={{ background: LEAD_STATUS_COLOR[status] }} />
                       <span className="text-xs font-semibold text-[var(--fg)]">{status}</span>
                     </div>
                     <span className="font-mono text-[11px] text-[var(--muted-fg)] bg-[var(--secondary)] px-1.75 py-0.25 rounded-full">{columnLeads.length}</span>
                   </div>
                   <div
                     className="flex-1 min-h-[200px] p-2 bg-[var(--muted)] rounded-lg border border-[var(--border)] flex flex-col gap-2 overflow-y-auto transition-all duration-150"
-                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = statusColor[status] }}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = LEAD_STATUS_COLOR[status] }}
                     onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
                     onDrop={e => { e.currentTarget.style.borderColor = 'var(--border)'; handleDrop(e, status) }}
                   >

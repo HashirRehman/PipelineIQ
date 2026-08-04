@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import type { AppUser, Profile } from '@/app/page'
+import { Avatar } from "@/components/avatar"
+import { StatCard } from "@/components/stat-card"
+import { PageHeader } from "@/components/page-header"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -176,70 +179,65 @@ export default function StatisticsTab({ profiles, users, currentUser }: Props) {
 
   return (
     <div className="p-7 px-8 flex-1 overflow-auto">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Lead Statistics</h1>
-          <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">Performance analytics across profiles and team members</p>
-        </div>
-        <div className="flex gap-2.5 flex-wrap">
-          {isAdmin && (
-            <Select value={userFilter} onValueChange={v => setUserFilter(v ?? 'all')}>
+      <PageHeader
+        title="Lead Statistics"
+        subtitle="Performance analytics across profiles and team members"
+        className="mb-6 items-start"
+        actions={
+          <>
+            {isAdmin && (
+              <Select value={userFilter} onValueChange={v => setUserFilter(v ?? 'all')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {bdUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? 'all')}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                {bdUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                <SelectItem value="all">All Profiles</SelectItem>
+                {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
-          )}
-          <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? 'all')}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Profiles</SelectItem>
-              {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={dateRange} onValueChange={v => setDateRange(v ?? '6mo')}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1mo">Last month</SelectItem>
-              <SelectItem value="3mo">Last 3 months</SelectItem>
-              <SelectItem value="6mo">Last 6 months</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Tabs value={granularity} onValueChange={v => setGranularity(v ?? 'monthly')}>
-            <TabsList className="bg-[var(--card)] border border-[var(--border-strong)] rounded-md overflow-hidden p-0 h-auto gap-0 shadow-none">
-              {['daily', 'weekly', 'monthly'].map(g => (
-                <TabsTrigger key={g} value={g}
-                  className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none data-active:bg-cyan-500/15 data-active:text-[var(--primary)] ${
-                    granularity === g
-                      ? 'bg-cyan-500/15 font-semibold text-[var(--primary)]'
-                      : 'bg-transparent font-normal text-[var(--fg)] hover:text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}>
-                  {g.charAt(0).toUpperCase() + g.slice(1)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
+            <Select value={dateRange} onValueChange={v => setDateRange(v ?? '6mo')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1mo">Last month</SelectItem>
+                <SelectItem value="3mo">Last 3 months</SelectItem>
+                <SelectItem value="6mo">Last 6 months</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+            <Tabs value={granularity} onValueChange={v => setGranularity(v ?? 'monthly')}>
+              <TabsList className="bg-[var(--card)] border border-[var(--border-strong)] rounded-md overflow-hidden p-0 h-auto gap-0 shadow-none">
+                {['daily', 'weekly', 'monthly'].map(g => (
+                  <TabsTrigger key={g} value={g}
+                    className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none data-active:bg-cyan-500/15 data-active:text-[var(--primary)] ${
+                      granularity === g
+                        ? 'bg-cyan-500/15 font-semibold text-[var(--primary)]'
+                        : 'bg-transparent font-normal text-[var(--fg)] hover:text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                    }`}>
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </>
+        }
+      />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 gap-3.5 mb-6">
         {statsCards.map(s => (
-          <Card key={s.label} className="py-4.5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
-            <CardContent className="p-0">
-              <div className="font-mono text-[26px] font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
-              <div className="text-xs font-medium text-[var(--fg)] mb-0.5">{s.label}</div>
-              <div className="text-[11px] text-[var(--muted-fg)]">{s.sub}</div>
-            </CardContent>
-          </Card>
+          <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} color={s.color} />
         ))}
       </div>
 
@@ -305,9 +303,7 @@ export default function StatisticsTab({ profiles, users, currentUser }: Props) {
               const pct = (leads / maxLeads) * 100
               return (
                 <div key={p.id} className={`flex items-center gap-3 py-2.75 ${i < profiles.length - 1 ? 'border-b border-[var(--border)]' : ''}`}>
-                  <div className="w-7.5 h-7.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
-                    {p.name.split(' ').map(n => n[0]).join('')}
-                  </div>
+                  <Avatar name={p.name} size={30} />
                   <div className="w-[140px] shrink-0">
                     <div className="text-xs font-medium text-[var(--fg)]">{p.name}</div>
                     <div className="font-mono text-[10px] text-[var(--muted-fg)]">{p.seniority} · {p.status}</div>

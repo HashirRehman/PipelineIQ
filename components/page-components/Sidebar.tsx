@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { TabId, Profile } from "@/app/page";
 import { useTheme } from "next-themes";
+import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar as SidebarRoot,
@@ -79,23 +80,11 @@ const NAV: {
 function ProfileAvatar({
   name,
   size = 24,
-  fontSize = 10,
 }: {
   name: string;
   size?: number;
-  fontSize?: number;
 }) {
-  return (
-    <div
-      className="rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center font-bold text-white shrink-0"
-      style={{ width: size, height: size, fontSize }}
-    >
-      {name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")}
-    </div>
-  );
+  return <Avatar name={name} size={size} />;
 }
 
 interface SidebarProps {
@@ -155,7 +144,7 @@ export default function Sidebar({
                   />
                 }
               >
-                <ProfileAvatar name={activeProfile.name} />
+                <ProfileAvatar name={activeProfile.name} size={24} />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-semibold text-[var(--fg)] truncate">
                     {activeProfile.name}
@@ -195,7 +184,7 @@ export default function Sidebar({
                         : "hover:bg-black/5 dark:hover:bg-white/5"
                     )}
                   >
-                    <ProfileAvatar name={p.name} size={20} fontSize={9} />
+                    <ProfileAvatar name={p.name} size={20} />
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-[var(--fg)] truncate">
                         {p.name}
@@ -286,7 +275,7 @@ export default function Sidebar({
           </Button>
 
           <div className="flex items-center gap-2 p-0.5">
-            <ProfileAvatar name="Alex Rivera" size={30} fontSize={11} />
+            <ProfileAvatar name="Alex Rivera" size={30} />
             <div className="min-w-0">
               <div className="text-xs font-medium text-[var(--sidebar-fg)] truncate">
                 Alex Rivera
