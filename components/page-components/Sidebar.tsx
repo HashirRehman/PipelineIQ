@@ -163,119 +163,37 @@ export default function Sidebar({
   };
 
   return (
-    <aside style={s}>
+    <aside className="w-[216px] min-w-[216px] bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col h-screen relative z-20">
       {/* Logo */}
-      <div
-        style={{
-          padding: "18px 14px 14px",
-          borderBottom: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
+      <div className="p-4.5 px-3.5 pb-3.5 border-b border-[var(--border)] flex items-center gap-2.5">
         <RecursoLogo />
         <div>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#e2e8f0",
-              letterSpacing: "-0.4px",
-              lineHeight: 1,
-            }}
-          >
+          <div className="text-sm font-bold text-slate-200 tracking-tight leading-none">
             Recurso
           </div>
-          <div
-            className="mono"
-            style={{
-              fontSize: 9,
-              fontWeight: 500,
-              color: "var(--muted-fg)",
-              letterSpacing: "1.2px",
-              textTransform: "uppercase",
-              marginTop: 2,
-            }}
-          >
+          <div className="font-mono text-[9px] font-medium text-[var(--muted-fg)] tracking-[1.2px] uppercase mt-0.5">
             Labs
           </div>
         </div>
       </div>
 
       {/* Profile Selector */}
-      <div
-        style={{
-          padding: "10px 12px",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <div
-          className="mono"
-          style={{
-            fontSize: 9,
-            fontWeight: 600,
-            color: "var(--muted-fg)",
-            letterSpacing: "0.9px",
-            textTransform: "uppercase",
-            marginBottom: 6,
-          }}
-        >
+      <div className="p-2.5 px-3 border-b border-[var(--border)]">
+        <div className="font-mono text-[9px] font-semibold text-[var(--muted-fg)] tracking-[0.9px] uppercase mb-1.5">
           Active Profile
         </div>
         <button
           onClick={() => setOpen(!open)}
-          style={{
-            width: "100%",
-            padding: "7px 10px",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid var(--border-strong)",
-            borderRadius: 6,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-          }}
+          className="w-full p-1.75 px-2.5 bg-white/[0.04] border border-[var(--border-strong)] rounded-md cursor-pointer flex items-center justify-between gap-2 hover:bg-white/[0.08] transition-colors"
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              minWidth: 0,
-            }}
-          >
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #06b6d4, #6366f1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 9,
-                fontWeight: 700,
-                color: "white",
-                flexShrink: 0,
-              }}
-            >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-5.5 h-5.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
               {activeProfile.name
                 .split(" ")
                 .map((n) => n[0])
                 .join("")}
             </div>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: "#e2e8f0",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span className="text-xs font-medium text-slate-200 truncate">
               {activeProfile.name}
             </span>
           </div>
@@ -294,20 +212,7 @@ export default function Sidebar({
         </button>
 
         {open && (
-          <div
-            style={{
-              position: "absolute",
-              left: 12,
-              right: 12,
-              background: "var(--card)",
-              border: "1px solid var(--border-strong)",
-              borderRadius: 8,
-              marginTop: 4,
-              zIndex: 50,
-              boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
-              padding: 4,
-            }}
-          >
+          <div className="absolute left-3 right-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-lg mt-1 z-50 shadow-2xl p-1">
             {profiles.map((p) => (
               <button
                 key={p.id}
@@ -315,62 +220,29 @@ export default function Sidebar({
                   setActiveProfile(p);
                   setOpen(false);
                 }}
-                style={{
-                  width: "100%",
-                  padding: "7px 10px",
-                  background:
-                    p.id === activeProfile.id
-                      ? "rgba(6,182,212,0.1)"
-                      : "transparent",
-                  border: "none",
-                  borderRadius: 5,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
+                className={`w-full p-1.75 px-2.5 border-none rounded-md cursor-pointer flex items-center gap-2 text-left ${
+                  p.id === activeProfile.id
+                    ? "bg-cyan-500/10"
+                    : "bg-transparent hover:bg-black/5 dark:hover:bg-white/5"
+                }`}
               >
                 <div
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    background:
-                      p.id === activeProfile.id
-                        ? "linear-gradient(135deg, #06b6d4, #6366f1)"
-                        : "var(--secondary)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 9,
-                    fontWeight: 700,
-                    color:
-                      p.id === activeProfile.id ? "white" : "var(--muted-fg)",
-                    flexShrink: 0,
-                  }}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                    p.id === activeProfile.id
+                      ? "bg-gradient-to-br from-cyan-500 to-indigo-500 text-white"
+                      : "bg-[var(--secondary)] text-[var(--muted-fg)]"
+                  }`}
                 >
                   {p.name
                     .split(" ")
                     .map((n) => n[0])
                     .join("")}
                 </div>
-                <div style={{ textAlign: "left", minWidth: 0, flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 500,
-                      color: "var(--fg)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-[var(--fg)] truncate">
                     {p.name}
                   </div>
-                  <div
-                    className="mono"
-                    style={{ fontSize: 10, color: "var(--muted-fg)" }}
-                  >
+                  <div className="font-mono text-[10px] text-[var(--muted-fg)]">
                     {p.seniority} · {p.rateCurrency}
                     {p.rate}/hr
                   </div>
@@ -396,51 +268,23 @@ export default function Sidebar({
       </div>
 
       {/* Nav */}
-      <nav
-        style={{
-          flex: 1,
-          padding: "6px 8px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-        }}
-      >
+      <nav className="flex-1 p-1.5 px-2 flex flex-col gap-0.25">
         {NAV.map((item) => {
           const active = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className="nav-btn"
-              style={{
-                width: "100%",
-                padding: "9px 10px",
-                background: active ? "rgba(6,182,212,0.12)" : "transparent",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                color: active ? "var(--primary)" : "var(--sidebar-fg)",
-                textAlign: "left",
-                transition: "all 0.12s ease",
-              }}
+              className={`nav-btn w-full p-2.25 px-2.5 border-none rounded-md cursor-pointer flex items-center gap-2.5 text-left transition-all duration-150 ${
+                active
+                  ? "bg-cyan-500/12 text-[var(--primary)] font-semibold"
+                  : "bg-transparent text-[var(--sidebar-fg)] font-normal hover:bg-black/5 dark:hover:bg-white/5"
+              }`}
             >
               {item.icon(active)}
-              <span style={{ fontSize: 13, fontWeight: active ? 600 : 400 }}>
-                {item.label}
-              </span>
+              <span className="text-xs">{item.label}</span>
               {active && (
-                <div
-                  style={{
-                    marginLeft: "auto",
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background: "var(--primary)",
-                  }}
-                />
+                <div className="ml-auto w-1.25 h-1.25 rounded-full bg-[var(--primary)]" />
               )}
             </button>
           );
@@ -448,31 +292,10 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom */}
-      <div
-        style={{
-          padding: "10px 10px 14px",
-          borderTop: "1px solid var(--border)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
+      <div className="p-2.5 px-2.5 pb-3.5 border-t border-[var(--border)] flex flex-col gap-2">
         <button
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          className="btn-ghost"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            width: "100%",
-            padding: "7px 10px",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            cursor: "pointer",
-            color: "var(--sidebar-fg)",
-            transition: "all 0.12s ease",
-          }}
+          className="btn-ghost flex items-center gap-2 w-full p-1.75 px-2.5 bg-white/[0.04] border border-[var(--border)] rounded-md cursor-pointer text-[var(--sidebar-fg)] transition-all duration-150 hover:bg-white/[0.08]"
         >
           {resolvedTheme === "dark" ? (
             <svg
@@ -502,53 +325,20 @@ export default function Sidebar({
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           )}
-          <span style={{ fontSize: 12 }}>
+          <span className="text-xs">
             {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
           </span>
         </button>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "2px 2px",
-          }}
-        >
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #06b6d4, #6366f1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "white",
-              flexShrink: 0,
-            }}
-          >
+        <div className="flex items-center gap-2 p-0.5">
+          <div className="w-7.5 h-7.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
             AR
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: "#e2e8f0",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-slate-200 truncate">
               Alex Rivera
             </div>
-            <div
-              className="mono"
-              style={{ fontSize: 10, color: "var(--primary)" }}
-            >
+            <div className="font-mono text-[10px] text-[var(--primary)]">
               admin
             </div>
           </div>

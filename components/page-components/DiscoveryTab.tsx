@@ -95,29 +95,59 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
   }
 
   const filterBtn = (label: string, active: boolean, onClick: () => void) => (
-    <button onClick={onClick} className="tab-btn"
-      style={{ padding: '5px 12px', background: active ? 'rgba(6,182,212,0.12)' : 'transparent', border: active ? '1px solid rgba(6,182,212,0.3)' : '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: active ? 600 : 400, color: active ? 'var(--primary)' : 'var(--fg)', whiteSpace: 'nowrap' }}>
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.2 rounded-md cursor-pointer text-xs whitespace-nowrap transition-colors ${
+        active
+          ? 'bg-cyan-500/10 border border-cyan-500/30 font-semibold text-[var(--primary)]'
+          : 'bg-transparent border border-[var(--border-strong)] font-normal text-[var(--fg)] hover:border-gray-500'
+      }`}
+    >
       {label}
     </button>
   )
 
   return (
-    <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden' }}>
+    <div className="flex flex-1 h-full overflow-hidden">
       {/* Filters Panel */}
-      <div style={{ width: 230, borderRight: '1px solid var(--border)', padding: '24px 16px', overflowY: 'auto', flexShrink: 0, background: 'var(--muted)' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="w-[230px] border-r border-[var(--border)] p-6 overflow-y-auto shrink-0 bg-[var(--muted)]">
+        <div className="text-xs font-bold text-[var(--fg)] mb-4 flex items-center justify-between">
           Filters
-          <button onClick={() => { setSearch(''); setParserFilter('All Sources'); setWorkTypeFilter('All Types'); setExpFilter('All Levels'); setStatusFilter('all') }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--primary)' }}>Clear all</button>
+          <button
+            onClick={() => {
+              setSearch('')
+              setParserFilter('All Sources')
+              setWorkTypeFilter('All Types')
+              setExpFilter('All Levels')
+              setStatusFilter('all')
+            }}
+            className="bg-transparent border-none cursor-pointer text-[11px] text-[var(--primary)] hover:underline"
+          >
+            Clear all
+          </button>
         </div>
 
         {/* Status */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-fg)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Status</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {[['all', 'All Jobs'], ['new', 'New'], ['applied', 'Applied'], ['dismissed', 'Dismissed']].map(([v, l]) => (
-              <button key={v} onClick={() => setStatusFilter(v)}
-                style={{ padding: '6px 10px', background: statusFilter === v ? 'rgba(6,182,212,0.1)' : 'transparent', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: statusFilter === v ? 'var(--primary)' : 'var(--fg)', textAlign: 'left', fontWeight: statusFilter === v ? 600 : 400 }}>
+        <div className="mb-5">
+          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
+            Status
+          </div>
+          <div className="flex flex-col gap-1">
+            {[
+              ['all', 'All Jobs'],
+              ['new', 'New'],
+              ['applied', 'Applied'],
+              ['dismissed', 'Dismissed'],
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setStatusFilter(v)}
+                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left ${
+                  statusFilter === v
+                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
+                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
                 {l}
               </button>
             ))}
@@ -125,13 +155,27 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
         </div>
 
         {/* Work Type */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-fg)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Work Type</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="mb-5">
+          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
+            Work Type
+          </div>
+          <div className="flex flex-col gap-1">
             {WORK_TYPES.map(t => (
-              <button key={t} onClick={() => setWorkTypeFilter(t)}
-                style={{ padding: '6px 10px', background: workTypeFilter === t ? 'rgba(6,182,212,0.1)' : 'transparent', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: workTypeFilter === t ? 'var(--primary)' : 'var(--fg)', textAlign: 'left', fontWeight: workTypeFilter === t ? 600 : 400, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {t !== 'All Types' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: workTypeColor[t], flexShrink: 0 }} />}
+              <button
+                key={t}
+                onClick={() => setWorkTypeFilter(t)}
+                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left flex items-center gap-1.5 ${
+                  workTypeFilter === t
+                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
+                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                {t !== 'All Types' && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: workTypeColor[t] }}
+                  />
+                )}
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -139,12 +183,21 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
         </div>
 
         {/* Parser Source */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-fg)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Source Parser</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="mb-5">
+          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
+            Source Parser
+          </div>
+          <div className="flex flex-col gap-1">
             {PARSERS.map(p => (
-              <button key={p} onClick={() => setParserFilter(p)}
-                style={{ padding: '6px 10px', background: parserFilter === p ? 'rgba(6,182,212,0.1)' : 'transparent', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: parserFilter === p ? 'var(--primary)' : 'var(--fg)', textAlign: 'left', fontWeight: parserFilter === p ? 600 : 400 }}>
+              <button
+                key={p}
+                onClick={() => setParserFilter(p)}
+                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left ${
+                  parserFilter === p
+                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
+                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
                 {p}
               </button>
             ))}
@@ -153,11 +206,20 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
 
         {/* Experience */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-fg)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Experience Level</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
+            Experience Level
+          </div>
+          <div className="flex flex-col gap-1">
             {EXPERIENCE.map(e => (
-              <button key={e} onClick={() => setExpFilter(e)}
-                style={{ padding: '6px 10px', background: expFilter === e ? 'rgba(6,182,212,0.1)' : 'transparent', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: expFilter === e ? 'var(--primary)' : 'var(--fg)', textAlign: 'left', fontWeight: expFilter === e ? 600 : 400 }}>
+              <button
+                key={e}
+                onClick={() => setExpFilter(e)}
+                className={`px-2.5 py-1.5 border-none rounded cursor-pointer text-xs text-left ${
+                  expFilter === e
+                    ? 'bg-cyan-500/10 font-semibold text-[var(--primary)]'
+                    : 'bg-transparent font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
                 {e}
               </button>
             ))}
@@ -166,79 +228,170 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
       </div>
 
       {/* Job List */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '24px 28px 0', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-7 pt-6 pb-0 shrink-0">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg)', margin: 0 }}>Discovery</h1>
-              <p style={{ fontSize: 13, color: 'var(--muted-fg)', margin: '3px 0 0' }}>{filtered.length} jobs found</p>
+              <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Discovery</h1>
+              <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{filtered.length} jobs found</p>
             </div>
-            <div style={{ position: 'relative' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input placeholder="Search jobs…" value={search} onChange={e => setSearch(e.target.value)}
-                style={{ padding: '9px 10px 9px 32px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 7, color: 'var(--fg)', fontSize: 13, outline: 'none', width: 220 }} />
+            <div className="relative">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--muted-fg)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                placeholder="Search jobs…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="py-2.25 pl-8 pr-2.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs outline-none w-[220px] focus:border-[var(--primary)]"
+              />
             </div>
           </div>
 
           {/* Quick filter pills */}
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 14 }}>
+          <div className="flex gap-1.5 overflow-x-auto pb-3.5">
             {filterBtn('All', statusFilter === 'all', () => setStatusFilter('all'))}
-            {filterBtn('Remote', workTypeFilter === 'remote', () => setWorkTypeFilter(workTypeFilter === 'remote' ? 'All Types' : 'remote'))}
-            {filterBtn('Hybrid', workTypeFilter === 'hybrid', () => setWorkTypeFilter(workTypeFilter === 'hybrid' ? 'All Types' : 'hybrid'))}
-            {filterBtn('Onsite', workTypeFilter === 'onsite', () => setWorkTypeFilter(workTypeFilter === 'onsite' ? 'All Types' : 'onsite'))}
-            {filterBtn('Applied', statusFilter === 'applied', () => setStatusFilter(statusFilter === 'applied' ? 'all' : 'applied'))}
+            {filterBtn('Remote', workTypeFilter === 'remote', () =>
+              setWorkTypeFilter(workTypeFilter === 'remote' ? 'All Types' : 'remote')
+            )}
+            {filterBtn('Hybrid', workTypeFilter === 'hybrid', () =>
+              setWorkTypeFilter(workTypeFilter === 'hybrid' ? 'All Types' : 'hybrid')
+            )}
+            {filterBtn('Onsite', workTypeFilter === 'onsite', () =>
+              setWorkTypeFilter(workTypeFilter === 'onsite' ? 'All Types' : 'onsite')
+            )}
+            {filterBtn('Applied', statusFilter === 'applied', () =>
+              setStatusFilter(statusFilter === 'applied' ? 'all' : 'applied')
+            )}
           </div>
         </div>
 
-        <div style={{ flex: 1, overflow: 'auto', padding: '0 28px 24px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex-1 overflow-auto px-7 pb-6">
+          <div className="flex flex-col gap-2.5">
             {paginated.map(job => {
-              const matchSkills = activeProfile.skills.filter(s => job.requirements.some(r => r.toLowerCase().includes(s.toLowerCase())))
-              const matchScore = Math.min(100, Math.round((matchSkills.length / Math.max(job.requirements.length, 1)) * 100) + 15)
+              const matchSkills = activeProfile.skills.filter(s =>
+                job.requirements.some(r => r.toLowerCase().includes(s.toLowerCase()))
+              )
+              const matchScore = Math.min(
+                100,
+                Math.round((matchSkills.length / Math.max(job.requirements.length, 1)) * 100) + 15
+              )
 
               return (
-                <div key={job.id} className="job-card"
-                  style={{ background: statusBg[job.status] || 'var(--card)', border: `1px solid ${statusBorder[job.status] || 'var(--border)'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                  onClick={() => setSelectedJob(job)}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)' }}>{job.title}</span>
-                        {job.status === 'applied' && <span style={{ padding: '1px 7px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, fontSize: 10, fontWeight: 700, color: '#10b981', fontFamily: 'JetBrains Mono, monospace' }}>APPLIED</span>}
-                        {job.status === 'dismissed' && <span style={{ padding: '1px 7px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, fontSize: 10, fontWeight: 700, color: '#ef4444', fontFamily: 'JetBrains Mono, monospace' }}>DISMISSED</span>}
+                <div
+                  key={job.id}
+                  className="job-card rounded-[10px] px-4.5 py-4 cursor-pointer transition-all duration-150 ease-in-out"
+                  style={{
+                    background: statusBg[job.status] || 'var(--card)',
+                    border: `1px solid ${statusBorder[job.status] || 'var(--border)'}`,
+                  }}
+                  onClick={() => setSelectedJob(job)}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[15px] font-semibold text-[var(--fg)]">{job.title}</span>
+                        {job.status === 'applied' && (
+                          <span className="px-1.75 py-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-500 font-mono">
+                            APPLIED
+                          </span>
+                        )}
+                        {job.status === 'dismissed' && (
+                          <span className="px-1.75 py-0.5 bg-red-500/10 border border-red-500/25 rounded-full text-[10px] font-bold text-red-500 font-mono">
+                            DISMISSED
+                          </span>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted-fg)' }}>
-                        <span style={{ fontWeight: 500, color: 'var(--fg)' }}>{job.company}</span>
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--muted-fg)]">
+                        <span className="font-medium text-[var(--fg)]">{job.company}</span>
                         <span>·</span>
                         <span>{job.location}</span>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <div className="flex items-center gap-2 shrink-0">
                       {/* Match score */}
-                      <div style={{ textAlign: 'center' }}>
-                        <div className="mono" style={{ fontSize: 15, fontWeight: 700, color: matchScore >= 70 ? '#10b981' : matchScore >= 40 ? '#f59e0b' : '#ef4444' }}>{matchScore}%</div>
-                        <div style={{ fontSize: 9, color: 'var(--muted-fg)', textTransform: 'uppercase', letterSpacing: '0.4px', fontFamily: 'JetBrains Mono, monospace' }}>match</div>
+                      <div className="text-center">
+                        <div
+                          className={`font-mono text-[15px] font-bold ${
+                            matchScore >= 70
+                              ? 'text-emerald-500'
+                              : matchScore >= 40
+                              ? 'text-amber-500'
+                              : 'text-red-500'
+                          }`}
+                        >
+                          {matchScore}%
+                        </div>
+                        <div className="text-[9px] text-[var(--muted-fg)] uppercase tracking-[0.4px] font-mono">
+                          match
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ padding: '2px 8px', background: workTypeColor[job.workType] + '18', border: `1px solid ${workTypeColor[job.workType]}30`, borderRadius: 4, fontSize: 11, fontWeight: 600, color: workTypeColor[job.workType], fontFamily: 'JetBrains Mono, monospace' }}>{job.workType}</span>
-                      <span style={{ padding: '2px 8px', background: (parserColor[job.parser] || '#64748b') + '18', borderRadius: 4, fontSize: 11, fontWeight: 500, color: parserColor[job.parser] || '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>via {job.parser}</span>
-                      {job.salary && <span style={{ padding: '2px 8px', background: 'rgba(16,185,129,0.1)', borderRadius: 4, fontSize: 11, fontWeight: 600, color: '#10b981', fontFamily: 'JetBrains Mono, monospace' }}>{job.salary}</span>}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex gap-1.5 flex-wrap">
+                      <span
+                        className="px-2 py-0.5 rounded text-[11px] font-semibold font-mono"
+                        style={{
+                          background: workTypeColor[job.workType] + '18',
+                          border: `1px solid ${workTypeColor[job.workType]}30`,
+                          color: workTypeColor[job.workType],
+                        }}
+                      >
+                        {job.workType}
+                      </span>
+                      <span
+                        className="px-2 py-0.5 rounded text-[11px] font-medium font-mono"
+                        style={{
+                          background: (parserColor[job.parser] || '#64748b') + '18',
+                          color: parserColor[job.parser] || '#64748b',
+                        }}
+                      >
+                        via {job.parser}
+                      </span>
+                      {job.salary && (
+                        <span className="px-2 py-0.5 bg-emerald-500/10 rounded text-[11px] font-semibold text-emerald-500 font-mono">
+                          {job.salary}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--muted-fg)' }}>{timeAgo(job.postedAt)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[11px] text-[var(--muted-fg)]">
+                        {timeAgo(job.postedAt)}
+                      </span>
                       {job.status === 'new' && (
-                        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => handleApply(job.id)}
-                            style={{ padding: '5px 12px', background: 'var(--primary)', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'white' }}>Apply</button>
-                          <button onClick={() => handleMarkApplied(job.id)}
-                            style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: 'var(--fg)' }}>Mark Applied</button>
-                          <button onClick={() => startDismiss(job.id)}
-                            style={{ padding: '5px 10px', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: '#ef4444' }}>Dismiss</button>
+                        <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleApply(job.id)}
+                            className="px-3 py-1.25 bg-[var(--primary)] border-none rounded-md cursor-pointer text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+                          >
+                            Apply
+                          </button>
+                          <button
+                            onClick={() => handleMarkApplied(job.id)}
+                            className="px-2.5 py-1.25 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                          >
+                            Mark Applied
+                          </button>
+                          <button
+                            onClick={() => startDismiss(job.id)}
+                            className="px-2.5 py-1.25 bg-transparent border border-red-500/30 rounded-md cursor-pointer text-xs text-red-500 hover:bg-red-500/10 transition-colors"
+                          >
+                            Dismiss
+                          </button>
                         </div>
                       )}
                     </div>
@@ -249,25 +402,61 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           </div>
 
           {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted-fg)' }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px', display: 'block' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <div style={{ fontSize: 14 }}>No jobs match your filters</div>
+            <div className="text-center py-15 text-[var(--muted-fg)]">
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mx-auto mb-3 block"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <div className="text-sm">No jobs match your filters</div>
             </div>
           )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ padding: '6px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 5, cursor: page === 1 ? 'default' : 'pointer', fontSize: 12, color: page === 1 ? 'var(--muted-fg)' : 'var(--fg)', opacity: page === 1 ? 0.5 : 1 }}>
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className={`px-3 py-1.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-xs transition-opacity ${
+                  page === 1
+                    ? 'cursor-default text-[var(--muted-fg)] opacity-50'
+                    : 'cursor-pointer text-[var(--fg)] opacity-100 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
                 ← Prev
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => setPage(p)}
-                  style={{ width: 32, height: 32, background: p === page ? 'var(--primary)' : 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: p === page ? 700 : 400, color: p === page ? 'white' : 'var(--fg)' }}>{p}</button>
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-8 h-8 border border-[var(--border-strong)] rounded-md cursor-pointer text-xs transition-colors ${
+                    p === page
+                      ? 'bg-[var(--primary)] font-bold text-white border-[var(--primary)]'
+                      : 'bg-[var(--card)] font-normal text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {p}
+                </button>
               ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                style={{ padding: '6px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 5, cursor: page === totalPages ? 'default' : 'pointer', fontSize: 12, color: page === totalPages ? 'var(--muted-fg)' : 'var(--fg)', opacity: page === totalPages ? 0.5 : 1 }}>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className={`px-3 py-1.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-xs transition-opacity ${
+                  page === totalPages
+                    ? 'cursor-default text-[var(--muted-fg)] opacity-50'
+                    : 'cursor-pointer text-[var(--fg)] opacity-100 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
                 Next →
               </button>
             </div>
@@ -277,19 +466,38 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
 
       {/* Inline dismiss modal */}
       {dismissOpen && !selectedJob && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}
-          onClick={e => e.target === e.currentTarget && setDismissOpen(false)}>
-          <div style={{ width: 380, background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 12 }}>Dismiss Job</div>
-            <textarea rows={3} placeholder="Reason for dismissal (required)…" value={dismissReason} onChange={e => setDismissReason(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', background: 'var(--secondary)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, resize: 'none', outline: 'none', marginBottom: 12 }} />
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={confirmDismiss} disabled={!dismissReason.trim()}
-                style={{ flex: 1, padding: '9px', background: dismissReason.trim() ? '#ef4444' : 'var(--secondary)', border: 'none', borderRadius: 6, cursor: dismissReason.trim() ? 'pointer' : 'default', fontSize: 13, fontWeight: 600, color: dismissReason.trim() ? 'white' : 'var(--muted-fg)' }}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={e => e.target === e.currentTarget && setDismissOpen(false)}
+        >
+          <div className="w-[380px] bg-[var(--card)] border border-[var(--border-strong)] rounded-lg p-5 shadow-2xl">
+            <div className="text-[15px] font-semibold text-[var(--fg)] mb-3">Dismiss Job</div>
+            <textarea
+              rows={3}
+              placeholder="Reason for dismissal (required)…"
+              value={dismissReason}
+              onChange={e => setDismissReason(e.target.value)}
+              className="w-full p-2.5 bg-[var(--secondary)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs resize-none outline-none mb-3 focus:border-[var(--primary)]"
+            />
+            <div className="flex gap-2.5">
+              <button
+                onClick={confirmDismiss}
+                disabled={!dismissReason.trim()}
+                className={`flex-1 p-2.25 border-none rounded-md text-xs font-semibold transition-colors ${
+                  dismissReason.trim()
+                    ? 'bg-red-500 text-white cursor-pointer hover:bg-red-600'
+                    : 'bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default'
+                }`}
+              >
                 Confirm Dismiss
               </button>
-              <button onClick={() => { setDismissOpen(false); setPendingDismissId(null) }}
-                style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: 'var(--fg)' }}>
+              <button
+                onClick={() => {
+                  setDismissOpen(false)
+                  setPendingDismissId(null)
+                }}
+                className="flex-1 p-2.25 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
                 Cancel
               </button>
             </div>
@@ -316,3 +524,4 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
     </div>
   )
 }
+

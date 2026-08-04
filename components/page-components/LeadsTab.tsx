@@ -102,34 +102,30 @@ export default function LeadsTab({ users, profiles }: Props) {
       <div
         draggable
         onDragStart={e => handleDragStart(e, lead.id)}
-        style={{
-          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 9,
-          padding: '12px 14px', cursor: 'grab', opacity: dragItem === lead.id ? 0.5 : 1,
-          transition: 'all 0.12s ease',
-        }}
+        className={`bg-[var(--card)] border border-[var(--border)] rounded-[9px] p-3 cursor-grab transition-all duration-150 ${dragItem === lead.id ? 'opacity-50' : 'opacity-100'} hover:border-[var(--border-strong)]`}
       >
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg)', marginBottom: 2 }}>{lead.jobTitle}</div>
-        <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginBottom: 8 }}>{lead.company} · {lead.jobLocation}</div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span style={{ padding: '2px 7px', background: workTypeColor[lead.workType] + '18', border: `1px solid ${workTypeColor[lead.workType]}30`, borderRadius: 4, fontSize: 10, fontWeight: 600, color: workTypeColor[lead.workType], fontFamily: 'JetBrains Mono, monospace' }}>{lead.workType}</span>
-          <span className="mono" style={{ fontSize: 10, color: 'var(--muted-fg)' }}>{timeAgo(lead.appliedAt)}</span>
+        <div className="text-xs font-semibold text-[var(--fg)] mb-0.5">{lead.jobTitle}</div>
+        <div className="text-xs text-[var(--muted-fg)] mb-2">{lead.company} · {lead.jobLocation}</div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="px-1.75 py-0.5 rounded text-[10px] font-semibold font-mono" style={{ background: workTypeColor[lead.workType] + '18', border: `1px solid ${workTypeColor[lead.workType]}30`, color: workTypeColor[lead.workType] }}>{lead.workType}</span>
+          <span className="font-mono text-[10px] text-[var(--muted-fg)]">{timeAgo(lead.appliedAt)}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'linear-gradient(135deg,#06b6d4,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 700, color: 'white' }}>
+        <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
+          <div className="flex items-center gap-1.25">
+            <div className="w-4.5 h-4.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[8px] font-bold text-white">
               {lead.profileName.split(' ').map(n => n[0]).join('')}
             </div>
-            <span style={{ fontSize: 11, color: 'var(--muted-fg)' }}>{lead.profileName.split(' ')[0]}</span>
+            <span className="text-[11px] text-[var(--muted-fg)]">{lead.profileName.split(' ')[0]}</span>
           </div>
-          {bd && <span style={{ fontSize: 10, color: 'var(--muted-fg)' }}>→ {bd.name.split(' ')[0]}</span>}
+          {bd && <span className="text-[10px] text-[var(--muted-fg)]">→ {bd.name.split(' ')[0]}</span>}
         </div>
         {lead.bdNotes && (
-          <div style={{ marginTop: 8, padding: '6px 8px', background: 'var(--muted)', borderRadius: 5, fontSize: 11, color: 'var(--muted-fg)', lineHeight: 1.5, borderLeft: '2px solid var(--primary)' }}>
+          <div className="mt-2 p-1.5 px-2 bg-[var(--muted)] rounded text-[11px] text-[var(--muted-fg)] leading-relaxed border-l-2 border-[var(--primary)]">
             {lead.bdNotes}
           </div>
         )}
         <button onClick={e => { e.stopPropagation(); setSelectedJob(lead) }}
-          style={{ marginTop: 8, width: '100%', padding: '5px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 5, cursor: 'pointer', fontSize: 11, color: 'var(--muted-fg)' }}>
+          className="mt-2 w-full p-1.25 bg-transparent border border-[var(--border)] rounded cursor-pointer text-[11px] text-[var(--muted-fg)] hover:text-[var(--fg)] hover:border-[var(--border-strong)] transition-colors">
           View Details
         </button>
       </div>
@@ -137,20 +133,24 @@ export default function LeadsTab({ users, profiles }: Props) {
   }
 
   return (
-    <div style={{ padding: '28px 32px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="p-7 px-8 flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+      <div className="flex items-center justify-between mb-5 shrink-0">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg)', margin: 0 }}>Leads</h1>
-          <p style={{ fontSize: 13, color: 'var(--muted-fg)', margin: '3px 0 0' }}>{filtered.length} active leads</p>
+          <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Leads</h1>
+          <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{filtered.length} active leads</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           {(['list', 'board'] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
-              style={{ padding: '7px 14px', background: view === v ? 'rgba(6,182,212,0.12)' : 'transparent', border: view === v ? '1px solid rgba(6,182,212,0.3)' : '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: view === v ? 600 : 400, color: view === v ? 'var(--primary)' : 'var(--fg)' }}>
+              className={`px-3.5 py-1.75 rounded-md cursor-pointer text-xs transition-colors ${
+                view === v
+                  ? 'bg-cyan-500/12 border border-cyan-500/30 font-semibold text-[var(--primary)]'
+                  : 'bg-transparent border border-[var(--border-strong)] font-normal text-[var(--fg)] hover:border-gray-500'
+              }`}>
               {v === 'list'
-                ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> List</span>
-                : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Board</span>
+                ? <span className="flex items-center gap-1.25"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> List</span>
+                : <span className="flex items-center gap-1.25"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Board</span>
               }
             </button>
           ))}
@@ -158,24 +158,24 @@ export default function LeadsTab({ users, profiles }: Props) {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexShrink: 0, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <div className="flex gap-2.5 mb-5 shrink-0 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input placeholder="Search leads…" value={search} onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '8px 10px 8px 30px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }} />
+            className="w-full py-2 pl-7.5 pr-2.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          style={{ padding: '8px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, minWidth: 140 }}>
+          className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs min-w-[140px]">
           <option value="all">All Statuses</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select value={profileFilter} onChange={e => setProfileFilter(e.target.value)}
-          style={{ padding: '8px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, minWidth: 150 }}>
+          className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs min-w-[150px]">
           <option value="all">All Profiles</option>
           {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <select value={bdFilter} onChange={e => setBdFilter(e.target.value)}
-          style={{ padding: '8px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, minWidth: 140 }}>
+          className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs min-w-[140px]">
           <option value="all">All BDs</option>
           {bdUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
@@ -183,12 +183,12 @@ export default function LeadsTab({ users, profiles }: Props) {
 
       {/* List View */}
       {view === 'list' && (
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="flex-1 overflow-auto">
+          <table className="w-full border-collapse text-xs">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              <tr className="border-b border-[var(--border)]">
                 {['Profile', 'Job Title', 'Company', 'Type', 'Status', 'Applied', 'Assigned BD', 'BD Notes', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--muted-fg)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} className="p-2 px-3 text-left text-[11px] font-semibold text-[var(--muted-fg)] uppercase tracking-[0.5px] font-mono whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -196,86 +196,81 @@ export default function LeadsTab({ users, profiles }: Props) {
               {filtered.map(l => {
                 const bd = users.find(u => u.id === l.assignedTo)
                 return (
-                  <tr key={l.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--muted)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <td style={{ padding: '12px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#06b6d4,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                  <tr key={l.id} className="border-b border-[var(--border)] transition-colors hover:bg-[var(--muted)]">
+                    <td className="p-3 px-3">
+                      <div className="flex items-center gap-1.75">
+                        <div className="w-6.5 h-6.5 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
                           {l.profileName.split(' ').map(n => n[0]).join('')}
                         </div>
-                        <span style={{ fontWeight: 500, color: 'var(--fg)', whiteSpace: 'nowrap' }}>{l.profileName}</span>
+                        <span className="font-medium text-[var(--fg)] whitespace-nowrap">{l.profileName}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '12px 12px', color: 'var(--fg)', fontWeight: 500 }}>{l.jobTitle}</td>
-                    <td style={{ padding: '12px 12px', color: 'var(--muted-fg)' }}>{l.company}</td>
-                    <td style={{ padding: '12px 12px' }}>
-                      <span style={{ padding: '2px 7px', background: workTypeColor[l.workType] + '18', border: `1px solid ${workTypeColor[l.workType]}30`, borderRadius: 4, fontSize: 10, fontWeight: 600, color: workTypeColor[l.workType], fontFamily: 'JetBrains Mono, monospace' }}>{l.workType}</span>
+                    <td className="p-3 px-3 text-[var(--fg)] font-medium">{l.jobTitle}</td>
+                    <td className="p-3 px-3 text-[var(--muted-fg)]">{l.company}</td>
+                    <td className="p-3 px-3">
+                      <span className="px-1.75 py-0.5 rounded text-[10px] font-semibold font-mono" style={{ background: workTypeColor[l.workType] + '18', border: `1px solid ${workTypeColor[l.workType]}30`, color: workTypeColor[l.workType] }}>{l.workType}</span>
                     </td>
-                    <td style={{ padding: '12px 12px' }}>
+                    <td className="p-3 px-3">
                       <select value={l.status} onChange={e => updateStatus(l.id, e.target.value)}
-                        style={{ padding: '3px 8px', background: statusBg[l.status], border: `1px solid ${statusColor[l.status]}40`, borderRadius: 5, fontSize: 11, fontWeight: 600, color: statusColor[l.status], cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace' }}>
+                        className="px-2 py-0.75 rounded-md text-[11px] font-semibold cursor-pointer font-mono"
+                        style={{ background: statusBg[l.status], border: `1px solid ${statusColor[l.status]}40`, color: statusColor[l.status] }}>
                         {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: '12px 12px' }} className="mono"><span style={{ fontSize: 11, color: 'var(--muted-fg)' }}>{timeAgo(l.appliedAt)}</span></td>
-                    <td style={{ padding: '12px 12px', color: 'var(--muted-fg)', whiteSpace: 'nowrap' }}>{bd?.name.split(' ')[0] ?? '—'}</td>
-                    <td style={{ padding: '12px 12px', maxWidth: 200 }}>
+                    <td className="p-3 px-3 font-mono"><span className="text-[11px] text-[var(--muted-fg)]">{timeAgo(l.appliedAt)}</span></td>
+                    <td className="p-3 px-3 text-[var(--muted-fg)] whitespace-nowrap">{bd?.name.split(' ')[0] ?? '—'}</td>
+                    <td className="p-3 px-3 max-w-[200px]">
                       {editingNote === l.id
-                        ? <div style={{ display: 'flex', gap: 5 }}>
+                        ? <div className="flex gap-1.25">
                             <input autoFocus value={noteText} onChange={e => setNoteText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveNote(l.id); if (e.key === 'Escape') setEditingNote(null) }}
-                              style={{ flex: 1, padding: '4px 7px', background: 'var(--secondary)', border: '1px solid var(--primary)', borderRadius: 4, color: 'var(--fg)', fontSize: 12, outline: 'none' }} />
-                            <button onClick={() => saveNote(l.id)} style={{ padding: '4px 8px', background: 'var(--primary)', border: 'none', borderRadius: 4, cursor: 'pointer', color: 'white', fontSize: 11 }}>✓</button>
+                              className="flex-1 p-1 px-1.75 bg-[var(--secondary)] border border-[var(--primary)] rounded text-[var(--fg)] text-xs outline-none" />
+                            <button onClick={() => saveNote(l.id)} className="p-1 px-2 bg-[var(--primary)] border-none rounded cursor-pointer text-white text-[11px]">✓</button>
                           </div>
-                        : <div onClick={() => { setEditingNote(l.id); setNoteText(l.bdNotes) }} style={{ cursor: 'text', color: l.bdNotes ? 'var(--fg)' : 'var(--muted-fg)', fontSize: 12, lineHeight: 1.4, maxHeight: 40, overflow: 'hidden' }}>
-                            {l.bdNotes || <span style={{ fontStyle: 'italic', fontSize: 11 }}>Add note…</span>}
+                        : <div onClick={() => { setEditingNote(l.id); setNoteText(l.bdNotes) }} className={`cursor-text text-xs leading-normal max-h-10 overflow-hidden ${l.bdNotes ? 'text-[var(--fg)]' : 'text-[var(--muted-fg)]'}`}>
+                            {l.bdNotes || <span className="italic text-[11px]">Add note…</span>}
                           </div>
                       }
                     </td>
-                    <td style={{ padding: '12px 12px' }}>
+                    <td className="p-3 px-3">
                       <button onClick={() => setSelectedJob(l)}
-                        style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 5, cursor: 'pointer', fontSize: 11, color: 'var(--primary)' }}>View</button>
+                        className="p-1 px-2.5 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-[11px] text-[var(--primary)] hover:underline">View</button>
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted-fg)', fontSize: 14 }}>No leads match your filters</div>}
+          {filtered.length === 0 && <div className="text-center py-10 text-[var(--muted-fg)] text-sm">No leads match your filters</div>}
         </div>
       )}
 
       {/* Board View */}
       {view === 'board' && (
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <div style={{ display: 'flex', gap: 14, minWidth: 'max-content', height: '100%' }}>
+        <div className="flex-1 overflow-auto">
+          <div className="flex gap-3.5 min-w-max h-full">
             {STATUSES.map(status => {
               const columnLeads = filtered.filter(l => l.status === status)
               return (
                 <div key={status}
                   onDragOver={handleDragOver}
                   onDrop={e => handleDrop(e, status)}
-                  style={{ width: 240, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 2px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor[status] }} />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)' }}>{status}</span>
+                  className="w-[240px] flex flex-col shrink-0">
+                  <div className="flex items-center justify-between mb-2.5 px-0.5">
+                    <div className="flex items-center gap-1.75">
+                      <div className="w-2 h-2 rounded-full" style={{ background: statusColor[status] }} />
+                      <span className="text-xs font-semibold text-[var(--fg)]">{status}</span>
                     </div>
-                    <span className="mono" style={{ fontSize: 11, color: 'var(--muted-fg)', background: 'var(--secondary)', padding: '1px 7px', borderRadius: 10 }}>{columnLeads.length}</span>
+                    <span className="font-mono text-[11px] text-[var(--muted-fg)] bg-[var(--secondary)] px-1.75 py-0.25 rounded-full">{columnLeads.length}</span>
                   </div>
                   <div
-                    style={{
-                      flex: 1, minHeight: 200, padding: '8px', background: 'var(--muted)', borderRadius: 10,
-                      border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8,
-                      overflowY: 'auto', transition: 'all 0.15s ease',
-                    }}
+                    className="flex-1 min-h-[200px] p-2 bg-[var(--muted)] rounded-lg border border-[var(--border)] flex flex-col gap-2 overflow-y-auto transition-all duration-150"
                     onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = statusColor[status] }}
                     onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
                     onDrop={e => { e.currentTarget.style.borderColor = 'var(--border)'; handleDrop(e, status) }}
                   >
                     {columnLeads.map(l => <LeadCard key={l.id} lead={l} />)}
                     {columnLeads.length === 0 && (
-                      <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted-fg)', fontSize: 12 }}>Drop here</div>
+                      <div className="py-5 text-center text-[var(--muted-fg)] text-xs">Drop here</div>
                     )}
                   </div>
                 </div>

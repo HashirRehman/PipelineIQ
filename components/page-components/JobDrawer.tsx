@@ -46,24 +46,24 @@ function ResumeMatch({ profile, job }: { profile: Profile; job: Job }) {
   }
 
   return (
-    <div style={{ padding: '14px 16px', background: 'var(--muted)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)', marginBottom: 12 }}>Match with {profile.name}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div className="p-3.5 px-4 bg-[var(--muted)] rounded-lg border border-[var(--border)] mb-4">
+      <div className="text-xs font-semibold text-[var(--fg)] mb-3">Match with {profile.name}</div>
+      <div className="flex items-center gap-4">
         <svg width="80" height="80" viewBox="0 0 80 80">
           <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border-strong)" strokeWidth="6" />
           <circle cx="40" cy="40" r="34" fill="none" stroke={score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#ef4444'}
             strokeWidth="6" strokeLinecap="round" strokeDasharray={2 * Math.PI * 34}
-            strokeDashoffset={arc(score)} transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
-          <text x="40" y="44" textAnchor="middle" fill="var(--fg)" fontSize="14" fontWeight="700" fontFamily="JetBrains Mono, monospace">{score}%</text>
+            strokeDashoffset={arc(score)} transform="rotate(-90 40 40)" className="transition-[stroke-dashoffset] duration-500 ease-in-out" />
+          <text x="40" y="44" textAnchor="middle" fill="var(--fg)" fontSize="14" fontWeight="700" className="font-mono">{score}%</text>
         </svg>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted-fg)', marginBottom: 8 }}>Matching skills</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <div className="flex-1">
+          <div className="text-xs text-[var(--muted-fg)] mb-2">Matching skills</div>
+          <div className="flex flex-wrap gap-1">
             {matchSkills.map(s => (
-              <span key={s} style={{ padding: '2px 7px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 4, fontSize: 11, color: '#10b981' }}>{s}</span>
+              <span key={s} className="px-1.75 py-0.5 bg-emerald-500/10 border border-emerald-500/25 rounded text-[11px] text-emerald-500">{s}</span>
             ))}
             {profile.skills.filter(s => !matchSkills.includes(s)).slice(0, 3).map(s => (
-              <span key={s} style={{ padding: '2px 7px', background: 'var(--secondary)', borderRadius: 4, fontSize: 11, color: 'var(--muted-fg)' }}>{s}</span>
+              <span key={s} className="px-1.75 py-0.5 bg-[var(--secondary)] rounded text-[11px] text-[var(--muted-fg)]">{s}</span>
             ))}
           </div>
         </div>
@@ -95,127 +95,127 @@ export default function JobDrawer({
   const allProfiles = profiles.length > 0 ? profiles : [activeProfile]
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'stretch', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)' }}
+    <div className="fixed inset-0 z-50 flex items-stretch bg-black/60 backdrop-blur-[2px]"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ marginLeft: 'auto', width: 580, background: 'var(--card)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="ml-auto w-[580px] bg-[var(--card)] border-l border-[var(--border)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--fg)', margin: '0 0 6px' }}>{job.title}</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>{job.company}</span>
-                <span style={{ color: 'var(--border-strong)' }}>·</span>
-                <span style={{ fontSize: 13, color: 'var(--muted-fg)' }}>{job.location}</span>
+        <div className="p-5 px-6 border-b border-[var(--border)] shrink-0">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-[var(--fg)] mb-1.5 mt-0">{job.title}</h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm font-semibold text-[var(--fg)]">{job.company}</span>
+                <span className="text-[var(--border-strong)]">·</span>
+                <span className="text-xs text-[var(--muted-fg)]">{job.location}</span>
               </div>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-fg)', flexShrink: 0, padding: 4 }}>
+            <button onClick={onClose} className="bg-transparent border-none cursor-pointer text-[var(--muted-fg)] shrink-0 p-1 hover:text-[var(--fg)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: workTypeColor[job.workType] + '20', color: workTypeColor[job.workType], fontFamily: 'JetBrains Mono, monospace' }}>
+          <div className="flex flex-wrap gap-1.5 mb-3.5">
+            <span className="inline-flex items-center px-2 py-0.75 rounded text-[11px] font-semibold font-mono" style={{ background: workTypeColor[job.workType] + '20', color: workTypeColor[job.workType] }}>
               {job.workType}
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: (parserColor[job.parser] || '#64748b') + '20', color: parserColor[job.parser] || '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>
+            <span className="inline-flex items-center px-2 py-0.75 rounded text-[11px] font-semibold font-mono" style={{ background: (parserColor[job.parser] || '#64748b') + '20', color: parserColor[job.parser] || '#64748b' }}>
               via {job.parser}
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 4, fontSize: 11, background: 'var(--secondary)', color: 'var(--muted-fg)', fontFamily: 'JetBrains Mono, monospace' }}>
+            <span className="inline-flex items-center px-2 py-0.75 rounded text-[11px] bg-[var(--secondary)] text-[var(--muted-fg)] font-mono">
               {timeAgo(job.postedAt)}
             </span>
             {job.salary && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: 'rgba(16,185,129,0.12)', color: '#10b981', fontFamily: 'JetBrains Mono, monospace' }}>
+              <span className="inline-flex items-center px-2 py-0.75 rounded text-[11px] font-semibold bg-emerald-500/12 text-emerald-500 font-mono">
                 {job.salary}
               </span>
             )}
           </div>
 
           {showActions && (
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="flex gap-2">
               {job.status === 'new' && (
                 <>
                   <button onClick={() => onApply?.(job.id)}
-                    style={{ flex: 1, padding: '9px', background: 'var(--primary)', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'white' }}>
+                    className="flex-1 p-2.25 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90 transition-opacity">
                     Apply Now
                   </button>
                   <button onClick={() => onMarkApplied?.(job.id)}
-                    style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>
+                    className="flex-1 p-2.25 bg-transparent border border-[var(--border-strong)] rounded-[7px] cursor-pointer text-xs font-medium text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                     Mark Applied
                   </button>
                   <button onClick={() => setDismissOpen?.(!dismissOpen)}
-                    style={{ padding: '9px 14px', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 7, cursor: 'pointer', fontSize: 13, color: '#ef4444' }}>
+                    className="px-3.5 py-2.25 bg-transparent border border-red-500/30 rounded-[7px] cursor-pointer text-xs text-red-500 hover:bg-red-500/10 transition-colors">
                     Dismiss
                   </button>
                 </>
               )}
-              {job.status === 'applied' && <div style={{ padding: '9px 12px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 7, fontSize: 13, fontWeight: 600, color: '#10b981' }}>✓ Applied</div>}
-              {job.status === 'dismissed' && <div style={{ padding: '9px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 7, fontSize: 13, color: '#ef4444' }}>Dismissed · {job.dismissReason}</div>}
+              {job.status === 'applied' && <div className="px-3 py-2.25 bg-emerald-500/10 border border-emerald-500/25 rounded-[7px] text-xs font-semibold text-emerald-500">✓ Applied</div>}
+              {job.status === 'dismissed' && <div className="px-3 py-2.25 bg-red-500/10 border border-red-500/25 rounded-[7px] text-xs text-red-500">Dismissed · {job.dismissReason}</div>}
             </div>
           )}
 
           {dismissOpen && setDismissReason && setDismissOpen && (
-            <div style={{ marginTop: 10, padding: '12px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 7 }}>
+            <div className="mt-2.5 p-3 bg-red-500/5 border border-red-500/20 rounded-[7px]">
               <textarea rows={2} placeholder="Reason for dismissal (required)…" value={dismissReason} onChange={e => setDismissReason(e.target.value)}
-                style={{ width: '100%', padding: '7px 10px', background: 'var(--secondary)', border: '1px solid var(--border-strong)', borderRadius: 5, color: 'var(--fg)', fontSize: 12, resize: 'none', outline: 'none', marginBottom: 8 }} />
-              <div style={{ display: 'flex', gap: 8 }}>
+                className="w-full p-2 bg-[var(--secondary)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs resize-none outline-none mb-2 focus:border-[var(--primary)]" />
+              <div className="flex gap-2">
                 <button onClick={() => { if (dismissReason.trim()) { onDismiss?.(job.id, dismissReason); setDismissOpen(false) } }}
                   disabled={!dismissReason.trim()}
-                  style={{ padding: '6px 14px', background: dismissReason.trim() ? '#ef4444' : 'var(--secondary)', border: 'none', borderRadius: 5, cursor: dismissReason.trim() ? 'pointer' : 'default', fontSize: 12, fontWeight: 600, color: dismissReason.trim() ? 'white' : 'var(--muted-fg)' }}>
+                  className={`px-3.5 py-1.5 border-none rounded-md text-xs font-semibold transition-colors ${dismissReason.trim() ? 'bg-red-500 text-white cursor-pointer hover:bg-red-600' : 'bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default'}`}>
                   Confirm Dismiss
                 </button>
-                <button onClick={() => setDismissOpen(false)} style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 5, cursor: 'pointer', fontSize: 12, color: 'var(--muted-fg)' }}>Cancel</button>
+                <button onClick={() => setDismissOpen(false)} className="px-3 py-1.5 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-xs text-[var(--muted-fg)] hover:text-[var(--fg)] transition-colors">Cancel</button>
               </div>
             </div>
           )}
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+        <div className="flex-1 overflow-auto p-5 px-6">
           {/* Resume Match */}
           {allProfiles.map(p => <ResumeMatch key={p.id} profile={p} job={job} />)}
 
           {/* Meta */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div className="grid grid-cols-3 gap-3 mb-5">
             {[
               { label: 'Company Size', value: job.companySize },
               { label: 'Industry', value: job.companyIndustry },
               { label: 'Experience', value: job.experienceLevel },
             ].map(m => (
-              <div key={m.label} style={{ padding: '10px 12px', background: 'var(--muted)', borderRadius: 7, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, color: 'var(--muted-fg)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'JetBrains Mono, monospace' }}>{m.label}</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>{m.value}</div>
+              <div key={m.label} className="p-2.5 px-3 bg-[var(--muted)] rounded-[7px] border border-[var(--border)]">
+                <div className="text-[10px] text-[var(--muted-fg)] mb-1 uppercase tracking-[0.5px] font-mono">{m.label}</div>
+                <div className="text-xs font-medium text-[var(--fg)]">{m.value}</div>
               </div>
             ))}
           </div>
 
           {/* Description */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>About the Role</div>
-            <p style={{ fontSize: 13, color: 'var(--fg)', lineHeight: 1.7, margin: 0 }}>{job.description}</p>
+          <div className="mb-5">
+            <div className="text-xs font-semibold text-[var(--fg)] mb-2.5">About the Role</div>
+            <p className="text-xs text-[var(--fg)] leading-relaxed m-0">{job.description}</p>
           </div>
 
           {/* Requirements */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Requirements</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="mb-5">
+            <div className="text-xs font-semibold text-[var(--fg)] mb-2.5">Requirements</div>
+            <div className="flex flex-col gap-1.5">
               {job.requirements.map((r, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--primary)', marginTop: 5, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: 'var(--fg)', lineHeight: 1.5 }}>{r}</span>
+                <div key={i} className="flex items-start gap-2">
+                  <div className="w-1.25 h-1.25 rounded-full bg-[var(--primary)] mt-1.25 shrink-0" />
+                  <span className="text-xs text-[var(--fg)] leading-normal">{r}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {job.niceToHave.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg)', marginBottom: 10 }}>Nice to Have</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="mb-5">
+              <div className="text-xs font-semibold text-[var(--fg)] mb-2.5">Nice to Have</div>
+              <div className="flex flex-col gap-1.5">
                 {job.niceToHave.map((r, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--muted-fg)', marginTop: 5, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: 'var(--muted-fg)', lineHeight: 1.5 }}>{r}</span>
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-1.25 h-1.25 rounded-full bg-[var(--muted-fg)] mt-1.25 shrink-0" />
+                    <span className="text-xs text-[var(--muted-fg)] leading-normal">{r}</span>
                   </div>
                 ))}
               </div>

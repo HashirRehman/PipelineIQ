@@ -14,7 +14,16 @@ function Avatar({ name, size = 34 }: { name: string; size?: number }) {
   const colors = ['#06b6d4,#6366f1', '#10b981,#06b6d4', '#f59e0b,#ef4444', '#6366f1,#ec4899', '#06b6d4,#10b981']
   const idx = name.charCodeAt(0) % colors.length
   return (
-    <div style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg,${colors[idx]})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.3, fontWeight: 700, color: 'white' }}>{initials}</div>
+    <div
+      className="rounded-full shrink-0 flex items-center justify-center font-bold text-white"
+      style={{
+        width: size, height: size,
+        background: `linear-gradient(135deg,${colors[idx]})`,
+        fontSize: size * 0.3,
+      }}
+    >
+      {initials}
+    </div>
   )
 }
 
@@ -37,52 +46,62 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)' }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[3px]"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width: 420, background: 'var(--card)', borderRadius: 12, border: '1px solid var(--border-strong)', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--fg)' }}>Invite Team Member</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-fg)' }}>
+      <div className="w-[420px] bg-[var(--card)] rounded-xl border border-[var(--border-strong)] overflow-hidden shadow-2xl">
+        <div className="p-5 px-6 border-b border-[var(--border)] flex items-center justify-between">
+          <div className="text-base font-semibold text-[var(--fg)]">Invite Team Member</div>
+          <button onClick={onClose} className="bg-transparent border-none cursor-pointer text-[var(--muted-fg)] hover:text-[var(--fg)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         {sent
-          ? <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          ? <div className="p-8 px-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--fg)', marginBottom: 6 }}>Invitation sent!</div>
-              <div style={{ fontSize: 13, color: 'var(--muted-fg)', marginBottom: 20 }}>An invite email has been sent to {email}</div>
-              <button onClick={onClose} style={{ padding: '9px 20px', background: 'var(--primary)', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'white' }}>Done</button>
+              <div className="text-[15px] font-semibold text-[var(--fg)] mb-1.5">Invitation sent!</div>
+              <div className="text-xs text-[var(--muted-fg)] mb-5">An invite email has been sent to {email}</div>
+              <button onClick={onClose} className="p-2.25 px-5 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90">Done</button>
             </div>
-          : <div style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+          : <div className="p-5 px-6">
+              <div className="flex flex-col gap-3.5 mb-5">
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--muted-fg)', marginBottom: 5 }}>Full Name *</label>
+                  <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Full Name *</label>
                   <input value={name} onChange={e => setName(e.target.value)} placeholder="Jane Smith"
-                    style={{ width: '100%', padding: '9px 12px', background: 'var(--secondary)', border: '1px solid var(--border-strong)', borderRadius: 7, color: 'var(--fg)', fontSize: 13, outline: 'none' }} />
+                    className="w-full p-2.25 px-3 bg-[var(--secondary)] border border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--muted-fg)', marginBottom: 5 }}>Email *</label>
+                  <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Email *</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@company.com"
-                    style={{ width: '100%', padding: '9px 12px', background: 'var(--secondary)', border: '1px solid var(--border-strong)', borderRadius: 7, color: 'var(--fg)', fontSize: 13, outline: 'none' }} />
+                    className="w-full p-2.25 px-3 bg-[var(--secondary)] border border-[var(--border-strong)] rounded-[7px] text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: 'var(--muted-fg)', marginBottom: 5 }}>Role</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Role</label>
+                  <div className="flex gap-2">
                     {(['bd', 'lead', 'admin'] as UserRole[]).map(r => (
                       <button key={r} onClick={() => setRole(r)}
-                        style={{ flex: 1, padding: '9px', background: role === r ? (roleColor[r] + '18') : 'var(--secondary)', border: role === r ? `1px solid ${roleColor[r]}40` : '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: role === r ? 700 : 400, color: role === r ? roleColor[r] : 'var(--fg)', textTransform: 'capitalize', fontFamily: 'JetBrains Mono, monospace' }}>
+                        className="flex-1 p-2.25 rounded-md cursor-pointer text-xs capitalize font-mono transition-colors"
+                        style={{
+                          background: role === r ? (roleColor[r] + '18') : 'var(--secondary)',
+                          border: role === r ? `1px solid ${roleColor[r]}40` : '1px solid var(--border-strong)',
+                          fontWeight: role === r ? 700 : 400,
+                          color: role === r ? roleColor[r] : 'var(--fg)',
+                        }}>
                         {r}
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={onClose} style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', fontSize: 13, color: 'var(--fg)' }}>Cancel</button>
+              <div className="flex gap-2.5">
+                <button onClick={onClose} className="flex-1 p-2.25 bg-transparent border border-[var(--border-strong)] rounded-[7px] cursor-pointer text-xs text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors">Cancel</button>
                 <button onClick={handleSubmit} disabled={!name || !email}
-                  style={{ flex: 2, padding: '9px', background: (!name || !email) ? 'var(--secondary)' : 'var(--primary)', border: 'none', borderRadius: 7, cursor: (!name || !email) ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, color: (!name || !email) ? 'var(--muted-fg)' : 'white' }}>
+                  className={`flex-[2] p-2.25 border-none rounded-[7px] text-xs font-semibold transition-colors ${
+                    (!name || !email)
+                      ? 'bg-[var(--secondary)] text-[var(--muted-fg)] cursor-default'
+                      : 'bg-[var(--primary)] text-white cursor-pointer hover:opacity-90'
+                  }`}>
                   Send Invite
                 </button>
               </div>
@@ -118,50 +137,50 @@ export default function UsersTab({ currentUser }: Props) {
   }
 
   return (
-    <div style={{ padding: '28px 32px', flex: 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+    <div className="p-7 px-8 flex-1">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg)', margin: 0 }}>Users</h1>
-          <p style={{ fontSize: 13, color: 'var(--muted-fg)', margin: '3px 0 0' }}>{users.length} team members</p>
+          <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">Users</h1>
+          <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{users.length} team members</p>
         </div>
         <button onClick={() => setInviting(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: 'var(--primary)', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'white' }}>
+          className="flex items-center gap-1.75 p-2.25 px-4 bg-[var(--primary)] border-none rounded-[7px] cursor-pointer text-xs font-semibold text-white hover:opacity-90 transition-opacity">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Invite User
         </button>
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Total Users', value: users.length, color: 'var(--primary)' },
           { label: 'Admins', value: users.filter(u => u.role === 'admin').length, color: '#ef4444' },
           { label: 'Leads', value: users.filter(u => u.role === 'lead').length, color: '#f59e0b' },
           { label: 'BDs', value: users.filter(u => u.role === 'bd').length, color: '#6366f1' },
         ].map(s => (
-          <div key={s.label} style={{ padding: '14px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10 }}>
-            <div className="mono" style={{ fontSize: 22, fontWeight: 700, color: s.color, marginBottom: 2 }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted-fg)' }}>{s.label}</div>
+          <div key={s.label} className="p-3.5 px-4 bg-[var(--card)] border border-[var(--border)] rounded-lg">
+            <div className="font-mono text-[22px] font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-xs text-[var(--muted-fg)]">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <div className="flex gap-2.5 mb-4.5">
+        <div className="flex-1 relative">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input placeholder="Search users…" value={search} onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '8px 10px 8px 30px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }} />
+            className="w-full py-2 pl-7.5 pr-2.5 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]" />
         </div>
         <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-          style={{ padding: '8px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, minWidth: 130 }}>
+          className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs min-w-[130px]">
           <option value="all">All Roles</option>
           <option value="admin">Admin</option>
           <option value="lead">Lead</option>
           <option value="bd">BD</option>
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          style={{ padding: '8px 12px', background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, minWidth: 130 }}>
+          className="p-2 px-3 bg-[var(--card)] border border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs min-w-[130px]">
           <option value="all">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -169,44 +188,46 @@ export default function UsersTab({ currentUser }: Props) {
       </div>
 
       {/* Table */}
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
+        <table className="w-full border-collapse text-xs">
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--muted)' }}>
+            <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
               {['User', 'Email', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
-                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--muted-fg)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'JetBrains Mono, monospace' }}>{h}</th>
+                <th key={h} className="p-2.5 px-4 text-left text-[11px] font-semibold text-[var(--muted-fg)] uppercase tracking-[0.5px] font-mono">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((u, i) => (
-              <tr key={u.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background 0.1s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--muted)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <td style={{ padding: '13px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <tr key={u.id} className={`border-b border-[var(--border)] transition-colors hover:bg-[var(--muted)] ${i === filtered.length - 1 ? 'border-b-0' : ''}`}>
+                <td className="p-3.25 px-4">
+                  <div className="flex items-center gap-2.5">
                     <Avatar name={u.name} size={34} />
                     <div>
-                      <div style={{ fontWeight: 600, color: 'var(--fg)' }}>{u.name}</div>
-                      {u.id === currentUser.id && <div style={{ fontSize: 10, color: 'var(--primary)', fontFamily: 'JetBrains Mono, monospace' }}>You</div>}
+                      <div className="font-semibold text-[var(--fg)]">{u.name}</div>
+                      {u.id === currentUser.id && <div className="text-[10px] text-[var(--primary)] font-mono">You</div>}
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '13px 16px', color: 'var(--muted-fg)' }}>{u.email}</td>
-                <td style={{ padding: '13px 16px' }}>
-                  <span className="mono" style={{ padding: '3px 8px', background: roleColor[u.role] + '18', border: `1px solid ${roleColor[u.role]}35`, borderRadius: 4, fontSize: 11, fontWeight: 600, color: roleColor[u.role] }}>{u.role}</span>
+                <td className="p-3.25 px-4 text-[var(--muted-fg)]">{u.email}</td>
+                <td className="p-3.25 px-4">
+                  <span className="font-mono p-0.75 px-2 rounded text-[11px] font-semibold" style={{ background: roleColor[u.role] + '18', border: `1px solid ${roleColor[u.role]}35`, color: roleColor[u.role] }}>{u.role}</span>
                 </td>
-                <td style={{ padding: '13px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[u.status] }} />
-                    <span style={{ fontSize: 13, color: statusColor[u.status] }}>{u.status}</span>
+                <td className="p-3.25 px-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor[u.status] }} />
+                    <span className="text-xs" style={{ color: statusColor[u.status] }}>{u.status}</span>
                   </div>
                 </td>
-                <td style={{ padding: '13px 16px' }} className="mono"><span style={{ fontSize: 12, color: 'var(--muted-fg)' }}>{timeFormat(u.joinedAt)}</span></td>
-                <td style={{ padding: '13px 16px' }}>
+                <td className="p-3.25 px-4 font-mono"><span className="text-xs text-[var(--muted-fg)]">{timeFormat(u.joinedAt)}</span></td>
+                <td className="p-3.25 px-4">
                   {u.id !== currentUser.id && (
                     <button onClick={() => toggleStatus(u.id)}
-                      style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${u.status === 'active' ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`, borderRadius: 5, cursor: 'pointer', fontSize: 11, color: u.status === 'active' ? '#ef4444' : '#10b981' }}>
+                      className={`p-1 px-2.5 bg-transparent border rounded-md cursor-pointer text-[11px] transition-colors ${
+                        u.status === 'active'
+                          ? 'border-red-500/30 text-red-500 hover:bg-red-500/10'
+                          : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                      }`}>
                       {u.status === 'active' ? 'Deactivate' : 'Activate'}
                     </button>
                   )}
@@ -215,7 +236,7 @@ export default function UsersTab({ currentUser }: Props) {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--muted-fg)', fontSize: 14 }}>No users match your search</div>}
+        {filtered.length === 0 && <div className="text-center py-8 text-[var(--muted-fg)] text-sm">No users match your search</div>}
       </div>
 
       {inviting && <InviteModal onClose={() => setInviting(false)} onInvite={handleInvite} />}
