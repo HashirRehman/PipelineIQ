@@ -16,6 +16,14 @@ import {
 } from "@/components/ui/select";
 
 const initialState: EngineerActionState = {};
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
 type Assignment = {
   bdUserId: string;
@@ -30,8 +38,14 @@ function UnassignButton({ engineerId, bdUserId }: { engineerId: string; bdUserId
     <form action={formAction} className="flex items-center gap-3">
       <input type="hidden" name="engineerId" value={engineerId} />
       <input type="hidden" name="bdUserId" value={bdUserId} />
-      <Button type="submit" variant="outline" size="sm" disabled={isPending}>
-        {isPending ? "Removing…" : "Unassign"}
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        disabled={isPending}
+        className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15"
+      >
+        {isPending ? "Removing…" : "Remove"}
       </Button>
       {state.error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">
@@ -97,29 +111,52 @@ export function EngineerAssignments({
   isAdmin: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="rounded-lg border border-border bg-muted/40 p-4">
       {assignments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No BD Executives currently assigned.</p>
+        <p className="text-sm text-muted-foreground">
+          No BD Executives currently assigned.
+        </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {assignments.map((assignment) => (
             <li
               key={assignment.bdUserId}
-              className="flex items-center justify-between gap-3 text-sm"
+              className="flex items-center justify-between gap-3"
             >
-              <div>
-                <div className="font-medium">{assignment.fullName}</div>
-                <div className="text-muted-foreground">{assignment.email}</div>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-info-foreground text-[11px] font-semibold text-primary-foreground">
+                  {getInitials(assignment.fullName)}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">
+                    {assignment.fullName}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {assignment.email}
+                  </div>
+                </div>
               </div>
+
               {isAdmin && (
-                <UnassignButton engineerId={engineerId} bdUserId={assignment.bdUserId} />
+                <UnassignButton
+                  engineerId={engineerId}
+                  bdUserId={assignment.bdUserId}
+                />
               )}
             </li>
           ))}
         </ul>
       )}
 
-      {isAdmin && <AssignForm engineerId={engineerId} candidates={candidates} />}
+      {isAdmin && (
+        <div className="mt-4 border-t border-border pt-4">
+          <AssignForm
+            engineerId={engineerId}
+            candidates={candidates}
+          />
+        </div>
+      )}
     </div>
   );
 }

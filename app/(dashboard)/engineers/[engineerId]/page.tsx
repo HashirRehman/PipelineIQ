@@ -2,11 +2,11 @@ import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { updateEngineer } from "@/lib/actions/engineers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
-import { EngineerActiveToggle } from "./engineer-active-toggle";
-import { EngineerAssignments } from "./engineer-assignments";
-import { EngineerCvList } from "./engineer-cv-list";
-import { EngineerCvUploadForm } from "./engineer-cv-upload-form";
-import { EngineerCoreFieldsForm } from "../engineer-core-fields-form";
+import { EngineerActiveToggle } from "@/components/engineers/engineer-active-toggle";
+import { EngineerAssignments } from "@/components/engineers/engineer-assignments";
+import { EngineerCvList } from "@/components/engineers/engineer-cv-list";
+import { EngineerCvUploadForm } from "@/components/engineers/engineer-cv-upload-form";
+import { EngineerCoreFieldsForm } from "@/components/engineers/engineer-core-fields-form";
 
 export default async function EngineerDetailPage({
   params,

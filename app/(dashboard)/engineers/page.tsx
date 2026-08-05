@@ -1,22 +1,27 @@
 import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
+import { EngineerDetailSheet } from "@/components/engineers/engineer-detail-sheet";
 import {
   EngineersList,
   type EngineerListItem,
-} from "./engineers-list";
+} from "@/components/engineers/engineers-list";
 
 export default async function EngineersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    engineerId?: string;
+  }>;
 }) {
   const supabase = await createClient();
-  const isAdmin = await getCachedIsAdmin();
-  const { error } = await searchParams;
+  const isAdmin = Boolean(await getCachedIsAdmin());
+  const { error, engineerId } = await searchParams;
 
   const [
     { data: engineers },
     { data: engineerSkills },
     { data: assignmentRows },
+    { data: seniorityLevels },
   ] = await Promise.all([
     supabase
       .from("engineers")
@@ -32,9 +37,15 @@ export default async function EngineersPage({
     supabase
       .from("engineer_bd_assignments")
       .select(
-        "engineer_id, profiles!engineer_bd_assignments_bd_user_id_fkey(full_name)",
+        "engineer_id, bd_user_id, profiles!engineer_bd_assignments_bd_user_id_fkey(full_name, email)",
       )
       .is("unassigned_at", null),
+
+    supabase
+      .from("seniority_levels")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("rank"),
   ]);
 
   const skillsByEngineer = new Map<string, string[]>();
@@ -80,6 +91,118 @@ export default async function EngineersPage({
     assignedBdNames: assignedBdsByEngineer.get(engineer.id) ?? [],
   }));
 
+  let detailSheet: React.ReactNode = null;
+
+  if (engineerId) {
+    const { data: selectedEngineer } = await supabase
+      .from("engineers")
+      .select(
+        "id, full_name, email, phone, location, seniority_level_id, years_experience, rate_expectation, rate_currency, summary, is_active, seniority_levels(name)",
+      )
+      .eq("id", engineerId)
+      .maybeSingle();
+
+    if (selectedEngineer) {
+      const { data: cvRows } = await supabase
+        .from("engineer_cvs")
+        .select(
+          "id, label, file_name, storage_path, is_current, created_at",
+        )
+        .eq("engineer_id", engineerId)
+        .order("created_at", { ascending: false });
+
+      const cvs = await Promise.all(
+        (cvRows ?? []).map(async (cv) => {
+          const { data: signedUrlData } = await supabase.storage
+            .from("cv-files")
+            .createSignedUrl(cv.storage_path, 3600);
+
+          return {
+            id: cv.id,
+            label: cv.label,
+            fileName: cv.file_name,
+            isCurrent: cv.is_current,
+            createdAt: cv.created_at,
+            downloadUrl: signedUrlData?.signedUrl ?? null,
+          };
+        }),
+      );
+
+      const assignments = (assignmentRows ?? [])
+        .filter((row) => row.engineer_id === engineerId)
+        .map((row) => ({
+          bdUserId: row.bd_user_id,
+          fullName: row.profiles?.full_name ?? "Unknown user",
+          email: row.profiles?.email ?? "",
+        }));
+
+      let bdCandidates: {
+        id: string;
+        fullName: string;
+        email: string;
+      }[] = [];
+
+      if (isAdmin) {
+        const { data: bdProfiles } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, email, user_roles!user_roles_user_id_fkey(roles(name))",
+          )
+          .order("full_name");
+
+        const assignedIds = new Set(
+          assignments.map((assignment) => assignment.bdUserId),
+        );
+
+        bdCandidates = (bdProfiles ?? [])
+          .filter((profile) =>
+            (profile.user_roles ?? []).some(
+              (userRole) =>
+                userRole.roles?.name === "bd_executive",
+            ),
+          )
+          .filter((profile) => !assignedIds.has(profile.id))
+          .map((profile) => ({
+            id: profile.id,
+            fullName: profile.full_name,
+            email: profile.email,
+          }));
+      }
+
+      detailSheet = (
+        <EngineerDetailSheet
+          engineer={{
+            id: selectedEngineer.id,
+            fullName: selectedEngineer.full_name,
+            email: selectedEngineer.email,
+            phone: selectedEngineer.phone,
+            location: selectedEngineer.location,
+            seniority:
+              selectedEngineer.seniority_levels?.name ?? null,
+            seniorityLevelId:
+              selectedEngineer.seniority_level_id,
+            yearsExperience:
+              selectedEngineer.years_experience,
+            rateExpectation:
+              selectedEngineer.rate_expectation,
+            rateCurrency:
+              selectedEngineer.rate_currency,
+            summary: selectedEngineer.summary,
+            isActive: selectedEngineer.is_active,
+            skillNames: (
+              skillsByEngineer.get(selectedEngineer.id) ?? []
+            ).join(", "),
+          }}
+          seniorityLevels={seniorityLevels ?? []}
+          assignments={assignments}
+          bdCandidates={bdCandidates}
+          cvs={cvs}
+          isAdmin={isAdmin}
+        />
+      );
+    }
+  }
+
   return (
     <>
       {error === "not_authorized" && (
@@ -93,7 +216,13 @@ export default async function EngineersPage({
         </div>
       )}
 
-      <EngineersList engineers={list} isAdmin={Boolean(isAdmin)} />
+      <EngineersList
+        engineers={list}
+        isAdmin={isAdmin}
+        seniorityLevels={seniorityLevels ?? []}
+      />
+
+      {detailSheet}
     </>
   );
 }
