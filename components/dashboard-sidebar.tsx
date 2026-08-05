@@ -16,7 +16,7 @@ import { DashboardNav, type DashboardNavItem } from "@/components/dashboard-nav"
 function buildNavItems(isAdmin: boolean): DashboardNavItem[] {
   const items: DashboardNavItem[] = [
     { href: "/engineers", label: "Engineers", icon: Contact },
-    { href: "/discovery", label: "Discovery", icon: Sparkles },
+    { href: "/", label: "Discovery", icon: Sparkles },
     { href: "/leads", label: "Leads", icon: Briefcase },
   ];
 

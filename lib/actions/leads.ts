@@ -54,7 +54,7 @@ export async function markApplied(
     return { error: "Something went wrong. Please try again." };
   }
 
-  revalidatePath("/discovery");
+  revalidatePath("/");
   revalidatePath("/leads");
   return { success: true, leadId: data as string };
 }

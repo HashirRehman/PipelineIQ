@@ -9,30 +9,46 @@ import { Textarea } from "@/components/ui/textarea"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { PARSER_COLOR, WORK_TYPE_COLOR } from "@/lib/constants"
 import { timeAgo } from "@/lib/format"
-import { computeMatchScore } from "@/lib/matching"
+
+export interface CvMatch {
+  matchId: string
+  cvId: string
+  cvLabel: string
+  isCurrentCv: boolean
+  relevanceScore: number
+  status: "new" | "applied" | "dismissed"
+  dismissReason?: string
+}
 
 export interface Job {
   id: string
   title: string
   company: string
   location: string
-  workType: "remote" | "onsite" | "hybrid"
-  postedAt: Date
-  salary: string
-  description: string
-  requirements: string[]
-  niceToHave: string[]
+  workType: "remote" | "onsite"
+  postedAt: string
+  applyUrl: string
   parser: string
   status: "new" | "applied" | "dismissed"
   dismissReason?: string
-  applyUrl: string
-  companySize: string
-  companyIndustry: string
-  experienceLevel: string
+  description: string
+  relevanceScore?: number
+  cvMatches?: CvMatch[]
+  possiblyClosed?: boolean | null
+  remoteRegion?: string | null
 }
 
-function ResumeMatch({ profile, job }: { profile: Profile; job: Job }) {
-  const { score, matchSkills } = computeMatchScore(profile.skills, job.requirements)
+
+function scoreColor(score: number) {
+  return score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444"
+}
+
+function RelevanceMatch({ profile, job }: { profile: Profile; job: Job }) {
+  const score = job.relevanceScore ?? 0
+  const cvMatches = job.cvMatches ?? []
+  const bestCv = cvMatches.length > 0
+    ? cvMatches.reduce((best, cv) => (cv.relevanceScore > best.relevanceScore ? cv : best))
+    : null
 
   const arc = (pct: number, r = 34) => {
     const circumference = 2 * Math.PI * r
@@ -43,31 +59,45 @@ function ResumeMatch({ profile, job }: { profile: Profile; job: Job }) {
     <div className="p-3.5 px-4 bg-[var(--muted)] rounded-lg border border-[var(--border)] mb-4">
       <div className="text-xs font-semibold text-[var(--fg)] mb-3">
         Match with {profile.name}
+        {bestCv && <span className="font-normal text-[var(--muted-fg)]"> · {bestCv.cvLabel}</span>}
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mb-1">
         <svg width="80" height="80" viewBox="0 0 80 80">
           <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border-strong)" strokeWidth="6" />
-          <circle cx="40" cy="40" r="34" fill="none" stroke={score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444"}
+          <circle cx="40" cy="40" r="34" fill="none" stroke={scoreColor(score)}
             strokeWidth="6" strokeLinecap="round" strokeDasharray={2 * Math.PI * 34}
             strokeDashoffset={arc(score)} transform="rotate(-90 40 40)" className="transition-[stroke-dashoffset] duration-500 ease-in-out" />
-          <text x="40" y="44" textAnchor="middle" fill="var(--fg)" fontSize="14" fontWeight="700" className="font-mono">{score}%</text>
+          <text x="40" y="44" textAnchor="middle" fill="var(--fg)" fontSize="14" fontWeight="700" className="font-mono">{job.relevanceScore ?? "–"}%</text>
         </svg>
         <div className="flex-1">
-          <div className="text-xs text-[var(--muted-fg)] mb-2">Matching skills</div>
-          <div className="flex flex-wrap gap-1">
-            {matchSkills.map(s => (
-              <TintedBadge key={s} color="#10b981" className="px-1.75 py-0.5 text-[11px] font-normal">
-                {s}
-              </TintedBadge>
-            ))}
-            {profile.skills.filter(s => !matchSkills.includes(s)).slice(0, 3).map(s => (
-              <Badge key={s} variant="secondary" className="px-1.75 py-0.5 bg-[var(--secondary)] rounded text-[11px] text-[var(--muted-fg)] font-normal">
-                {s}
-              </Badge>
-            ))}
-          </div>
+          <div className="text-xs text-[var(--muted-fg)]">Relevance score from the discovery engine</div>
         </div>
       </div>
+
+      {cvMatches.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-[var(--border)]">
+          {cvMatches
+            .slice()
+            .sort((a, b) => b.relevanceScore - a.relevanceScore)
+            .map(cv => (
+              <div key={cv.cvId} className="flex items-center gap-2">
+                <span className="flex-1 min-w-0 truncate text-xs text-[var(--fg)]">
+                  {cv.cvLabel}
+                  {cv.isCurrentCv && <span className="ml-1.5 text-[10px] text-[var(--muted-fg)]">(current)</span>}
+                </span>
+                <div className="w-24 h-1.5 rounded-full bg-[var(--border)] overflow-hidden shrink-0">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${cv.relevanceScore}%`, background: scoreColor(cv.relevanceScore) }}
+                  />
+                </div>
+                <span className="w-9 text-right font-mono text-xs font-semibold text-[var(--fg)] shrink-0">
+                  {cv.relevanceScore}%
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -76,7 +106,6 @@ interface Props {
   job: Job
   onClose: () => void
   activeProfile: Profile
-  profiles?: Profile[]
   onApply?: (id: string) => void
   onMarkApplied?: (id: string) => void
   onDismiss?: (id: string, reason: string) => void
@@ -88,11 +117,10 @@ interface Props {
 }
 
 export default function JobDrawer({
-  job, onClose, activeProfile, profiles = [],
+  job, onClose, activeProfile,
   onApply, onMarkApplied, onDismiss, showActions = true,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
 }: Props) {
-  const allProfiles = profiles.length > 0 ? profiles : [activeProfile]
 
   return (
     <Drawer open swipeDirection="right" showSwipeHandle onOpenChange={(open) => { if (!open) onClose() }}>
@@ -119,6 +147,9 @@ export default function JobDrawer({
           <div className="flex flex-wrap gap-1.5 mb-3.5">
             <TintedBadge color={WORK_TYPE_COLOR[job.workType]} className="px-2 py-0.75">
               {job.workType}
+              {job.workType === "remote" && job.remoteRegion
+                ? ` — ${job.remoteRegion}`
+                : null}
             </TintedBadge>
             <TintedBadge color={PARSER_COLOR[job.parser] || "#64748b"} className="px-2 py-0.75">
               via {job.parser}
@@ -126,10 +157,10 @@ export default function JobDrawer({
             <Badge variant="secondary" className="px-2 py-0.75 rounded text-[11px] text-[var(--muted-fg)] font-mono font-normal">
               {timeAgo(job.postedAt)}
             </Badge>
-            {job.salary && (
-              <TintedBadge color="#10b981" className="px-2 py-0.75">
-                {job.salary}
-              </TintedBadge>
+            {job.possiblyClosed && (
+              <Badge variant="secondary" className="px-2 py-0.75 rounded text-[11px] text-amber-600 font-mono font-normal">
+                Possibly Closed
+              </Badge>
             )}
           </div>
 
@@ -174,51 +205,13 @@ export default function JobDrawer({
 
         {/* Body */}
         <div className="flex-1 overflow-auto p-5 px-6">
-          {allProfiles.map(p => <ResumeMatch key={p.id} profile={p} job={job} />)}
-
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            {[
-              { label: "Company Size", value: job.companySize },
-              { label: "Industry", value: job.companyIndustry },
-              { label: "Experience", value: job.experienceLevel },
-            ].map(m => (
-              <div key={m.label} className="p-2.5 px-3 bg-[var(--muted)] rounded-[7px] border border-[var(--border)]">
-                <div className="text-[10px] text-[var(--muted-fg)] mb-1 uppercase tracking-[0.5px] font-mono">{m.label}</div>
-                <div className="text-xs font-medium text-[var(--fg)]">{m.value}</div>
-              </div>
-            ))}
-          </div>
+          <RelevanceMatch profile={activeProfile} job={job} />
 
           <div className="mb-5">
             <div className="text-xs font-semibold text-[var(--fg)] mb-2.5">About the Role</div>
             <p className="text-xs text-[var(--fg)] leading-relaxed m-0">{job.description}</p>
           </div>
 
-          <div className="mb-5">
-            <div className="text-xs font-semibold text-[var(--fg)] mb-2.5">Requirements</div>
-            <div className="flex flex-col gap-1.5">
-              {job.requirements.map((r, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <div className="w-1.25 h-1.25 rounded-full bg-[var(--primary)] mt-1.25 shrink-0" />
-                  <span className="text-xs text-[var(--fg)] leading-normal">{r}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {job.niceToHave.length > 0 && (
-            <div className="mb-5">
-              <div className="text-xs font-semibold text-[var(--fg)] mb-2.5">Nice to Have</div>
-              <div className="flex flex-col gap-1.5">
-                {job.niceToHave.map((r, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="w-1.25 h-1.25 rounded-full bg-[var(--muted-fg)] mt-1.25 shrink-0" />
-                    <span className="text-xs text-[var(--muted-fg)] leading-normal">{r}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </DrawerContent>
     </Drawer>

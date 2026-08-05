@@ -57,7 +57,7 @@ export async function dismissMatch(
     return { error: "Match not found or not accessible." };
   }
 
-  revalidatePath("/discovery");
+  revalidatePath("/");
   return { success: true };
 }
 
@@ -106,7 +106,7 @@ export async function runDiscoveryNow(
   try {
     const summary = await runJobDiscovery(adminClient, new GroqAiClient());
     completed = true;
-    revalidatePath("/discovery");
+    revalidatePath("/");
     return { status: "completed", summary };
   } catch (error) {
     console.error("runDiscoveryNow: runJobDiscovery failed", error);

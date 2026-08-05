@@ -95,11 +95,10 @@ export default function LeadsTab({ users, profiles }: Props) {
 
   const mockJobForLead = (l: Lead): Job => ({
     id: l.id, title: l.jobTitle, company: l.company, location: l.jobLocation,
-    workType: l.workType, postedAt: new Date(l.appliedAt), salary: l.salary,
+    // Job.workType is "remote" | "onsite" — jobs.is_remote is boolean in the DB, no hybrid yet.
+    workType: l.workType === 'hybrid' ? 'onsite' : l.workType, postedAt: l.appliedAt,
     description: `${l.company} is looking for a ${l.jobTitle} to join their team.`,
-    requirements: ['Relevant experience', 'Strong communication skills'],
-    niceToHave: [], parser: l.parser, status: 'applied', applyUrl: '#',
-    companySize: '1,001–5,000', companyIndustry: 'Technology', experienceLevel: l.jobTitle.split(' ')[0],
+    parser: l.parser, status: 'applied', applyUrl: '#',
   })
 
   const activeProfile = profiles[0]
@@ -306,7 +305,6 @@ export default function LeadsTab({ users, profiles }: Props) {
           job={mockJobForLead(selectedJob)}
           onClose={() => setSelectedJob(null)}
           activeProfile={activeProfile}
-          profiles={profiles}
           showActions={false}
         />
       )}

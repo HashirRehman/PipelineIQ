@@ -279,20 +279,40 @@ export async function runJobDiscovery(
     (job) => new Date(job.posted_at ?? job.discovered_at) >= freshnessCutoff,
   );
 
-  const { data: existingMatches } = await supabase.from("job_engineer_matches").select("job_id, engineer_id");
+  const { data: existingMatches } = await supabase
+    .from("job_engineer_matches")
+    .select("job_id, engineer_id, cv_id");
 
-  const matchedPairs = new Set((existingMatches ?? []).map((m) => `${m.job_id}:${m.engineer_id}`));
+  const matchedTriples = new Set(
+    (existingMatches ?? []).map((m) => `${m.job_id}:${m.engineer_id}:${m.cv_id}`),
+  );
 
-  // Cheap in-memory pass (freshJobs/matchedPairs are already loaded, no
-  // extra query) to know the real total before capping — this is what
-  // makes scoringPendingTotal an honest number, not a guess.
+  const { data: cvRows } = await supabase
+    .from("engineer_cvs")
+    .select("id, engineer_id")
+    .in("engineer_id", (engineers ?? []).map((engineer) => engineer.id));
+
+  const cvsByEngineer = new Map<string, string[]>();
+  for (const cv of cvRows ?? []) {
+    const list = cvsByEngineer.get(cv.engineer_id) ?? [];
+    list.push(cv.id);
+    cvsByEngineer.set(cv.engineer_id, list);
+  }
+  const uncoveredCvIds = (job: { id: string }, engineerId: string): string[] =>
+    (cvsByEngineer.get(engineerId) ?? []).filter(
+      (cvId) => !matchedTriples.has(`${job.id}:${engineerId}:${cvId}`),
+    );
+
   summary.scoringPendingTotal = (engineers ?? []).reduce((sum, engineer) => {
-    const unscoredCount = freshJobs.filter((job) => !matchedPairs.has(`${job.id}:${engineer.id}`)).length;
+    const unscoredCount = freshJobs.filter((job) => uncoveredCvIds(job, engineer.id).length > 0).length;
     return sum + unscoredCount;
   }, 0);
 
   scoringLoop: for (const engineer of engineers ?? []) {
     if (summary.scoringAttempted >= MAX_SCORING_PAIRS_PER_RUN) break scoringLoop;
+
+    const eligibleCvIds = cvsByEngineer.get(engineer.id) ?? [];
+    if (eligibleCvIds.length === 0) continue;
 
     const { data: engineerSkillRows } = await supabase
       .from("engineer_skills")
@@ -306,7 +326,7 @@ export async function runJobDiscovery(
       skills: (engineerSkillRows ?? []).map((row) => row.skills?.name).filter((name): name is string => Boolean(name)),
     };
 
-    const unscoredJobs = freshJobs.filter((job) => !matchedPairs.has(`${job.id}:${engineer.id}`));
+    const unscoredJobs = freshJobs.filter((job) => uncoveredCvIds(job, engineer.id).length > 0);
 
     for (const job of unscoredJobs) {
       if (summary.scoringAttempted >= MAX_SCORING_PAIRS_PER_RUN) break scoringLoop;
@@ -319,14 +339,17 @@ export async function runJobDiscovery(
           location: job.location,
         };
         const { score, modelVersion } = await aiClient.scoreRelevance(engineerContext, jobListing);
-        const { error } = await supabase.rpc("upsert_job_engineer_match", {
-          p_job_id: job.id,
-          p_engineer_id: engineer.id,
-          p_relevance_score: score,
-          p_ai_model_version: modelVersion,
-        });
-        if (error) throw error;
-        summary.matchesWritten++;
+        for (const cvId of uncoveredCvIds(job, engineer.id)) {
+          const { error } = await supabase.rpc("upsert_job_engineer_match", {
+            p_job_id: job.id,
+            p_engineer_id: engineer.id,
+            p_cv_id: cvId,
+            p_relevance_score: score,
+            p_ai_model_version: modelVersion,
+          });
+          if (error) throw error;
+          summary.matchesWritten++;
+        }
       } catch (error) {
         console.error(`discover-jobs: score failed for job ${job.id} / engineer ${engineer.id}`, error);
         summary.errors.push({ stage: "score", jobId: job.id, engineerId: engineer.id, error: String(error) });
