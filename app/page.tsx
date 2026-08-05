@@ -1,26 +1,4 @@
 "use client";
-// import { redirect } from "next/navigation";
-// import { UnauthenticatedHomeRedirect } from "@/components/unauthenticated-home-redirect";
-// import { createClient } from "@/lib/supabase/server";
-
-// export default async function Home({
-//   searchParams,
-// }: {
-//   searchParams: Promise<{ error?: string }>;
-// }) {
-//   const supabase = await createClient();
-
-//   const {
-//     data: { user },
-//   } = await supabase.auth.getUser();
-
-//   if (!user) {
-//     return <UnauthenticatedHomeRedirect />;
-//   }
-//   const { error } = await searchParams;
-//   redirect(error ? `/engineers?error=${error}` : "/engineers");
-// }
-
 import { useState } from "react";
 import Sidebar from "@/components/page-components/Sidebar";
 import ProfilesTab from "@/components/page-components/ProfilesTab";
@@ -292,7 +270,7 @@ export default function App() {
           />
         )}
         {activeTab === "discovery" && (
-          <DiscoveryTab activeProfile={activeProfile} profiles={profiles} />
+          <DiscoveryTab activeProfile={activeProfile} />
         )}
         {activeTab === "leads" && (
           <LeadsTab

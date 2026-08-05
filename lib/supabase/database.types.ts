@@ -229,9 +229,11 @@ export type Database = {
           id: string
           is_active: boolean
           location: string | null
+          organization_id: string | null
           phone: string | null
           rate_currency: string
           rate_expectation: number | null
+          rate_unit: Database["public"]["Enums"]["rate_unit"]
           seniority_level_id: string
           summary: string | null
           updated_at: string
@@ -245,9 +247,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string | null
+          organization_id?: string | null
           phone?: string | null
           rate_currency?: string
           rate_expectation?: number | null
+          rate_unit?: Database["public"]["Enums"]["rate_unit"]
           seniority_level_id: string
           summary?: string | null
           updated_at?: string
@@ -261,9 +265,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string | null
+          organization_id?: string | null
           phone?: string | null
           rate_currency?: string
           rate_expectation?: number | null
+          rate_unit?: Database["public"]["Enums"]["rate_unit"]
           seniority_level_id?: string
           summary?: string | null
           updated_at?: string
@@ -275,6 +281,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engineers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -290,6 +303,7 @@ export type Database = {
         Row: {
           ai_model_version: string
           created_at: string
+          cv_id: string
           dismissed_reason: string | null
           engineer_id: string
           id: string
@@ -302,6 +316,7 @@ export type Database = {
         Insert: {
           ai_model_version: string
           created_at?: string
+          cv_id: string
           dismissed_reason?: string | null
           engineer_id: string
           id?: string
@@ -314,6 +329,7 @@ export type Database = {
         Update: {
           ai_model_version?: string
           created_at?: string
+          cv_id?: string
           dismissed_reason?: string | null
           engineer_id?: string
           id?: string
@@ -324,6 +340,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_engineer_matches_cv_id_fkey"
+            columns: ["cv_id"]
+            isOneToOne: false
+            referencedRelation: "engineer_cvs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_engineer_matches_engineer_id_fkey"
             columns: ["engineer_id"]
@@ -391,6 +414,7 @@ export type Database = {
           is_remote: boolean | null
           job_source_id: string
           location: string | null
+          organization_id: string | null
           possibly_closed: boolean | null
           possibly_closed_reason: string | null
           posted_at: string | null
@@ -410,6 +434,7 @@ export type Database = {
           is_remote?: boolean | null
           job_source_id: string
           location?: string | null
+          organization_id?: string | null
           possibly_closed?: boolean | null
           possibly_closed_reason?: string | null
           posted_at?: string | null
@@ -429,6 +454,7 @@ export type Database = {
           is_remote?: boolean | null
           job_source_id?: string
           location?: string | null
+          organization_id?: string | null
           possibly_closed?: boolean | null
           possibly_closed_reason?: string | null
           posted_at?: string | null
@@ -441,6 +467,13 @@ export type Database = {
             columns: ["job_source_id"]
             isOneToOne: false
             referencedRelation: "job_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -641,6 +674,30 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pipeline_stages: {
         Row: {
           created_at: string
@@ -675,6 +732,7 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -683,6 +741,7 @@ export type Database = {
           full_name: string
           id: string
           is_active?: boolean
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -691,9 +750,18 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          organization_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roles: {
         Row: {
@@ -817,6 +885,7 @@ export type Database = {
         Args: { p_bd_user_id: string; p_match_id: string }
         Returns: string
       }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       owned_lead_engineer_ids: { Args: never; Returns: string[] }
       owned_lead_job_ids: { Args: never; Returns: string[] }
@@ -831,6 +900,7 @@ export type Database = {
       upsert_job_engineer_match: {
         Args: {
           p_ai_model_version: string
+          p_cv_id: string
           p_engineer_id: string
           p_job_id: string
           p_relevance_score: number
@@ -845,6 +915,7 @@ export type Database = {
     Enums: {
       lead_status: "active" | "withdrawn" | "closed"
       match_status: "suggested" | "dismissed" | "applied"
+      rate_unit: "hourly" | "daily"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -977,6 +1048,7 @@ export const Constants = {
     Enums: {
       lead_status: ["active", "withdrawn", "closed"],
       match_status: ["suggested", "dismissed", "applied"],
+      rate_unit: ["hourly", "daily"],
     },
   },
 } as const

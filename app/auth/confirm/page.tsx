@@ -9,8 +9,6 @@ export default function ConfirmAuthPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("[confirm] mounted, hash present:", Boolean(window.location.hash));
-
     const hash = window.location.hash.startsWith("#")
       ? window.location.hash.slice(1)
       : window.location.hash;
@@ -20,25 +18,16 @@ export default function ConfirmAuthPage() {
     const accessToken = params.get("access_token");
     const refreshToken = params.get("refresh_token");
 
-    console.log("[confirm] parsed fragment:", {
-      hashError,
-      hasAccessToken: Boolean(accessToken),
-      hasRefreshToken: Boolean(refreshToken),
-    });
-
     if (hashError || !accessToken || !refreshToken) {
-      console.log("[confirm] missing/invalid tokens, redirecting to /login");
       router.replace("/login?error=auth_link_invalid");
       return;
     }
 
     const supabase = createClient();
 
-    console.log("[confirm] calling setSession()...");
     supabase.auth
       .setSession({ access_token: accessToken, refresh_token: refreshToken })
       .then(({ error: setSessionError }) => {
-        console.log("[confirm] setSession() resolved, error:", setSessionError);
         if (setSessionError) {
           setError("Your link has expired or already been used.");
           return;

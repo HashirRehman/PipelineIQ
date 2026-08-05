@@ -549,6 +549,7 @@ export async function uploadEngineerCv(
     mime_type: file.type,
     file_size_bytes: file.size,
     uploaded_by: adminCheck.user.id,
+    is_current: true,
   });
 
   if (insertError) {

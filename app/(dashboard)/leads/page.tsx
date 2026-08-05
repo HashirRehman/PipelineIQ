@@ -36,12 +36,13 @@ export default async function LeadsPage({
 
   // Same query for both roles — the difference in results comes entirely
   // from the leads_select RLS policy (is_admin() OR bd_user_id =
-  // auth.uid()), matching the convention set by /engineers and /discovery.
+  // auth.uid()), matching the convention set by /engineers and the root
+  // discovery tab.
   // Filters are additional .eq()/.gte()/.lte() calls chained onto this
   // same query — Postgres evaluates RLS as part of the query plan
   // regardless, so they can only ever narrow this role-scoped result,
-  // never widen it (same guarantee already proven for /discovery's
-  // pagination).
+  // never widen it (same guarantee already proven for the root
+  // discovery tab's pagination).
   let query = supabase
     .from("leads")
     .select("id, status, applied_at, engineers(full_name), jobs(title, company_name)")

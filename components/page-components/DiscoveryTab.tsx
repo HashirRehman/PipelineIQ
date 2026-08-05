@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search } from "lucide-react"
 
 import type { Profile } from "@/app/page"
 import { PageHeader } from "@/components/page-header"
 import { SearchInput } from "@/components/search-input"
+import { RunDiscoveryButton } from "@/components/run-discovery-button"
 import { TintedBadge } from "@/components/tinted-badge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -21,70 +23,142 @@ import {
   WORK_TYPE_COLOR,
 } from "@/lib/constants"
 import { timeAgo } from "@/lib/format"
-import { computeMatchScore } from "@/lib/matching"
 import { cn } from "@/lib/utils"
 import JobDrawer, { type Job } from "./JobDrawer"
-
-const now = Date.now()
-const JOBS: Job[] = [
-  { id: 'j1', title: 'Senior Frontend Engineer', company: 'Vercel', location: 'San Francisco, CA', workType: 'remote', postedAt: new Date(now - 22 * 60000), salary: '$150k – $185k', description: 'Join Vercel\'s product team to build the next generation of developer tooling. You\'ll work on our main dashboard and edge network UI, collaborating with designers and product managers to ship features used by millions of developers worldwide.', requirements: ['5+ years React experience', 'TypeScript proficiency', 'Next.js framework experience', 'Performance optimization knowledge', 'Experience with design systems'], niceToHave: ['GraphQL', 'Figma', 'Edge computing concepts'], parser: 'LinkedIn', status: 'new', applyUrl: '#', companySize: '501–1,000', companyIndustry: 'Cloud Infrastructure', experienceLevel: 'Senior' },
-  { id: 'j2', title: 'Staff Software Engineer', company: 'Linear', location: 'Remote', workType: 'remote', postedAt: new Date(now - 2 * 3600000), salary: '$200k – $240k', description: 'Linear is building the new standard for modern software development. We\'re looking for a Staff Engineer to lead key product areas, define architectural decisions, and mentor a growing engineering team. You\'ll have enormous leverage on the product direction.', requirements: ['10+ years software engineering', 'Strong TypeScript or Rust experience', 'Track record of leading technical initiatives', 'Experience with real-time systems', 'Excellent communication skills'], niceToHave: ['CRDTs or OT experience', 'Electron app development', 'Previous staff-level role'], parser: 'Greenhouse', status: 'new', applyUrl: '#', companySize: '51–200', companyIndustry: 'Developer Tools', experienceLevel: 'Staff' },
-  { id: 'j3', title: 'Lead Backend Engineer', company: 'Stripe', location: 'New York, NY', workType: 'hybrid', postedAt: new Date(now - 5 * 3600000), salary: '$180k – $220k', description: 'Stripe\'s Payments infrastructure team is hiring a Lead Backend Engineer to help scale systems processing hundreds of billions of dollars annually. You\'ll work on core payment flows, fraud detection systems, and developer-facing APIs used by millions of businesses.', requirements: ['8+ years backend engineering', 'Ruby or Go proficiency', 'Distributed systems expertise', 'Experience with high-throughput financial systems', 'Strong database knowledge (MySQL/Postgres)'], niceToHave: ['Payments domain knowledge', 'Machine learning systems', 'Previous leadership role'], parser: 'LinkedIn', status: 'new', applyUrl: '#', companySize: '5,001–10,000', companyIndustry: 'FinTech', experienceLevel: 'Lead' },
-  { id: 'j4', title: 'Senior Full Stack Engineer', company: 'Notion', location: 'Remote', workType: 'remote', postedAt: new Date(now - 8 * 3600000), salary: '$160k – $200k', description: 'Notion is on a mission to give teams a shared space to think and plan together. We\'re looking for engineers to work on our collaborative editor, sync infrastructure, and API platform. You\'ll ship products used by 30M+ people.', requirements: ['5+ years full stack experience', 'React + Node.js or Python', 'Experience with collaborative or real-time features', 'Familiarity with block-based editors'], niceToHave: ['Yjs or similar CRDT libraries', 'Mobile development', 'Data modeling experience'], parser: 'Lever', status: 'applied', applyUrl: '#', companySize: '501–1,000', companyIndustry: 'Productivity SaaS', experienceLevel: 'Senior' },
-  { id: 'j5', title: 'Principal Engineer – Platform', company: 'Shopify', location: 'Ottawa, Canada', workType: 'remote', postedAt: new Date(now - 24 * 3600000), salary: 'CAD $220k – $280k', description: 'As Principal Engineer on Shopify\'s Platform team, you\'ll set the technical vision for how Shopify\'s infrastructure serves 2M+ merchants. You\'ll work across infrastructure, data, and product engineering to drive adoption of new platforms.', requirements: ['12+ years engineering experience', 'Platform and infrastructure expertise', 'Experience leading org-wide technical initiatives', 'Ruby, Go or Rust experience'], niceToHave: ['Commerce domain knowledge', 'Open source contributions'], parser: 'Workday', status: 'new', applyUrl: '#', companySize: '10,000+', companyIndustry: 'eCommerce', experienceLevel: 'Principal' },
-  { id: 'j6', title: 'Senior React Native Engineer', company: 'Spotify', location: 'Stockholm, Sweden', workType: 'hybrid', postedAt: new Date(now - 36 * 3600000), salary: '€110k – €140k', description: 'Spotify\'s Mobile Platform team is looking for a Senior React Native Engineer to work on features serving 600M+ users. You\'ll bridge native and JavaScript layers, build shared component libraries, and drive performance improvements.', requirements: ['4+ years React Native', 'iOS or Android native experience', 'Strong JavaScript/TypeScript', 'Experience with CI/CD for mobile'], niceToHave: ['Audio streaming knowledge', 'A/B testing at scale'], parser: 'LinkedIn', status: 'dismissed', dismissReason: 'Rate below expectation', applyUrl: '#', companySize: '5,001–10,000', companyIndustry: 'Media & Entertainment', experienceLevel: 'Senior' },
-  { id: 'j7', title: 'Engineering Manager – Frontend', company: 'Figma', location: 'San Francisco, CA', workType: 'hybrid', postedAt: new Date(now - 2 * 86400000), salary: '$220k – $270k', description: 'Lead a team of 6-8 senior engineers building Figma\'s editor and design systems. You\'ll balance technical leadership with people management, driving roadmap planning and cross-functional collaboration while maintaining a high engineering bar.', requirements: ['3+ years engineering management', '7+ years software engineering', 'Experience managing senior ICs', 'Strong frontend background'], niceToHave: ['Design tools experience', 'WebGL or Canvas API'], parser: 'Greenhouse', status: 'new', applyUrl: '#', companySize: '1,001–5,000', companyIndustry: 'Design Tooling', experienceLevel: 'Manager' },
-  { id: 'j8', title: 'Senior Backend Engineer – AI', company: 'Anthropic', location: 'San Francisco, CA', workType: 'onsite', postedAt: new Date(now - 3 * 86400000), salary: '$200k – $250k', description: 'Anthropic is hiring backend engineers to work on Claude\'s API infrastructure, tool use capabilities, and developer platform. You\'ll work alongside ML researchers and product teams to ship AI products used by millions.', requirements: ['6+ years backend engineering', 'Python or Go proficiency', 'Experience with high-scale API systems', 'Understanding of LLM inference'], niceToHave: ['ML systems experience', 'Knowledge of transformers', 'Safety-critical systems'], parser: 'Indeed', status: 'new', applyUrl: '#', companySize: '201–500', companyIndustry: 'AI / ML', experienceLevel: 'Senior' },
-]
+import { markApplied } from "@/lib/actions/leads"
+import { dismissMatch } from "@/lib/actions/discovery"
 
 const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
-const WORK_TYPES = ["All Types", "remote", "hybrid", "onsite"]
-const EXPERIENCE = ["All Levels", "Junior", "Mid", "Senior", "Lead", "Staff", "Principal", "Manager"]
+// "hybrid" is omitted — jobs.is_remote is a boolean, there is no hybrid
+// representation in the DB yet.
+const WORK_TYPES = ["All Types", "remote", "onsite"]
 
 interface Props {
   activeProfile: Profile
-  profiles: Profile[]
 }
 
 const PAGE_SIZE = 5
 
-export default function DiscoveryTab({ activeProfile, profiles }: Props) {
-  const [jobs, setJobs] = useState<Job[]>(JOBS)
+interface DiscoveryResponse {
+  jobs: Job[]
+  engineer: Profile | null
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export default function DiscoveryTab({ activeProfile }: Props) {
+  const [jobs, setJobs] = useState<Job[]>([])
+  // The real engineer whose matches this feed is scoped to (from the API),
+  // used as the drawer's active profile instead of the mock one.
+  const [engineer, setEngineer] = useState<Profile | null>(null)
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
-  const [expFilter, setExpFilter] = useState("All Levels")
   const [statusFilter, setStatusFilter] = useState("all")
   const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
   const [pendingDismissId, setPendingDismissId] = useState<string | null>(null)
 
-  const filtered = jobs.filter(j => {
-    const q = search.toLowerCase()
-    const matchQ = !q || j.title.toLowerCase().includes(q) || j.company.toLowerCase().includes(q) || j.location.toLowerCase().includes(q)
-    const matchParser = parserFilter === "All Sources" || j.parser === parserFilter
-    const matchType = workTypeFilter === "All Types" || j.workType === workTypeFilter
-    const matchExp = expFilter === "All Levels" || j.experienceLevel === expFilter
-    const matchStatus = statusFilter === "all" || j.status === statusFilter
-    return matchQ && matchParser && matchType && matchExp && matchStatus
-  })
+  useEffect(() => {
+    const controller = new AbortController()
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+      engineerId: 'a1ca0629-de13-48d3-a8c8-8fc8c75c7ab6',
+      status: statusFilter === "all" ? "" : statusFilter === "new" ? "suggested" : statusFilter,
+      workType: workTypeFilter === "All Types" ? "" : workTypeFilter,
+      parser: parserFilter === "All Sources" ? "" : parserFilter,
+      search,
+    })
+    fetch(`/api/discovery?${params}`, { signal: controller.signal })
+      .then(async res => {
+        if (!res.ok) throw new Error("Failed to load jobs")
+        return res.json() as Promise<DiscoveryResponse>
+      })
+      .then(json => {
+        setJobs(json.jobs)
+        setEngineer(json.engineer)
+        setTotalCount(json.totalCount)
+        setTotalPages(json.totalPages)
+        // Profile switch can land on a page past the new profile's last page;
+        // clamp so the list never renders as an empty page.
+        if (page > json.totalPages) setPage(Math.max(1, json.totalPages))
+        setError(null)
+      })
+      .catch(err => {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        setError("Failed to load jobs")
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [page, statusFilter, workTypeFilter, parserFilter, search, activeProfile.id])
+
+  const changeSearch = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const changeStatus = (value: string) => {
+    setStatusFilter(value)
+    setPage(1)
+  }
+
+  const changeWorkType = (value: string) => {
+    setWorkTypeFilter(value)
+    setPage(1)
+  }
+
+  const changeParser = (value: string) => {
+    setParserFilter(value)
+    setPage(1)
+  }
+
+  const getBestMatchId = (job: Job): string | null => {
+    const matches = job.cvMatches ?? []
+    if (matches.length === 0) return null
+    return matches.reduce((best, cv) => (cv.relevanceScore > best.relevanceScore ? cv : best)).matchId
+  }
 
   const handleApply = (id: string) => {
+    const job = jobs.find(j => j.id === id) ?? selectedJob
+    if (job?.applyUrl) {
+      window.open(job.applyUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const handleMarkApplied = async (id: string) => {
+    const job = jobs.find(j => j.id === id)
+    const matchId = job ? getBestMatchId(job) : null
+    if (matchId) {
+      const formData = new FormData()
+      formData.set("matchId", matchId)
+      await markApplied({}, formData)
+    }
     setJobs(js => js.map(j => j.id === id ? { ...j, status: "applied" } : j))
     if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "applied" } : null)
   }
 
-  const handleMarkApplied = (id: string) => {
-    setJobs(js => js.map(j => j.id === id ? { ...j, status: "applied" } : j))
-    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "applied" } : null)
-  }
-
-  const handleDismiss = (id: string, reason: string) => {
+  const handleDismiss = async (id: string, reason: string) => {
+    const job = jobs.find(j => j.id === id) ?? selectedJob
+    const matchId = job ? getBestMatchId(job) : null
+    if (matchId) {
+      const formData = new FormData()
+      formData.set("matchId", matchId)
+      formData.set("reason", reason)
+      await dismissMatch({}, formData)
+    }
     setJobs(js => js.map(j => j.id === id ? { ...j, status: "dismissed", dismissReason: reason } : j))
     if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "dismissed", dismissReason: reason } : null)
     setPendingDismissId(null)
@@ -148,8 +222,8 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               setSearch("")
               setParserFilter("All Sources")
               setWorkTypeFilter("All Types")
-              setExpFilter("All Levels")
               setStatusFilter("all")
+              setPage(1)
             }}
             className="h-auto p-0 bg-transparent text-[11px] text-[var(--primary)] hover:underline shadow-none"
           >
@@ -169,7 +243,7 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               ["dismissed", "Dismissed"],
             ].map(([v, l]) => (
               <div key={v}>
-                {filterOption(statusFilter === v, () => setStatusFilter(v), l)}
+                {filterOption(statusFilter === v, () => changeStatus(v), l)}
               </div>
             ))}
           </div>
@@ -184,7 +258,7 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
               <div key={t}>
                 {filterOption(
                   workTypeFilter === t,
-                  () => setWorkTypeFilter(t),
+                  () => changeWorkType(t),
                   t.charAt(0).toUpperCase() + t.slice(1),
                   t !== "All Types" ? WORK_TYPE_COLOR[t] : undefined
                 )}
@@ -200,65 +274,55 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
           <div className="flex flex-col gap-1">
             {PARSERS.map(p => (
               <div key={p}>
-                {filterOption(parserFilter === p, () => setParserFilter(p), p)}
+                {filterOption(parserFilter === p, () => changeParser(p), p)}
               </div>
             ))}
           </div>
-        </div>
-
-        <div>
-          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
-            Experience Level
-          </div>
-          <div className="flex flex-col gap-1">
-            {EXPERIENCE.map(e => (
-              <div key={e}>
-                {filterOption(expFilter === e, () => setExpFilter(e), e)}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+         </div>
+       </div>
 
       {/* Job List */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="px-7 pt-6 pb-0 shrink-0">
           <PageHeader
             title="Discovery"
-            subtitle={`${filtered.length} jobs found`}
+            subtitle={`${totalCount} jobs found`}
             className="mb-4"
             actions={
-              <SearchInput
-                placeholder="Search jobs…"
-                value={search}
-                onChange={setSearch}
-                className="w-[220px]"
-                inputClassName="rounded-[7px]"
-              />
+              <div className="flex items-center gap-2">
+                <RunDiscoveryButton />
+                <SearchInput
+                  placeholder="Search jobs…"
+                  value={search}
+                  onChange={changeSearch}
+                  className="w-[220px]"
+                  inputClassName="rounded-[7px]"
+                />
+              </div>
             }
           />
 
           <div className="flex gap-1.5 overflow-x-auto pb-3.5">
-            {filterBtn("All", statusFilter === "all", () => setStatusFilter("all"))}
-            {filterBtn("Remote", workTypeFilter === "remote", () =>
-              setWorkTypeFilter(workTypeFilter === "remote" ? "All Types" : "remote")
-            )}
-            {filterBtn("Hybrid", workTypeFilter === "hybrid", () =>
-              setWorkTypeFilter(workTypeFilter === "hybrid" ? "All Types" : "hybrid")
-            )}
-            {filterBtn("Onsite", workTypeFilter === "onsite", () =>
-              setWorkTypeFilter(workTypeFilter === "onsite" ? "All Types" : "onsite")
+            {filterBtn("All", statusFilter === "all" && workTypeFilter === "All Types", () => {
+              changeStatus("all")
+              changeWorkType("All Types")
+            })}
+             {filterBtn("Remote", workTypeFilter === "remote", () =>
+               changeWorkType(workTypeFilter === "remote" ? "All Types" : "remote")
+             )}
+             {filterBtn("Onsite", workTypeFilter === "onsite", () =>
+              changeWorkType(workTypeFilter === "onsite" ? "All Types" : "onsite")
             )}
             {filterBtn("Applied", statusFilter === "applied", () =>
-              setStatusFilter(statusFilter === "applied" ? "all" : "applied")
+              changeStatus(statusFilter === "applied" ? "all" : "applied")
             )}
           </div>
         </div>
 
         <div className="flex-1 overflow-auto px-7 pb-6">
           <div className="flex flex-col gap-2.5">
-            {paginated.map(job => {
-              const { score: matchScore } = computeMatchScore(activeProfile.skills, job.requirements)
+            {jobs.map(job => {
+              const matchScore = job.relevanceScore ?? 0
 
               return (
                 <div
@@ -289,6 +353,12 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                         <span className="font-medium text-[var(--fg)]">{job.company}</span>
                         <span>·</span>
                         <span>{job.location}</span>
+                        {job.workType === "remote" && job.remoteRegion && (
+                          <>
+                            <span>·</span>
+                            <span>{job.remoteRegion}</span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -309,6 +379,11 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                           match
                         </div>
                       </div>
+                      {job.possiblyClosed && (
+                        <Badge variant="secondary" className="px-1.75 py-0.5 rounded text-[10px] text-amber-600 font-mono font-normal">
+                          Possibly Closed
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -318,14 +393,9 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
                         {job.workType}
                       </TintedBadge>
                       <TintedBadge color={PARSER_COLOR[job.parser] || "#64748b"} className="font-medium">
-                        via {job.parser}
-                      </TintedBadge>
-                      {job.salary && (
-                        <TintedBadge color="#10b981" bordered={false}>
-                          {job.salary}
-                        </TintedBadge>
-                      )}
-                    </div>
+                        via {job.parser || "Unknown source"}
+                       </TintedBadge>
+                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-[11px] text-[var(--muted-fg)]">
                         {timeAgo(job.postedAt)}
@@ -353,14 +423,26 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
             })}
           </div>
 
-          {filtered.length === 0 && (
+          {loading && (
+            <div className="text-center py-15 text-[var(--muted-fg)]">
+              <div className="text-sm">Loading jobs…</div>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-center py-15 text-red-500">
+              <div className="text-sm">{error}</div>
+            </div>
+          )}
+
+          {!loading && !error && jobs.length === 0 && (
             <div className="text-center py-15 text-[var(--muted-fg)]">
               <Search className="mx-auto mb-3 block text-[var(--muted-fg)]" size={40} strokeWidth={1} />
               <div className="text-sm">No jobs match your filters</div>
             </div>
           )}
 
-          {totalPages > 1 && (
+          {!loading && totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-6">
               <Button
                 variant="outline"
@@ -447,8 +529,7 @@ export default function DiscoveryTab({ activeProfile, profiles }: Props) {
         <JobDrawer
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
-          activeProfile={activeProfile}
-          profiles={profiles}
+          activeProfile={engineer ?? activeProfile}
           onApply={handleApply}
           onMarkApplied={handleMarkApplied}
           onDismiss={handleDismiss}
