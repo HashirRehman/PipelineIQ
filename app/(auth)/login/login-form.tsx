@@ -1,24 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { signIn, type SignInState } from "@/lib/actions/auth";
+import { apiPost } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const initialState: SignInState = {};
 
 const fieldClass =
   "h-11 rounded-lg border-[var(--border-strong)] bg-[var(--secondary)] px-3 text-sm dark:bg-[var(--secondary)]";
 
 export function LoginForm() {
-  const [state, formAction, isPending] = useActionState(signIn, initialState);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setIsPending(true);
+    try {
+      const formData = new FormData(event.currentTarget);
+      await apiPost<{ success: boolean }>("/api/auth/login", {
+        email: formData.get("email"),
+        password: formData.get("password"),
+      });
+      window.location.href = "/";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="email" className="text-xs text-[var(--muted-fg)]">
           Email
@@ -71,9 +88,9 @@ export function LoginForm() {
         </Link>
       </div>
 
-      {state.error && (
+      {error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">
-          {state.error}
+          {error}
         </p>
       )}
 

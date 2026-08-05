@@ -17,7 +17,7 @@ import type { TabId, Profile } from "@/app/page";
 import { useTheme } from "next-themes";
 import { Avatar } from "@/components/avatar";
 import { PipelineIQLogo } from "@/components/pipelineiq-logo";
-import { signOutAction } from "@/lib/actions/auth";
+import { apiPost } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar as SidebarRoot,
@@ -84,6 +84,15 @@ export default function Sidebar({
 }: SidebarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+
+  const handleSignOut = async () => {
+    try {
+      await apiPost<{ success: boolean }>("/api/auth/logout", {});
+    } catch {
+      // Session may already be gone — navigate away regardless.
+    }
+    window.location.href = "/login";
+  };
 
   return (
     <SidebarProvider
@@ -252,18 +261,16 @@ export default function Sidebar({
                 admin
               </div>
             </div>
-            <form action={signOutAction}>
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Log out"
-                title="Log out"
-                className="text-[var(--muted-fg)] hover:bg-black/5 hover:text-[var(--fg)] dark:hover:bg-white/5 shadow-none cursor-pointer"
-              >
-                <LogOut className="size-[13px]" />
-              </Button>
-            </form>
+            <Button
+              onClick={handleSignOut}
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Log out"
+              title="Log out"
+              className="text-[var(--muted-fg)] hover:bg-black/5 hover:text-[var(--fg)] dark:hover:bg-white/5 shadow-none cursor-pointer"
+            >
+              <LogOut className="size-[13px]" />
+            </Button>
           </div>
         </SidebarFooter>
       </SidebarRoot>

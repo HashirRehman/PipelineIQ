@@ -1,21 +1,43 @@
 "use client";
 
-import { useActionState } from "react";
-import { runDiscoveryNow, type RunDiscoveryState } from "@/lib/actions/discovery";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { DiscoverySummary } from "@/lib/cron/discover-jobs";
 
-const initialState: RunDiscoveryState = {};
+type RunDiscoveryState = {
+  status?: "completed" | "skipped" | "cooldown" | "error";
+  summary?: DiscoverySummary;
+  error?: string;
+  nextRunAvailableAt?: string;
+};
 
 export function RunDiscoveryButton() {
-  const [state, formAction, isPending] = useActionState(runDiscoveryNow, initialState);
+  const [state, setState] = useState<RunDiscoveryState>({});
+  const [isPending, setIsPending] = useState(false);
+
+  const handleRun = async () => {
+    setIsPending(true);
+    setState({});
+    try {
+      const res = await fetch("/api/discovery/run", { method: "POST" });
+      const json = (await res.json().catch(() => ({}))) as RunDiscoveryState;
+      if (!res.ok) {
+        setState({ status: "error", error: json.error ?? "Something went wrong. Please try again." });
+      } else {
+        setState(json);
+      }
+    } catch {
+      setState({ status: "error", error: "Something went wrong. Please try again." });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <form action={formAction}>
-        <Button type="submit" variant="outline" size="sm" disabled={isPending}>
-          {isPending ? "Running discovery… (can take up to ~30s)" : "Run Discovery Now"}
-        </Button>
-      </form>
+      <Button type="button" variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
+        {isPending ? "Running discovery… (can take up to ~30s)" : "Run Discovery Now"}
+      </Button>
 
       {state.status === "skipped" && (
         <p role="status" className="text-sm text-muted-foreground">

@@ -25,8 +25,7 @@ import {
 import { timeAgo } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import JobDrawer, { type Job } from "./JobDrawer"
-import { markApplied } from "@/lib/actions/leads"
-import { dismissMatch } from "@/lib/actions/discovery"
+import { apiPost } from "@/lib/api/client"
 
 const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
 const WORK_TYPES = ["All Types", "remote", "onsite"]
@@ -65,8 +64,6 @@ interface DiscoveryResponse {
 
 export default function DiscoveryTab({ activeProfile }: Props) {
   const [jobs, setJobs] = useState<Job[]>([])
-  // The real engineer whose matches this feed is scoped to (from the API),
-  // used as the drawer's active profile instead of the mock one.
   const [engineer, setEngineer] = useState<Profile | null>(null)
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
@@ -75,9 +72,6 @@ export default function DiscoveryTab({ activeProfile }: Props) {
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  // Key of the query the currently-displayed jobs were fetched with. Loading is
-  // derived, not set inside the effect: whenever the live filters diverge from
-  // the applied key, a refresh is in flight and the loader shows.
   const [appliedKey, setAppliedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
@@ -157,9 +151,11 @@ export default function DiscoveryTab({ activeProfile }: Props) {
     const job = jobs.find(j => j.id === id)
     const matchId = job ? getBestMatchId(job) : null
     if (matchId) {
-      const formData = new FormData()
-      formData.set("matchId", matchId)
-      await markApplied({}, formData)
+      try {
+        await apiPost<{ success: boolean }>("/api/discovery/mark-applied", { matchId })
+      } catch (err) {
+        console.error("markApplied failed", err)
+      }
     }
     setJobs(js => js.map(j => j.id === id ? { ...j, status: "applied" } : j))
     if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "applied" } : null)
@@ -169,10 +165,11 @@ export default function DiscoveryTab({ activeProfile }: Props) {
     const job = jobs.find(j => j.id === id) ?? selectedJob
     const matchId = job ? getBestMatchId(job) : null
     if (matchId) {
-      const formData = new FormData()
-      formData.set("matchId", matchId)
-      formData.set("reason", reason)
-      await dismissMatch({}, formData)
+      try {
+        await apiPost<{ success: boolean }>("/api/discovery/dismiss", { matchId, reason })
+      } catch (err) {
+        console.error("dismissMatch failed", err)
+      }
     }
     setJobs(js => js.map(j => j.id === id ? { ...j, status: "dismissed", dismissReason: reason } : j))
     if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "dismissed", dismissReason: reason } : null)

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Briefcase, Contact, ListChecks, Menu, Sparkles, Users } from "lucide-react";
-import { signOutAction } from "@/lib/actions/auth";
+import { apiPost } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -37,6 +37,15 @@ function SidebarContent({
   userEmail: string;
   onNavigate?: () => void;
 }) {
+  const handleSignOut = async () => {
+    try {
+      await apiPost<{ success: boolean }>("/api/auth/logout", {});
+    } catch {
+      // Session may already be gone — navigate away regardless.
+    }
+    window.location.href = "/login";
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-4">
@@ -55,11 +64,14 @@ function SidebarContent({
 
       <div className="border-t border-border px-4 py-4">
         <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
-        <form action={signOutAction} className="mt-2">
-          <Button variant="ghost" size="sm" type="submit" className="w-full justify-start px-0">
-            Logout
-          </Button>
-        </form>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSignOut}
+          className="mt-2 w-full justify-start px-0"
+        >
+          Logout
+        </Button>
       </div>
     </div>
   );
