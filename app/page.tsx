@@ -46,6 +46,7 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
+  roleId: string | null;
   role: UserRole;
   status: "active" | "inactive";
   joinedAt: string;
@@ -55,6 +56,7 @@ export const CURRENT_USER: AppUser = {
   id: "u1",
   name: "Alex Rivera",
   email: "alex@recursolabs.com",
+  roleId: null,
   role: "admin",
   status: "active",
   joinedAt: "2024-01-15",
@@ -65,6 +67,7 @@ export const APP_USERS: AppUser[] = [
     id: "u1",
     name: "Alex Rivera",
     email: "alex@recursolabs.com",
+    roleId: null,
     role: "admin",
     status: "active",
     joinedAt: "2024-01-15",
@@ -73,6 +76,7 @@ export const APP_USERS: AppUser[] = [
     id: "u2",
     name: "Jamie Park",
     email: "jamie@recursolabs.com",
+    roleId: null,
     role: "bd",
     status: "active",
     joinedAt: "2024-03-22",
@@ -81,6 +85,7 @@ export const APP_USERS: AppUser[] = [
     id: "u3",
     name: "Morgan Lee",
     email: "morgan@recursolabs.com",
+    roleId: null,
     role: "bd",
     status: "active",
     joinedAt: "2024-06-10",
@@ -89,6 +94,7 @@ export const APP_USERS: AppUser[] = [
     id: "u4",
     name: "Casey Torres",
     email: "casey@recursolabs.com",
+    roleId: null,
     role: "lead",
     status: "active",
     joinedAt: "2024-07-01",
@@ -97,6 +103,7 @@ export const APP_USERS: AppUser[] = [
     id: "u5",
     name: "Dana Shah",
     email: "dana@recursolabs.com",
+    roleId: null,
     role: "bd",
     status: "inactive",
     joinedAt: "2024-08-19",

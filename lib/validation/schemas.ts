@@ -1,11 +1,24 @@
 // Zod schemas shared by forms and Server Actions, Modules 1-4
 import { z } from "zod";
 
-export const inviteUserSchema = z.object({
+export const createUserSchema = z.object({
+  name: z.string().trim().min(1, "Full name is required."),
   email: z.email("Enter a valid email address."),
-  fullName: z.string().trim().min(1, "Full name is required."),
   roleId: z.uuid("Select a role."),
 });
+
+export const updateUserSchema = z
+  .object({
+    userId: z.uuid(),
+    name: z.string().trim().min(1, "Full name is required.").optional(),
+    status: z.enum(["active", "inactive"]).optional(),
+    roleId: z.uuid("Select a role.").optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined || data.status !== undefined || data.roleId !== undefined,
+    { message: "Provide a name, status, or role to update." },
+  );
 
 export const signInSchema = z.object({
   email: z.email("Enter a valid email address."),

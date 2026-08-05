@@ -85,7 +85,6 @@ export default function Sidebar({
 }: SidebarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
-
   const mounted = useMounted();
 
   const handleSignOut = async () => {
