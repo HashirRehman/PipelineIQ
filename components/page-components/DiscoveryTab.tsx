@@ -29,8 +29,6 @@ import { markApplied } from "@/lib/actions/leads"
 import { dismissMatch } from "@/lib/actions/discovery"
 
 const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
-// "hybrid" is omitted — jobs.is_remote is a boolean, there is no hybrid
-// representation in the DB yet.
 const WORK_TYPES = ["All Types", "remote", "onsite"]
 
 interface Props {
@@ -38,6 +36,23 @@ interface Props {
 }
 
 const PAGE_SIZE = 5
+
+const buildQueryKey = (opts: {
+  page: number
+  status: string
+  workType: string
+  parser: string
+  search: string
+}) =>
+  new URLSearchParams({
+    page: String(opts.page),
+    pageSize: String(PAGE_SIZE),
+    engineerId: 'a1ca0629-de13-48d3-a8c8-8fc8c75c7ab6',
+    status: opts.status === "all" ? "" : opts.status === "new" ? "suggested" : opts.status,
+    workType: opts.workType === "All Types" ? "" : opts.workType,
+    parser: opts.parser === "All Sources" ? "" : opts.parser,
+    search: opts.search,
+  }).toString()
 
 interface DiscoveryResponse {
   jobs: Job[]
@@ -60,26 +75,29 @@ export default function DiscoveryTab({ activeProfile }: Props) {
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [loading, setLoading] = useState(true)
+  // Key of the query the currently-displayed jobs were fetched with. Loading is
+  // derived, not set inside the effect: whenever the live filters diverge from
+  // the applied key, a refresh is in flight and the loader shows.
+  const [appliedKey, setAppliedKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
   const [pendingDismissId, setPendingDismissId] = useState<string | null>(null)
 
+  const loadingKey = `${buildQueryKey({
+    page,
+    status: statusFilter,
+    workType: workTypeFilter,
+    parser: parserFilter,
+    search,
+  })}|${activeProfile.id}`
+  const loading = appliedKey !== loadingKey
+
   useEffect(() => {
     const controller = new AbortController()
 
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: String(PAGE_SIZE),
-      engineerId: 'a1ca0629-de13-48d3-a8c8-8fc8c75c7ab6',
-      status: statusFilter === "all" ? "" : statusFilter === "new" ? "suggested" : statusFilter,
-      workType: workTypeFilter === "All Types" ? "" : workTypeFilter,
-      parser: parserFilter === "All Sources" ? "" : parserFilter,
-      search,
-    })
-    fetch(`/api/discovery?${params}`, { signal: controller.signal })
+    fetch(`/api/discovery?${buildQueryKey({ page, status: statusFilter, workType: workTypeFilter, parser: parserFilter, search })}`, { signal: controller.signal })
       .then(async res => {
         if (!res.ok) throw new Error("Failed to load jobs")
         return res.json() as Promise<DiscoveryResponse>
@@ -89,21 +107,18 @@ export default function DiscoveryTab({ activeProfile }: Props) {
         setEngineer(json.engineer)
         setTotalCount(json.totalCount)
         setTotalPages(json.totalPages)
-        // Profile switch can land on a page past the new profile's last page;
-        // clamp so the list never renders as an empty page.
         if (page > json.totalPages) setPage(Math.max(1, json.totalPages))
+        setAppliedKey(loadingKey)
         setError(null)
       })
       .catch(err => {
         if (err instanceof DOMException && err.name === "AbortError") return
         setError("Failed to load jobs")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
+        setAppliedKey(loadingKey)
       })
 
     return () => controller.abort()
-  }, [page, statusFilter, workTypeFilter, parserFilter, search, activeProfile.id])
+  }, [page, statusFilter, workTypeFilter, parserFilter, search, activeProfile.id, loadingKey])
 
   const changeSearch = (value: string) => {
     setSearch(value)
@@ -320,7 +335,7 @@ export default function DiscoveryTab({ activeProfile }: Props) {
         </div>
 
         <div className="flex-1 overflow-auto px-7 pb-6">
-          <div className="flex flex-col gap-2.5">
+          <div className={cn("flex flex-col gap-2.5 transition-opacity duration-150", loading && "opacity-50")}>
             {jobs.map(job => {
               const matchScore = job.relevanceScore ?? 0
 
@@ -424,7 +439,8 @@ export default function DiscoveryTab({ activeProfile }: Props) {
           </div>
 
           {loading && (
-            <div className="text-center py-15 text-[var(--muted-fg)]">
+            <div className="flex flex-col items-center gap-3 py-15 text-[var(--muted-fg)]">
+              <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
               <div className="text-sm">Loading jobs…</div>
             </div>
           )}
