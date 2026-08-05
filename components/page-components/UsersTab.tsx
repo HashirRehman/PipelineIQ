@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Check, Plus, X } from 'lucide-react'
+"use client";
+
+import { useState, useEffect } from 'react'
+import { Check, Plus, X, Loader2 } from 'lucide-react'
 import type { AppUser, UserRole } from '@/app/page'
-import { APP_USERS } from '@/app/page'
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
 import { SearchInput } from "@/components/search-input"
@@ -38,16 +39,37 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<UserRole>('bd')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
 
-  const handleSubmit = () => {
-    if (!name || !email) return
-    const newUser: AppUser = {
-      id: Date.now().toString(), name, email, role, status: 'active',
-      joinedAt: new Date().toISOString().split('T')[0],
+  const handleSubmit = async () => {
+    if (!name || !email || loading) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, role }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to invite user.");
+        setLoading(false);
+        return;
+      }
+
+      onInvite(data.user);
+      setSent(true);
+    } catch (err: any) {
+      console.error("Invite user fetch error:", err);
+      setError("An unexpected error occurred.");
+    } finally {
+      setLoading(false);
     }
-    onInvite(newUser)
-    setSent(true)
   }
 
   return (
@@ -73,6 +95,11 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
               <Button onClick={onClose} className="bg-[var(--primary)] text-white hover:opacity-90 text-xs font-semibold px-5 shadow-none">Done</Button>
             </div>
           : <div className="p-5 px-6">
+              {error && (
+                <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/30 rounded text-red-500 text-xs">
+                  {error}
+                </div>
+              )}
               <div className="flex flex-col gap-3.5 mb-5">
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Full Name *</label>
@@ -104,12 +131,13 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
               </div>
               <div className="flex gap-2.5">
                 <Button variant="outline" onClick={onClose} className="flex-1 border-[var(--border-strong)] text-[var(--fg)] text-xs h-9 shadow-none">Cancel</Button>
-                <Button onClick={handleSubmit} disabled={!name || !email}
-                  className={`flex-[2] text-xs font-semibold h-9 shadow-none ${
-                    (!name || !email)
+                <Button onClick={handleSubmit} disabled={!name || !email || loading}
+                  className={`flex-[2] text-xs font-semibold h-9 shadow-none flex items-center justify-center gap-2 ${
+                    (!name || !email || loading)
                       ? 'bg-[var(--secondary)] text-[var(--muted-fg)]'
                       : 'bg-[var(--primary)] text-white hover:opacity-90'
                   }`}>
+                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Send Invite
                 </Button>
               </div>
@@ -123,11 +151,37 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
 interface Props { currentUser: AppUser }
 
 export default function UsersTab({ currentUser }: Props) {
-  const [users, setUsers] = useState<AppUser[]>(APP_USERS)
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [activeUser, setActiveUser] = useState<AppUser>(currentUser)
+  const [loading, setLoading] = useState(true)
+  const [actionError, setActionError] = useState('')
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [inviting, setInviting] = useState(false)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const res = await fetch("/api/users");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.users) {
+            setUsers(data.users);
+          }
+          if (data.currentUser) {
+            setActiveUser(data.currentUser);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load users from /api/users:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUsers();
+  }, []);
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase()
@@ -137,11 +191,41 @@ export default function UsersTab({ currentUser }: Props) {
     return matchQ && matchRole && matchStatus
   })
 
-  const handleInvite = (u: AppUser) => setUsers(us => [...us, u])
+  const handleInvite = (u: AppUser) => setUsers(us => [u, ...us])
 
-  const toggleStatus = (id: string) => {
-    if (id === currentUser.id) return
-    setUsers(us => us.map(u => u.id === id ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' } : u))
+  const toggleStatus = async (id: string) => {
+    if (id === activeUser.id || updatingId) return;
+    setActionError('');
+    setUpdatingId(id);
+
+    const target = users.find(u => u.id === id);
+    if (!target) return;
+
+    const newStatus = target.status === 'active' ? 'inactive' : 'active';
+
+    // Optimistic UI update
+    setUsers(us => us.map(u => u.id === id ? { ...u, status: newStatus } : u));
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id, status: newStatus }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        // Revert on error
+        setUsers(us => us.map(u => u.id === id ? { ...u, status: target.status } : u));
+        setActionError(data.error || "Failed to update user status.");
+      }
+    } catch (err) {
+      console.error("Toggle status fetch error:", err);
+      setUsers(us => us.map(u => u.id === id ? { ...u, status: target.status } : u));
+      setActionError("Failed to communicate with server.");
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
   return (
@@ -158,6 +242,15 @@ export default function UsersTab({ currentUser }: Props) {
           </Button>
         }
       />
+
+      {actionError && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-xs flex items-center justify-between">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-400 hover:text-red-300">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-3 mb-6">
@@ -209,14 +302,21 @@ export default function UsersTab({ currentUser }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map(u => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-[var(--muted-fg)]">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[var(--primary)]" />
+                  Loading team members...
+                </TableCell>
+              </TableRow>
+            ) : filtered.map(u => (
               <TableRow key={u.id} className="border-b border-[var(--border)] transition-colors hover:bg-[var(--muted)]">
                 <TableCell className="p-3.25 px-4">
                   <div className="flex items-center gap-2.5">
                     <Avatar name={u.name} size={34} />
                     <div>
                       <div className="font-semibold text-[var(--fg)]">{u.name}</div>
-                      {u.id === currentUser.id && <div className="text-[10px] text-[var(--primary)] font-mono">You</div>}
+                      {u.id === activeUser.id && <div className="text-[10px] text-[var(--primary)] font-mono">You</div>}
                     </div>
                   </div>
                 </TableCell>
@@ -232,13 +332,17 @@ export default function UsersTab({ currentUser }: Props) {
                 </TableCell>
                 <TableCell className="p-3.25 px-4 font-mono"><span className="text-xs text-[var(--muted-fg)]">{formatDate(u.joinedAt)}</span></TableCell>
                 <TableCell className="p-3.25 px-4">
-                  {u.id !== currentUser.id && (
-                    <Button onClick={() => toggleStatus(u.id)}
-                      className={`h-auto p-1 px-2.5 bg-transparent border rounded-md cursor-pointer text-[11px] transition-colors shadow-none ${
+                  {u.id !== activeUser.id && (
+                    <Button
+                      onClick={() => toggleStatus(u.id)}
+                      disabled={updatingId === u.id}
+                      className={`h-auto p-1 px-2.5 bg-transparent border rounded-md cursor-pointer text-[11px] transition-colors shadow-none flex items-center gap-1 ${
                         u.status === 'active'
                           ? 'border-red-500/30 text-red-500 hover:bg-red-500/10'
                           : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
-                      }`}>
+                      }`}
+                    >
+                      {updatingId === u.id && <Loader2 className="w-3 h-3 animate-spin" />}
                       {u.status === 'active' ? 'Deactivate' : 'Activate'}
                     </Button>
                   )}
@@ -247,7 +351,7 @@ export default function UsersTab({ currentUser }: Props) {
             ))}
           </TableBody>
         </Table>
-        {filtered.length === 0 && <div className="text-center py-8 text-[var(--muted-fg)] text-sm">No users match your search</div>}
+        {!loading && filtered.length === 0 && <div className="text-center py-8 text-[var(--muted-fg)] text-sm">No users match your search</div>}
       </div>
 
       {inviting && <InviteModal onClose={() => setInviting(false)} onInvite={handleInvite} />}
