@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { TabId, Profile } from "@/app/page";
 import { useTheme } from "next-themes";
+import { useMounted } from "@/hooks/use-mounted";
 import { Avatar } from "@/components/avatar";
 import { PipelineIQLogo } from "@/components/pipelineiq-logo";
 import { apiPost } from "@/lib/api/client";
@@ -84,6 +85,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+
+  const mounted = useMounted();
 
   const handleSignOut = async () => {
     try {
@@ -241,13 +244,13 @@ export default function Sidebar({
             onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
             className="w-full h-auto justify-start gap-2 p-2 px-2.5 rounded-md text-xs text-[var(--sidebar-fg)] hover:bg-black/5 dark:hover:bg-white/5 shadow-none cursor-pointer"
           >
-            {resolvedTheme === "dark" ? (
+            {mounted && resolvedTheme === "dark" ? (
               <Sun className="size-[13px]" />
             ) : (
               <Moon className="size-[13px]" />
             )}
             <span className="text-xs">
-              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+              {mounted && resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
             </span>
           </Button>
 
