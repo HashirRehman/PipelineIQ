@@ -3,7 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
 import { inviteUserSchema } from "@/lib/validation/schemas";
 
 export type InviteUserState = {
@@ -82,3 +82,46 @@ export async function inviteUser(
   revalidatePath("/admin/users");
   return { success: true };
 }
+
+export type UserStatusState = {
+  error?: string;
+  success?: boolean;
+};
+
+export async function setUserActiveStatus(
+  userId: string,
+  isActive: boolean,
+): Promise<UserStatusState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authorized." };
+  }
+
+  const isAdmin = await getCachedIsAdmin();
+  if (!isAdmin) {
+    return { error: "Not authorized." };
+  }
+
+  if (userId === user.id) {
+    return { error: "You cannot change your own active status." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: isActive })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("setUserActiveStatus error:", error);
+    return { error: error.message || "Failed to update user status." };
+  }
+
+  revalidatePath("/admin/users");
+  return { success: true };
+}
+
