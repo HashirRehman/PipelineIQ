@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { isSameOrigin } from "@/lib/api/guard";
 import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createUserSchema, updateUserSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +10,7 @@ export interface ApiAppUser {
   id: string;
   name: string;
   email: string;
+  roleId: string | null;
   role: "admin" | "lead" | "bd";
   status: "active" | "inactive";
   joinedAt: string;
@@ -18,12 +21,42 @@ export interface ApiRole {
   name: string;
 }
 
-function mapRoleNameToUserRole(roleName?: string): "admin" | "lead" | "bd" {
+function mapRoleNameToUserRole(roleName?: string | null): ApiAppUser["role"] {
   if (!roleName) return "bd";
   const normalized = roleName.toLowerCase().trim();
   if (normalized.includes("admin")) return "admin";
   if (normalized.includes("lead") || normalized.includes("manager")) return "lead";
   return "bd";
+}
+
+interface ProfileWithRole {
+  user_roles?: {
+    role_id?: string | null;
+    roles?: { name?: string | null } | null;
+  }[] | null;
+}
+
+async function findRoleById(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  roleId: string,
+): Promise<
+  | { ok: true; role: { id: string; name: string } }
+  | { ok: false; reason: "query_failed" | "not_found" }
+> {
+  const { data, error } = await supabase
+    .from("roles")
+    .select("id, name")
+    .eq("id", roleId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("api/users: roles query failed", error);
+    return { ok: false, reason: "query_failed" };
+  }
+  if (!data) {
+    return { ok: false, reason: "not_found" };
+  }
+  return { ok: true, role: data };
 }
 
 export async function GET() {
@@ -34,34 +67,50 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const isAdmin = await getCachedIsAdmin();
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
   const [profilesRes, rolesRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, email, full_name, is_active, created_at, user_roles!user_roles_user_id_fkey(roles(name, id))")
+      .select(
+        "id, email, full_name, is_active, created_at, user_roles!user_roles_user_id_fkey(role_id, roles(name, id))",
+      )
       .order("created_at", { ascending: false }),
     supabase.from("roles").select("id, name").order("name"),
   ]);
 
   if (profilesRes.error) {
-    console.error("GET /api/users profiles query error:", profilesRes.error);
-    return NextResponse.json({ error: "Failed to fetch profiles" }, { status: 500 });
+    console.error("api/users: profiles query failed", profilesRes.error);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
   }
 
-  const rawProfiles = profilesRes.data ?? [];
+  if (rolesRes.error) {
+    console.error("api/users: roles query failed", rolesRes.error);
+  }
+
   const roles: ApiRole[] = rolesRes.data ?? [];
 
-  const users: ApiAppUser[] = rawProfiles.map((p) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userRoleObj = p.user_roles as any;
-    const dbRoleName = userRoleObj?.[0]?.roles?.name ?? "";
-    const role = mapRoleNameToUserRole(dbRoleName);
-    const joinedAt = p.created_at ? p.created_at.split("T")[0] : new Date().toISOString().split("T")[0];
+  const users: ApiAppUser[] = (profilesRes.data ?? []).map((p) => {
+    const assigned = (p as unknown as ProfileWithRole).user_roles?.[0];
+    const roleId = assigned?.role_id ?? null;
+    const roleName = assigned?.roles?.name ?? "";
+
+    const joinedAt = p.created_at
+      ? p.created_at.split("T")[0]
+      : new Date().toISOString().split("T")[0];
 
     return {
       id: p.id,
       name: p.full_name || p.email.split("@")[0] || "User",
       email: p.email,
-      role,
+      roleId,
+      role: mapRoleNameToUserRole(roleName),
       status: p.is_active ? "active" : "inactive",
       joinedAt,
     };
@@ -71,6 +120,7 @@ export async function GET() {
     id: user.id,
     name: user.user_metadata?.full_name || user.email || "Admin",
     email: user.email ?? "",
+    roleId: null,
     role: "admin" as const,
     status: "active" as const,
     joinedAt: new Date().toISOString().split("T")[0],
@@ -83,7 +133,11 @@ export async function GET() {
   });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const supabase = await createClient();
 
   const user = await getCachedUser();
@@ -93,119 +147,209 @@ export async function POST(request: NextRequest) {
 
   const isAdmin = await getCachedIsAdmin();
   if (!isAdmin) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
+  let body: unknown;
   try {
-    const body = await request.json();
-    const { name, email, role } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
 
-    if (!name || !email) {
-      return NextResponse.json({ error: "Name and Email are required." }, { status: 400 });
-    }
-
-    // Lookup matching database role ID
-    const { data: roles } = await supabase.from("roles").select("id, name");
-    let targetRoleId: string | undefined;
-
-    if (roles && roles.length > 0) {
-      const match = roles.find((r) => {
-        const n = r.name.toLowerCase();
-        if (role === "admin") return n.includes("admin");
-        if (role === "lead") return n.includes("lead") || n.includes("manager");
-        return n.includes("bd") || n.includes("executive");
-      });
-      targetRoleId = match?.id ?? roles[0].id;
-    }
-
-    if (!targetRoleId) {
-      return NextResponse.json({ error: "No target role found in database." }, { status: 400 });
-    }
-
-    const adminClient = createAdminClient();
-
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: { full_name: name },
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
-      }
+  const parsed = createUserSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input." },
+      { status: 400 },
     );
+  }
 
-    if (inviteError) {
-      if (inviteError.code === "email_exists") {
-        return NextResponse.json({ error: "An account with this email already exists." }, { status: 400 });
+  const { name, email, roleId } = parsed.data;
+
+  const roleResult = await findRoleById(supabase, roleId);
+  if (!roleResult.ok) {
+    if (roleResult.reason === "not_found") {
+      return NextResponse.json({ error: "Selected role not found." }, { status: 400 });
+    }
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+  const role = roleResult.role;
+
+  const adminClient = createAdminClient();
+
+  const { data: inviteData, error: inviteError } =
+    await adminClient.auth.admin.inviteUserByEmail(email, {
+      data: { full_name: name },
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
+    });
+
+  if (inviteError) {
+    if (inviteError.code === "email_exists") {
+      return NextResponse.json(
+        { error: "An account with this email already exists." },
+        { status: 400 },
+      );
+    }
+    console.error("api/users: inviteUserByEmail failed", inviteError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  const { error: roleError } = await supabase.from("user_roles").insert({
+    user_id: inviteData.user.id,
+    role_id: role.id,
+    assigned_by: user.id,
+  });
+
+  if (roleError) {
+    console.error("api/users: user_roles insert failed", roleError);
+    return NextResponse.json(
+      { error: "User invited, but role assignment failed — contact an administrator." },
+      { status: 500 },
+    );
+  }
+
+  const newUser: ApiAppUser = {
+    id: inviteData.user.id,
+    name,
+    email,
+    roleId: role.id,
+    role: mapRoleNameToUserRole(role.name),
+    status: "active",
+    joinedAt: new Date().toISOString().split("T")[0],
+  };
+
+  return NextResponse.json({ success: true, user: newUser });
+}
+
+export async function PATCH(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const supabase = await createClient();
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const isAdmin = await getCachedIsAdmin();
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const parsed = updateUserSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input." },
+      { status: 400 },
+    );
+  }
+
+  const { userId, name, status, roleId } = parsed.data;
+
+  if (userId === user.id && (status !== undefined || roleId !== undefined)) {
+    return NextResponse.json(
+      { error: "You cannot change your own status or role." },
+      { status: 400 },
+    );
+  }
+
+  let role: { id: string; name: string } | null = null;
+  if (roleId) {
+    const roleResult = await findRoleById(supabase, roleId);
+    if (!roleResult.ok) {
+      if (roleResult.reason === "not_found") {
+        return NextResponse.json({ error: "Selected role not found." }, { status: 400 });
       }
-      console.error("POST /api/users inviteUserByEmail error:", inviteError);
-      return NextResponse.json({ error: inviteError.message || "Failed to invite user." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Something went wrong. Please try again." },
+        { status: 500 },
+      );
+    }
+    role = roleResult.role;
+  }
+
+  const profileUpdates: { full_name?: string; is_active?: boolean } = {};
+  if (name !== undefined) profileUpdates.full_name = name;
+  if (status !== undefined) profileUpdates.is_active = status === "active";
+
+  const hasProfileUpdates = Object.keys(profileUpdates).length > 0;
+
+  if (hasProfileUpdates) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(profileUpdates)
+      .eq("id", userId)
+      .select("id");
+
+    if (error) {
+      console.error("api/users: profiles update failed", error);
+      return NextResponse.json(
+        { error: "Something went wrong. Please try again." },
+        { status: 500 },
+      );
     }
 
-    const { error: roleError } = await supabase.from("user_roles").insert({
-      user_id: inviteData.user.id,
-      role_id: targetRoleId,
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
+    }
+  }
+
+  if (role && !hasProfileUpdates) {
+    const { data: target } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!target) {
+      return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
+    }
+  }
+
+  if (role) {
+    const { error: deleteError } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteError) {
+      console.error("api/users: user_roles delete failed", deleteError);
+      return NextResponse.json(
+        { error: "Something went wrong. Please try again." },
+        { status: 500 },
+      );
+    }
+
+    const { error: insertError } = await supabase.from("user_roles").insert({
+      user_id: userId,
+      role_id: role.id,
       assigned_by: user.id,
     });
 
-    if (roleError) {
-      console.error("POST /api/users user_roles insert error:", roleError);
+    if (insertError) {
+      console.error("api/users: user_roles insert failed", insertError);
+      return NextResponse.json(
+        { error: "Something went wrong. Please try again." },
+        { status: 500 },
+      );
     }
-
-    const newUser: ApiAppUser = {
-      id: inviteData.user.id,
-      name,
-      email,
-      role: (role as "admin" | "lead" | "bd") || "bd",
-      status: "active",
-      joinedAt: new Date().toISOString().split("T")[0],
-    };
-
-    return NextResponse.json({ success: true, user: newUser });
-  } catch (err: any) {
-    console.error("POST /api/users error:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
-
-  const user = await getCachedUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = await getCachedIsAdmin();
-  if (!isAdmin) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-  }
-
-  try {
-    const body = await request.json();
-    const { userId, status } = body;
-
-    if (!userId || typeof status !== "string") {
-      return NextResponse.json({ error: "userId and status are required." }, { status: 400 });
-    }
-
-    if (userId === user.id) {
-      return NextResponse.json({ error: "You cannot change your own active status." }, { status: 400 });
-    }
-
-    const isActive = status === "active";
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_active: isActive })
-      .eq("id", userId);
-
-    if (error) {
-      console.error("PATCH /api/users status update error:", error);
-      return NextResponse.json({ error: error.message || "Failed to update user status." }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("PATCH /api/users error:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
-  }
+  return NextResponse.json({ success: true });
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Briefcase, Contact, ListChecks, Menu, Sparkles, Users } from "lucide-react";
+import { Briefcase, Contact, ListChecks, Menu, Sparkles } from "lucide-react";
 import { apiPost } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,6 @@ function buildNavItems(isAdmin: boolean): DashboardNavItem[] {
   ];
 
   if (isAdmin) {
-    items.push({ href: "/admin/users", label: "Users", icon: Users });
     items.push({ href: "/admin/skills", label: "Skills", icon: ListChecks });
   }
 

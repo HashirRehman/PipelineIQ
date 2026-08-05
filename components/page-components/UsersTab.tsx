@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { Check, Plus, X, Loader2 } from 'lucide-react'
 import type { AppUser, UserRole } from '@/app/page'
+import { apiPost, apiRequest } from '@/lib/api/client'
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
 import { SearchInput } from "@/components/search-input"
-import { TintedBadge } from "@/components/tinted-badge"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,12 +33,18 @@ import {
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 
-interface InviteModalProps { onClose: () => void; onInvite: (u: AppUser) => void }
+interface RoleOption { id: string; name: string }
 
-function InviteModal({ onClose, onInvite }: InviteModalProps) {
+interface InviteModalProps {
+  roles: RoleOption[]
+  onClose: () => void
+  onInvite: (u: AppUser) => void
+}
+
+function InviteModal({ roles, onClose, onInvite }: InviteModalProps) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<UserRole>('bd')
+  const [roleId, setRoleId] = useState<string | null>(roles[0]?.id ?? null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
@@ -49,24 +55,17 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
     setError('');
 
     try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role }),
+      const data = await apiPost<{ success: boolean; user: AppUser }>("/api/users", {
+        name,
+        email,
+        roleId,
       });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "Failed to invite user.");
-        setLoading(false);
-        return;
-      }
 
       onInvite(data.user);
       setSent(true);
-    } catch (err: any) {
-      console.error("Invite user fetch error:", err);
-      setError("An unexpected error occurred.");
+    } catch (err) {
+      console.error("Invite user error:", err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -113,27 +112,31 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Role</label>
-                  <div className="flex gap-2">
-                    {(['bd', 'lead', 'admin'] as UserRole[]).map(r => (
-                      <Button key={r} variant="ghost" onClick={() => setRole(r)}
-                        className="flex-1 h-9 rounded-md text-xs capitalize font-mono shadow-none"
-                        style={{
-                          background: role === r ? (ROLE_COLOR[r] + '18') : 'var(--secondary)',
-                          border: role === r ? `1px solid ${ROLE_COLOR[r]}40` : '1px solid var(--border-strong)',
-                          fontWeight: role === r ? 700 : 400,
-                          color: role === r ? ROLE_COLOR[r] : 'var(--fg)',
-                        }}>
-                        {r}
-                      </Button>
-                    ))}
+                  <div className="flex gap-2 flex-wrap">
+                    {roles.map(r => {
+                      const color = ROLE_COLOR[mapRoleName(r.name)]
+                      const selected = roleId === r.id
+                      return (
+                        <Button key={r.id} variant="ghost" onClick={() => setRoleId(r.id)}
+                          className="flex-1 min-w-[90px] h-9 rounded-md text-xs capitalize font-mono shadow-none"
+                          style={{
+                            background: selected ? (color + '18') : 'var(--secondary)',
+                            border: selected ? `1px solid ${color}40` : '1px solid var(--border-strong)',
+                            fontWeight: selected ? 700 : 400,
+                            color: selected ? color : 'var(--fg)',
+                          }}>
+                          {r.name}
+                        </Button>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
               <div className="flex gap-2.5">
                 <Button variant="outline" onClick={onClose} className="flex-1 border-[var(--border-strong)] text-[var(--fg)] text-xs h-9 shadow-none">Cancel</Button>
-                <Button onClick={handleSubmit} disabled={!name || !email || loading}
+                <Button onClick={handleSubmit} disabled={!name || !email || !roleId || loading}
                   className={`flex-[2] text-xs font-semibold h-9 shadow-none flex items-center justify-center gap-2 ${
-                    (!name || !email || loading)
+                    (!name || !email || !roleId || loading)
                       ? 'bg-[var(--secondary)] text-[var(--muted-fg)]'
                       : 'bg-[var(--primary)] text-white hover:opacity-90'
                   }`}>
@@ -148,6 +151,113 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
   )
 }
 
+interface EditUserModalProps {
+  user: AppUser
+  roles: RoleOption[]
+  isSelf: boolean
+  onClose: () => void
+  onSave: (userId: string, updates: { name?: string; roleId?: string }) => Promise<void>
+}
+
+function EditUserModal({ user, roles, isSelf, onClose, onSave }: EditUserModalProps) {
+  const [name, setName] = useState(user.name)
+  const [roleId, setRoleId] = useState<string | null>(user.roleId)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    if (!name.trim() || loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      await onSave(user.id, {
+        name: name.trim(),
+        roleId: roleId !== user.roleId ? (roleId ?? undefined) : undefined,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName="bg-black/60 backdrop-blur-[3px]"
+        className="w-[420px] max-w-[420px] sm:max-w-[420px] bg-[var(--card)] text-[var(--fg)] rounded-xl border border-[var(--border-strong)] overflow-hidden shadow-2xl p-0 gap-0 ring-0"
+      >
+        <div className="p-5 px-6 border-b border-[var(--border)] flex items-center justify-between">
+          <DialogTitle className="text-base font-semibold text-[var(--fg)] m-0">Edit Team Member</DialogTitle>
+          <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-[var(--muted-fg)] hover:text-[var(--fg)]">
+            <X size={16} />
+          </Button>
+        </div>
+        <div className="p-5 px-6">
+          {error && (
+            <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/30 rounded text-red-500 text-xs">
+              {error}
+            </div>
+          )}
+          <div className="flex flex-col gap-3.5 mb-5">
+            <div>
+              <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Full Name *</label>
+              <Input value={name} onChange={e => setName(e.target.value)}
+                className="w-full bg-[var(--secondary)] border-[var(--border-strong)] text-[var(--fg)] text-xs h-9" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Email</label>
+              <Input value={user.email} readOnly
+                className="w-full bg-[var(--secondary)] border-[var(--border-strong)] text-[var(--fg)] text-xs h-9 opacity-60" />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-[var(--muted-fg)] mb-1.25">Role</label>
+              <div className="flex gap-2 flex-wrap">
+                {roles.map(r => {
+                  const color = ROLE_COLOR[mapRoleName(r.name)]
+                  const selected = roleId === r.id
+                  return (
+                    <Button key={r.id} variant="ghost" onClick={() => setRoleId(r.id)} disabled={isSelf}
+                      className="flex-1 min-w-[90px] h-9 rounded-md text-xs capitalize font-mono shadow-none"
+                      style={{
+                        background: selected ? (color + '18') : 'var(--secondary)',
+                        border: selected ? `1px solid ${color}40` : '1px solid var(--border-strong)',
+                        fontWeight: selected ? 700 : 400,
+                        color: selected ? color : 'var(--fg)',
+                      }}>
+                      {r.name}
+                    </Button>
+                  )
+                })}
+              </div>
+              {isSelf && <p className="mt-1.5 text-[10px] text-[var(--muted-fg)]">You cannot change your own role.</p>}
+            </div>
+          </div>
+          <div className="flex gap-2.5">
+            <Button variant="outline" onClick={onClose} className="flex-1 border-[var(--border-strong)] text-[var(--fg)] text-xs h-9 shadow-none">Cancel</Button>
+            <Button onClick={handleSave} disabled={!name.trim() || loading}
+              className={`flex-[2] text-xs font-semibold h-9 shadow-none flex items-center justify-center gap-2 ${
+                (!name.trim() || loading)
+                  ? 'bg-[var(--secondary)] text-[var(--muted-fg)]'
+                  : 'bg-[var(--primary)] text-white hover:opacity-90'
+              }`}>
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function mapRoleName(name: string): UserRole {
+  const n = name.toLowerCase()
+  if (n.includes('admin')) return 'admin'
+  if (n.includes('lead') || n.includes('manager')) return 'lead'
+  return 'bd'
+}
+
 interface Props { currentUser: AppUser }
 
 export default function UsersTab({ currentUser }: Props) {
@@ -158,17 +268,27 @@ export default function UsersTab({ currentUser }: Props) {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [inviting, setInviting] = useState(false)
   const [search, setSearch] = useState('')
+  const [roles, setRoles] = useState<RoleOption[]>([])
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [accessDenied, setAccessDenied] = useState(false)
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null)
 
   useEffect(() => {
     async function loadUsers() {
       try {
         const res = await fetch("/api/users");
+        if (res.status === 403) {
+          setAccessDenied(true);
+          return;
+        }
         if (res.ok) {
           const data = await res.json();
           if (data.users) {
             setUsers(data.users);
+          }
+          if (data.roles) {
+            setRoles(data.roles);
           }
           if (data.currentUser) {
             setActiveUser(data.currentUser);
@@ -186,12 +306,29 @@ export default function UsersTab({ currentUser }: Props) {
   const filtered = users.filter(u => {
     const q = search.toLowerCase()
     const matchQ = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    const matchRole = roleFilter === 'all' || u.role === roleFilter
+    const matchRole = roleFilter === 'all' || u.roleId === roleFilter
     const matchStatus = statusFilter === 'all' || u.status === statusFilter
     return matchQ && matchRole && matchStatus
   })
 
   const handleInvite = (u: AppUser) => setUsers(us => [u, ...us])
+
+  const saveUserEdit = async (userId: string, updates: { name?: string; roleId?: string }) => {
+    setActionError('');
+    await apiRequest<{ success: boolean }>("/api/users", "PATCH", { userId, ...updates });
+
+    const roleName = updates.roleId ? (roles.find(r => r.id === updates.roleId)?.name ?? '') : '';
+    setUsers(us => us.map(u => {
+      if (u.id !== userId) return u;
+      return {
+        ...u,
+        name: updates.name ?? u.name,
+        roleId: updates.roleId ?? u.roleId,
+        role: updates.roleId ? mapRoleName(roleName) : u.role,
+      };
+    }));
+    setEditingUser(null);
+  }
 
   const toggleStatus = async (id: string) => {
     if (id === activeUser.id || updatingId) return;
@@ -207,25 +344,31 @@ export default function UsersTab({ currentUser }: Props) {
     setUsers(us => us.map(u => u.id === id ? { ...u, status: newStatus } : u));
 
     try {
-      const res = await fetch("/api/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: id, status: newStatus }),
+      await apiRequest<{ success: boolean }>("/api/users", "PATCH", {
+        userId: id,
+        status: newStatus,
       });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        // Revert on error
-        setUsers(us => us.map(u => u.id === id ? { ...u, status: target.status } : u));
-        setActionError(data.error || "Failed to update user status.");
-      }
     } catch (err) {
-      console.error("Toggle status fetch error:", err);
+      // Revert the optimistic update on error.
       setUsers(us => us.map(u => u.id === id ? { ...u, status: target.status } : u));
-      setActionError("Failed to communicate with server.");
+      setActionError(err instanceof Error ? err.message : "Failed to update user status.");
     } finally {
       setUpdatingId(null);
     }
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="p-7 px-8 flex-1">
+        <PageHeader title="Users" subtitle="Admin only" className="mb-6" />
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-8 text-center">
+          <div className="text-sm font-semibold text-[var(--fg)] mb-1.5">Access denied</div>
+          <div className="text-xs text-[var(--muted-fg)]">
+            Only administrators can view and manage team members.
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -274,9 +417,9 @@ export default function UsersTab({ currentUser }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="lead">Lead</SelectItem>
-            <SelectItem value="bd">BD</SelectItem>
+            {roles.map(r => (
+              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={v => setStatusFilter(v ?? 'all')}>
@@ -322,7 +465,12 @@ export default function UsersTab({ currentUser }: Props) {
                 </TableCell>
                 <TableCell className="p-3.25 px-4 text-[var(--muted-fg)]">{u.email}</TableCell>
                 <TableCell className="p-3.25 px-4">
-                  <TintedBadge color={ROLE_COLOR[u.role]}>{u.role}</TintedBadge>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: ROLE_COLOR[u.role] }} />
+                    <span className="text-xs" style={{ color: ROLE_COLOR[u.role] }}>
+                      {roles.find(r => r.id === u.roleId)?.name ?? u.role}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell className="p-3.25 px-4">
                   <div className="flex items-center gap-1.5">
@@ -332,20 +480,28 @@ export default function UsersTab({ currentUser }: Props) {
                 </TableCell>
                 <TableCell className="p-3.25 px-4 font-mono"><span className="text-xs text-[var(--muted-fg)]">{formatDate(u.joinedAt)}</span></TableCell>
                 <TableCell className="p-3.25 px-4">
-                  {u.id !== activeUser.id && (
+                  <div className="flex items-center gap-1.5">
                     <Button
-                      onClick={() => toggleStatus(u.id)}
-                      disabled={updatingId === u.id}
-                      className={`h-auto p-1 px-2.5 bg-transparent border rounded-md cursor-pointer text-[11px] transition-colors shadow-none flex items-center gap-1 ${
-                        u.status === 'active'
-                          ? 'border-red-500/30 text-red-500 hover:bg-red-500/10'
-                          : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
-                      }`}
+                      onClick={() => setEditingUser(u)}
+                      className="h-auto p-1 px-2.5 bg-transparent border border-[var(--border-strong)] rounded-md cursor-pointer text-[11px] text-[var(--fg)] hover:bg-[var(--muted)] transition-colors shadow-none"
                     >
-                      {updatingId === u.id && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {u.status === 'active' ? 'Deactivate' : 'Activate'}
+                      Edit
                     </Button>
-                  )}
+                    {u.id !== activeUser.id && (
+                      <Button
+                        onClick={() => toggleStatus(u.id)}
+                        disabled={updatingId === u.id}
+                        className={`h-auto p-1 px-2.5 bg-transparent border rounded-md cursor-pointer text-[11px] transition-colors shadow-none flex items-center gap-1 ${
+                          u.status === 'active'
+                            ? 'border-red-500/30 text-red-500 hover:bg-red-500/10'
+                            : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                        }`}
+                      >
+                        {updatingId === u.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {u.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -354,7 +510,16 @@ export default function UsersTab({ currentUser }: Props) {
         {!loading && filtered.length === 0 && <div className="text-center py-8 text-[var(--muted-fg)] text-sm">No users match your search</div>}
       </div>
 
-      {inviting && <InviteModal onClose={() => setInviting(false)} onInvite={handleInvite} />}
+      {inviting && <InviteModal roles={roles} onClose={() => setInviting(false)} onInvite={handleInvite} />}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          roles={roles}
+          isSelf={editingUser.id === activeUser.id}
+          onClose={() => setEditingUser(null)}
+          onSave={saveUserEdit}
+        />
+      )}
     </div>
   )
 }
