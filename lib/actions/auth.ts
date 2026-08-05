@@ -60,9 +60,9 @@ export async function signIn(
     return { error: "This account has been deactivated. Contact an administrator." };
   }
 
-  // /engineers is already role-aware via RLS (Admin sees all, BD sees
-  // only their assigned engineers) — the same shared home for both roles.
-  redirect("/engineers");
+  // Root is the shared home for both roles; what's visible inside it stays
+  // role-aware via RLS (Admin sees all, BD sees only assigned engineers).
+  redirect("/");
 }
 
 export async function signOutAction() {

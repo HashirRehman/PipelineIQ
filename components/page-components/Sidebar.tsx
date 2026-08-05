@@ -6,6 +6,7 @@ import {
   BarChart3,
   Briefcase,
   ChevronDown,
+  LogOut,
   Moon,
   Search,
   Sun,
@@ -15,6 +16,8 @@ import {
 import type { TabId, Profile } from "@/app/page";
 import { useTheme } from "next-themes";
 import { Avatar } from "@/components/avatar";
+import { PipelineIQLogo } from "@/components/pipelineiq-logo";
+import { signOutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar as SidebarRoot,
@@ -39,31 +42,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-
-const RecursoLogo = () => (
-  <svg
-    width="30"
-    height="30"
-    viewBox="0 0 30 30"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <rect width="30" height="30" rx="7" fill="#06b6d4" />
-    <path
-      d="M7 7.5h8.2c2.9 0 5.3 2.2 5.3 5s-2.4 5-5.3 5H11v5H7V7.5z"
-      fill="white"
-    />
-    <circle cx="22" cy="22" r="3.5" fill="white" opacity="0.85" />
-    <rect
-      x="11"
-      y="10.5"
-      width="3.8"
-      height="4"
-      rx="0.8"
-      fill="rgba(6,182,212,0.6)"
-    />
-  </svg>
-);
 
 const NAV: {
   id: TabId;
@@ -119,17 +97,7 @@ export default function Sidebar({
       >
         {/* Logo */}
         <SidebarHeader className="p-2 px-2.5 mb-4">
-          <div className="flex items-center gap-2.5">
-            <RecursoLogo />
-            <div>
-              <div className="font-mono text-sm font-bold tracking-tight text-[var(--sidebar-fg)]">
-                Pipeline<span className="text-[var(--primary)]">IQ</span>
-              </div>
-              <div className="text-[10px] text-[var(--muted-fg)] tracking-wider uppercase font-mono">
-                Recurso Labs
-              </div>
-            </div>
-          </div>
+          <PipelineIQLogo />
         </SidebarHeader>
 
         <SidebarContent className="px-2.5">
@@ -276,7 +244,7 @@ export default function Sidebar({
 
           <div className="flex items-center gap-2 p-0.5">
             <ProfileAvatar name="Alex Rivera" size={30} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-xs font-medium text-[var(--sidebar-fg)] truncate">
                 Alex Rivera
               </div>
@@ -284,6 +252,18 @@ export default function Sidebar({
                 admin
               </div>
             </div>
+            <form action={signOutAction}>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Log out"
+                title="Log out"
+                className="text-[var(--muted-fg)] hover:bg-black/5 hover:text-[var(--fg)] dark:hover:bg-white/5 shadow-none cursor-pointer"
+              >
+                <LogOut className="size-[13px]" />
+              </Button>
+            </form>
           </div>
         </SidebarFooter>
       </SidebarRoot>
