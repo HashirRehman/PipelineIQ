@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { createEngineer } from "@/lib/actions/engineers";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,14 @@ type SeniorityLevel = {
 
 export function NewEngineerDialog({
   seniorityLevels,
+  onCreated,
 }: {
   seniorityLevels: SeniorityLevel[];
+  onCreated?: (engineerId: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={<Button className="w-full gap-2 sm:w-auto" />}
       >
@@ -45,7 +49,15 @@ export function NewEngineerDialog({
             action={createEngineer}
             seniorityLevels={seniorityLevels}
             submitLabel="Create Profile"
-            redirectOnSuccess
+            redirectOnSuccess={!onCreated}
+            onSuccess={
+              onCreated
+                ? (engineerId) => {
+                  setOpen(false);
+                  onCreated(engineerId);
+                }
+                : undefined
+            }
           />
         </div>
       </DialogContent>

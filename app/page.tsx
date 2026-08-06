@@ -260,11 +260,7 @@ export default function App() {
         }}
       >
         {activeTab === "profiles" && (
-          <ProfilesTab
-            profiles={profiles}
-            setProfiles={setProfiles}
-            users={APP_USERS}
-          />
+          <ProfilesTab />
         )}
         {activeTab === "discovery" && <DiscoveryTab />}
         {activeTab === "leads" && (

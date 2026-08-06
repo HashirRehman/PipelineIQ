@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MapPin, Search, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -46,11 +46,16 @@ export function EngineersList({
     engineers,
     isAdmin,
     seniorityLevels,
+    onSelectEngineer,
+    onEngineerCreated,
 }: {
     engineers: EngineerListItem[];
     isAdmin: boolean;
     seniorityLevels: SeniorityLevel[];
+    onSelectEngineer?: (engineerId: string) => void;
+    onEngineerCreated?: (engineerId: string) => void;
 }) {
+    const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
@@ -97,7 +102,10 @@ export function EngineersList({
                 </div>
 
                 {isAdmin && (
-                    <NewEngineerDialog seniorityLevels={seniorityLevels} />
+                    <NewEngineerDialog
+                        seniorityLevels={seniorityLevels}
+                        onCreated={onEngineerCreated}
+                    />
                 )}
             </div>
 
@@ -140,10 +148,18 @@ export function EngineersList({
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredEngineers.map((engineer) => (
-                        <Link
+                        <button
                             key={engineer.id}
-                            href={`/engineers?engineerId=${engineer.id}`}
-                            className="group rounded-xl border border-border bg-card p-5 transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            type="button"
+                            onClick={() => {
+                                if (onSelectEngineer) {
+                                    onSelectEngineer(engineer.id);
+                                    return;
+                                }
+
+                                router.push(`/engineers?engineerId=${engineer.id}`);
+                            }}
+                            className="group w-full rounded-xl border border-border bg-card p-5 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                             <div className="flex items-start gap-3">
                                 <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-info-foreground text-sm font-semibold text-primary-foreground">
@@ -220,7 +236,7 @@ export function EngineersList({
                                         : "Unassigned"}
                                 </span>
                             </div>
-                        </Link>
+                        </button>
                     ))}
                 </div>
             )}

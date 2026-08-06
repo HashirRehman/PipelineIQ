@@ -143,6 +143,7 @@ export function EngineerDetailSheet({
     bdCandidates,
     cvs,
     isAdmin,
+    onClose,
 }: {
     engineer: EngineerDetail;
     seniorityLevels: SeniorityLevel[];
@@ -150,6 +151,7 @@ export function EngineerDetailSheet({
     bdCandidates: BdCandidate[];
     cvs: CvEntry[];
     isAdmin: boolean;
+    onClose?: () => void;
 }) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
@@ -159,7 +161,11 @@ export function EngineerDetailSheet({
             open
             onOpenChange={(open) => {
                 if (!open) {
-                    router.replace("/engineers", { scroll: false });
+                    if (onClose) {
+                        onClose();
+                    } else {
+                        router.replace("/engineers", { scroll: false });
+                    }
                 }
             }}
         >

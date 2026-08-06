@@ -48,6 +48,7 @@ export function EngineerCoreFieldsForm({
   seniorityLevels,
   submitLabel,
   redirectOnSuccess = false,
+  onSuccess,
 }: {
   action: (
     state: EngineerActionState,
@@ -58,15 +59,31 @@ export function EngineerCoreFieldsForm({
   seniorityLevels: SeniorityLevel[];
   submitLabel: string;
   redirectOnSuccess?: boolean;
+  onSuccess?: (engineerId: string) => void;
 }) {
   const [state, formAction, isPending] = useActionState(action, {});
   const router = useRouter();
 
   useEffect(() => {
-    if (redirectOnSuccess && state.success && state.engineerId) {
+    if (!state.success || !state.engineerId) {
+      return;
+    }
+
+    if (onSuccess) {
+      onSuccess(state.engineerId);
+      return;
+    }
+
+    if (redirectOnSuccess) {
       router.push(`/engineers/${state.engineerId}`);
     }
-  }, [redirectOnSuccess, state.success, state.engineerId, router]);
+  }, [
+    state.success,
+    state.engineerId,
+    onSuccess,
+    redirectOnSuccess,
+    router,
+  ]);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
