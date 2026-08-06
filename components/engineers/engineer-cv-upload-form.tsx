@@ -1,26 +1,24 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
-import {
-  uploadEngineerCv,
-  type EngineerActionState,
-} from "@/lib/actions/engineers";
+import { uploadEngineerCvRequest } from "@/lib/api/engineers-client";
+import type { EngineerMutationResponse } from "@/lib/api/engineers-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: EngineerActionState = {};
-
 export function EngineerCvUploadForm({
   engineerId,
+  onChanged,
 }: {
   engineerId: string;
+  onChanged?: () => void;
 }) {
-  const [state, formAction, isPending] = useActionState(
-    uploadEngineerCv,
-    initialState,
-  );
+  const [state, setState] = useState<EngineerMutationResponse>({});
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
 
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -40,13 +38,42 @@ export function EngineerCvUploadForm({
     setFileName(file.name);
   }
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isPending) {
+      return;
+    }
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    setState({});
+    setIsPending(true);
+
+    const result = await uploadEngineerCvRequest(engineerId, formData);
+
+    setState(result);
+    setIsPending(false);
+
+    if (!result.success) {
+      return;
+    }
+    form.reset();
+    setFileName("");
+
+    if (onChanged) {
+      onChanged();
+    } else {
+      router.refresh();
+    }
+  };
+
   return (
     <form
-      action={formAction}
+      onSubmit={handleSubmit}
       className="flex flex-col gap-4 border-t border-border pt-5"
     >
-      <input type="hidden" name="engineerId" value={engineerId} />
-
       <div className="flex flex-col gap-2">
         <Label htmlFor={labelInputId}>Label</Label>
 

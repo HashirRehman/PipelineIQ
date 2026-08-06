@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { updateEngineer } from "@/lib/actions/engineers";
 import {
     Sheet,
     SheetContent,
@@ -144,6 +143,7 @@ export function EngineerDetailSheet({
     cvs,
     isAdmin,
     onClose,
+    onChanged,
 }: {
     engineer: EngineerDetail;
     seniorityLevels: SeniorityLevel[];
@@ -152,6 +152,7 @@ export function EngineerDetailSheet({
     cvs: CvEntry[];
     isAdmin: boolean;
     onClose?: () => void;
+    onChanged?: () => void;
 }) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
@@ -216,6 +217,7 @@ export function EngineerDetailSheet({
                             <EngineerActiveToggle
                                 engineerId={engineer.id}
                                 isActive={engineer.isActive}
+                                onChanged={onChanged}
                             />
 
                             <Button
@@ -238,7 +240,7 @@ export function EngineerDetailSheet({
 
                         {isAdmin && isEditing ? (
                             <EngineerCoreFieldsForm
-                                action={updateEngineer}
+                                mode="update"
                                 engineerId={engineer.id}
                                 initialValues={{
                                     fullName: engineer.fullName,
@@ -256,6 +258,7 @@ export function EngineerDetailSheet({
                                 }}
                                 seniorityLevels={seniorityLevels}
                                 submitLabel="Save changes"
+                                onSuccess={onChanged ? () => onChanged() : undefined}
                             />
                         ) : (
                             <ReadOnlyDetails engineer={engineer} />
@@ -272,6 +275,7 @@ export function EngineerDetailSheet({
                             assignments={assignments}
                             candidates={bdCandidates}
                             isAdmin={isAdmin}
+                            onChanged={onChanged}
                         />
                     </section>
 
@@ -282,7 +286,10 @@ export function EngineerDetailSheet({
                             <EngineerCvList cvs={cvs} />
 
                             {isAdmin && (
-                                <EngineerCvUploadForm engineerId={engineer.id} />
+                                <EngineerCvUploadForm
+                                    engineerId={engineer.id}
+                                    onChanged={onChanged}
+                                />
                             )}
                         </div>
                     </section>

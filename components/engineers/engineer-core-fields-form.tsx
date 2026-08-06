@@ -1,8 +1,13 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { EngineerActionState } from "@/lib/actions/engineers";
+import {
+  createEngineerRequest,
+  updateEngineerRequest,
+  type EngineerCoreFieldsPayload,
+  type EngineerMutationResponse,
+} from "@/lib/api/engineers-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,8 +46,27 @@ const BLANK_VALUES: EngineerFieldValues = {
   summary: "",
 };
 
+function readPayload(form: HTMLFormElement): EngineerCoreFieldsPayload {
+  const formData = new FormData(form);
+  const value = (name: keyof EngineerCoreFieldsPayload) =>
+    String(formData.get(name) ?? "");
+
+  return {
+    fullName: value("fullName"),
+    email: value("email"),
+    phone: value("phone"),
+    location: value("location"),
+    seniorityLevelId: value("seniorityLevelId"),
+    yearsExperience: value("yearsExperience"),
+    rateExpectation: value("rateExpectation"),
+    rateCurrency: value("rateCurrency"),
+    summary: value("summary"),
+    skillNames: value("skillNames"),
+  };
+}
+
 export function EngineerCoreFieldsForm({
-  action,
+  mode,
   engineerId,
   initialValues = BLANK_VALUES,
   seniorityLevels,
@@ -50,10 +74,7 @@ export function EngineerCoreFieldsForm({
   redirectOnSuccess = false,
   onSuccess,
 }: {
-  action: (
-    state: EngineerActionState,
-    formData: FormData,
-  ) => Promise<EngineerActionState>;
+  mode: "create" | "update";
   engineerId?: string;
   initialValues?: EngineerFieldValues;
   seniorityLevels: SeniorityLevel[];
@@ -61,38 +82,54 @@ export function EngineerCoreFieldsForm({
   redirectOnSuccess?: boolean;
   onSuccess?: (engineerId: string) => void;
 }) {
-  const [state, formAction, isPending] = useActionState(action, {});
+  const [state, setState] = useState<EngineerMutationResponse>({});
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
+  const [seedValues] = useState(initialValues);
 
-  useEffect(() => {
-    if (!state.success || !state.engineerId) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (isPending) {
+      return;
+    }
+
+    const payload = readPayload(event.currentTarget);
+
+    setIsPending(true);
+    setState({});
+
+    const result =
+      mode === "update" && engineerId
+        ? await updateEngineerRequest(engineerId, payload)
+        : await createEngineerRequest(payload);
+
+    setState(result);
+    setIsPending(false);
+
+    if (!result.success || !result.engineerId) {
       return;
     }
 
     if (onSuccess) {
-      onSuccess(state.engineerId);
+      onSuccess(result.engineerId);
       return;
     }
 
     if (redirectOnSuccess) {
-      router.push(`/engineers/${state.engineerId}`);
+      router.push(`/engineers/${result.engineerId}`);
+      return;
     }
-  }, [
-    state.success,
-    state.engineerId,
-    onSuccess,
-    redirectOnSuccess,
-    router,
-  ]);
+    router.refresh();
+  }
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
-      {engineerId && <input type="hidden" name="engineerId" value={engineerId} />}
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="fullName">Full name</Label>
-          <Input id="fullName" name="fullName" defaultValue={initialValues.fullName} required />
+          <Input id="fullName" name="fullName" defaultValue={seedValues.fullName} required />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
@@ -100,23 +137,23 @@ export function EngineerCoreFieldsForm({
             id="email"
             name="email"
             type="email"
-            defaultValue={initialValues.email}
+            defaultValue={seedValues.email}
             required
           />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" name="phone" defaultValue={initialValues.phone} />
+          <Input id="phone" name="phone" defaultValue={seedValues.phone} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="location">Location</Label>
-          <Input id="location" name="location" defaultValue={initialValues.location} />
+          <Input id="location" name="location" defaultValue={seedValues.location} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="seniorityLevelId">Seniority level</Label>
           <Select
             name="seniorityLevelId"
-            defaultValue={initialValues.seniorityLevelId || undefined}
+            defaultValue={seedValues.seniorityLevelId || undefined}
             items={seniorityLevels.map((level) => ({ value: level.id, label: level.name }))}
             required
           >
@@ -140,7 +177,7 @@ export function EngineerCoreFieldsForm({
             type="number"
             step="0.1"
             min="0"
-            defaultValue={initialValues.yearsExperience}
+            defaultValue={seedValues.yearsExperience}
           />
         </div>
         <div className="flex flex-col gap-2">
@@ -151,7 +188,7 @@ export function EngineerCoreFieldsForm({
             type="number"
             step="0.01"
             min="0"
-            defaultValue={initialValues.rateExpectation}
+            defaultValue={seedValues.rateExpectation}
           />
         </div>
         <div className="flex flex-col gap-2">
@@ -160,14 +197,14 @@ export function EngineerCoreFieldsForm({
             id="rateCurrency"
             name="rateCurrency"
             maxLength={3}
-            defaultValue={initialValues.rateCurrency}
+            defaultValue={seedValues.rateCurrency}
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="summary">Summary</Label>
-        <Textarea id="summary" name="summary" defaultValue={initialValues.summary} rows={4} />
+        <Textarea id="summary" name="summary" defaultValue={seedValues.summary} rows={4} />
       </div>
 
       {state.error && (

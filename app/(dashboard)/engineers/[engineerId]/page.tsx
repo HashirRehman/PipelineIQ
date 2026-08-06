@@ -1,5 +1,4 @@
 import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
-import { updateEngineer } from "@/lib/actions/engineers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { EngineerActiveToggle } from "@/components/engineers/engineer-active-toggle";
@@ -18,9 +17,6 @@ export default async function EngineerDetailPage({
 
   const isAdmin = await getCachedIsAdmin();
 
-  // engineers_select RLS (is_admin() OR id IN assigned_engineer_ids()) means
-  // a null result here covers both "doesn't exist" and "exists but isn't
-  // visible to you" — same deliberate non-distinction as earlier chunks.
   const { data: engineer } = await supabase
     .from("engineers")
     .select(
@@ -41,8 +37,6 @@ export default async function EngineerDetailPage({
     );
   }
 
-  // Only Admin edits core details, so these extra reads (and the form
-  // itself) never run for a BD viewer.
   let seniorityLevels: { id: string; name: string }[] = [];
 
   if (isAdmin) {
@@ -54,10 +48,6 @@ export default async function EngineerDetailPage({
     seniorityLevels = levels ?? [];
   }
 
-  // engineer_bd_assignments_select RLS already scopes a BD viewer to only
-  // the (necessarily active) assignment rows for engineers assigned to
-  // them — same query for both roles, per doc 03's "everyone can view
-  // relevant history."
   const { data: assignmentRows } = await supabase
     .from("engineer_bd_assignments")
     .select("bd_user_id, assigned_at, profiles!engineer_bd_assignments_bd_user_id_fkey(full_name, email)")
@@ -71,7 +61,6 @@ export default async function EngineerDetailPage({
     email: row.profiles?.email ?? "—",
   }));
 
-  // BD picker candidates — Admin-only, so this never runs for a BD viewer.
   let bdCandidates: { id: string; fullName: string; email: string }[] = [];
 
   if (isAdmin) {
@@ -90,12 +79,6 @@ export default async function EngineerDetailPage({
       .map((profile) => ({ id: profile.id, fullName: profile.full_name, email: profile.email }));
   }
 
-  // engineer_cvs_select RLS scopes this identically to engineers_select —
-  // same query for both roles. Signed URLs are generated here (not in a
-  // separate Server Action) because this Server Component already runs
-  // with the viewer's own RLS-scoped session, and createSignedUrl() only
-  // succeeds if that session's cv_files_select policy permits it — the
-  // same access boundary already proven for every other read on this page.
   const { data: cvRows } = await supabase
     .from("engineer_cvs")
     .select("id, label, file_name, storage_path, is_current, created_at")
@@ -142,7 +125,7 @@ export default async function EngineerDetailPage({
           </CardHeader>
           <CardContent>
             <EngineerCoreFieldsForm
-              action={updateEngineer}
+              mode="update"
               engineerId={engineer.id}
               initialValues={{
                 fullName: engineer.full_name,

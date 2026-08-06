@@ -1,4 +1,11 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import {
+  engineerMutationResponse,
+  readJsonBody,
+} from "@/lib/api/engineers-response";
+import { isSameOrigin } from "@/lib/api/guard";
+import { createEngineer } from "@/lib/services/engineers";
 import {
   createClient,
   getCachedIsAdmin,
@@ -165,4 +172,24 @@ export async function GET() {
   };
 
   return NextResponse.json(response);
+}
+
+export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  const { body, response: badBody } = await readJsonBody(request);
+  if (badBody) {
+    return badBody;
+  }
+
+  const supabase = await createClient();
+  const result = await createEngineer(supabase, body);
+
+  if (result.success) {
+    revalidatePath("/engineers");
+  }
+
+  return engineerMutationResponse(result);
 }

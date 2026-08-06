@@ -1,4 +1,3 @@
-// Zod schemas shared by forms and Server Actions, Modules 1-4
 import { z } from "zod";
 
 export const createUserSchema = z.object({
@@ -35,17 +34,23 @@ export const setPasswordSchema = z
     path: ["confirmPassword"],
   });
 
-// Optional numeric form fields arrive as strings ("" when left blank), so an
-// empty string must become undefined ("not provided"), not 0.
 const optionalNonNegativeNumber = z
-  .string()
-  .optional()
-  .transform((value) => (value ? Number(value) : undefined))
-  .refine((value) => value === undefined || value >= 0, "Must be zero or greater.");
+  .union([z.string(), z.number()])
+  .nullish()
+  .transform((value) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+    return Number(value);
+  })
+  .refine(
+    (value) => value === undefined || (Number.isFinite(value) && value >= 0),
+    "Must be zero or greater.",
+  );
 
 const optionalTrimmedText = z
   .string()
-  .optional()
+  .nullish()
   .transform((value) => {
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
@@ -62,7 +67,7 @@ export const engineerCoreFieldsSchema = z.object({
   rateCurrency: z
     .string()
     .trim()
-    .optional()
+    .nullish()
     .transform((value) => (value ? value.toUpperCase() : "USD"))
     .refine((value) => value.length === 3, "Currency must be a 3-letter code."),
   summary: optionalTrimmedText,
@@ -76,9 +81,10 @@ export const updateEngineerSchema = engineerCoreFieldsSchema.extend({
 
 export const setEngineerActiveSchema = z.object({
   engineerId: z.uuid(),
-  // z.coerce.boolean() would treat the literal string "false" as truthy —
-  // an explicit enum is what makes deactivation actually work.
-  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
+  isActive: z.union([
+    z.boolean(),
+    z.enum(["true", "false"]).transform((value) => value === "true"),
+  ]),
 });
 
 export const engineerBdAssignmentSchema = z.object({
@@ -104,4 +110,3 @@ export const markAppliedSchema = z.object({
   jobId: z.uuid(),
   profileId: z.uuid(),
 });
-

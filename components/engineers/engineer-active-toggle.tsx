@@ -1,30 +1,57 @@
 "use client";
 
-import { useActionState } from "react";
-import { setEngineerActive, type EngineerActionState } from "@/lib/actions/engineers";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { setEngineerActiveRequest } from "@/lib/api/engineers-client";
 import { Button } from "@/components/ui/button";
-
-const initialState: EngineerActionState = {};
 
 export function EngineerActiveToggle({
   engineerId,
   isActive,
+  onChanged,
 }: {
   engineerId: string;
   isActive: boolean;
+  onChanged?: () => void;
 }) {
-  const [state, formAction, isPending] = useActionState(setEngineerActive, initialState);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isPending) {
+      return;
+    }
+
+    setError(null);
+    setIsPending(true);
+
+    const result = await setEngineerActiveRequest(engineerId, !isActive);
+
+    setIsPending(false);
+
+    if (!result.success) {
+      setError(result.error ?? "Something went wrong. Please try again.");
+      return;
+    }
+
+    if (onChanged) {
+      onChanged();
+    } else {
+      router.refresh();
+    }
+  };
 
   return (
-    <form action={formAction} className="flex items-center gap-3">
-      <input type="hidden" name="engineerId" value={engineerId} />
-      <input type="hidden" name="isActive" value={String(!isActive)} />
+    <form onSubmit={handleSubmit} className="flex items-center gap-3">
       <Button type="submit" variant="outline" size="sm" disabled={isPending}>
         {isPending ? "Saving…" : isActive ? "Deactivate" : "Activate"}
       </Button>
-      {state.error && (
+      {error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">
-          {state.error}
+          {error}
         </p>
       )}
     </form>

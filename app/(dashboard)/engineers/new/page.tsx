@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient, getCachedIsAdmin } from "@/lib/supabase/server";
-import { createEngineer } from "@/lib/actions/engineers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EngineerCoreFieldsForm } from "@/components/engineers/engineer-core-fields-form";
 
@@ -31,7 +30,7 @@ export default async function NewEngineerPage() {
         </CardHeader>
         <CardContent>
           <EngineerCoreFieldsForm
-            action={createEngineer}
+            mode="create"
             seniorityLevels={seniorityLevels ?? []}
             submitLabel="Create engineer"
             redirectOnSuccess

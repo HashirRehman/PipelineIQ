@@ -24,9 +24,14 @@ export default function ProfilesTab() {
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const loadEngineers = useCallback(
-    async (signal?: AbortSignal) => {
+    async (
+      signal?: AbortSignal,
+      options?: { silent?: boolean },
+    ) => {
       try {
-        setLoading(true);
+        if (!options?.silent) {
+          setLoading(true);
+        }
 
         const response = await fetch("/api/engineers", {
           signal,
@@ -57,7 +62,7 @@ export default function ProfilesTab() {
 
         setError("Unable to load engineer profiles.");
       } finally {
-        if (!signal?.aborted) {
+        if (!signal?.aborted && !options?.silent) {
           setLoading(false);
         }
       }
@@ -73,6 +78,21 @@ export default function ProfilesTab() {
     return () => controller.abort();
   }, [loadEngineers]);
 
+  const fetchEngineerDetail = useCallback(async (engineerId: string) => {
+    const response = await fetch(
+      `/api/engineers/${encodeURIComponent(engineerId)}`,
+      {
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to load engineer profile.");
+    }
+
+    return (await response.json()) as EngineerDetailApiResponse;
+  }, []);
+
   const selectEngineer = async (engineerId: string) => {
     setSelectedEngineerId(engineerId);
     setDetailData(null);
@@ -80,21 +100,7 @@ export default function ProfilesTab() {
     setDetailLoading(true);
 
     try {
-      const response = await fetch(
-        `/api/engineers/${encodeURIComponent(engineerId)}`,
-        {
-          cache: "no-store",
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to load engineer profile.");
-      }
-
-      const data =
-        (await response.json()) as EngineerDetailApiResponse;
-
-      setDetailData(data);
+      setDetailData(await fetchEngineerDetail(engineerId));
     } catch (requestError) {
       console.error(
         "ProfilesTab: engineer detail request failed",
@@ -107,6 +113,31 @@ export default function ProfilesTab() {
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const refreshAfterMutation = async () => {
+    if (!selectedEngineerId) {
+      await loadEngineers(undefined, { silent: true });
+      return;
+    }
+
+    const [, detailResult] = await Promise.allSettled([
+      loadEngineers(undefined, { silent: true }),
+      fetchEngineerDetail(selectedEngineerId),
+    ]);
+
+    if (detailResult.status === "fulfilled") {
+      setDetailData(detailResult.value);
+      setDetailError(null);
+      return;
+    }
+
+    console.error(
+      "ProfilesTab: engineer detail refresh failed",
+      detailResult.reason,
+    );
+
+    setDetailError("Unable to refresh the selected engineer profile.");
   };
 
   const closeEngineerDetail = () => {
@@ -176,6 +207,7 @@ export default function ProfilesTab() {
           cvs={detailData.cvs}
           isAdmin={listData.isAdmin}
           onClose={closeEngineerDetail}
+          onChanged={refreshAfterMutation}
         />
       )}
     </>

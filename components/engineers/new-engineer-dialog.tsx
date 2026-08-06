@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { createEngineer } from "@/lib/actions/engineers";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,7 +45,7 @@ export function NewEngineerDialog({
 
         <div className="overflow-y-auto px-6 py-5">
           <EngineerCoreFieldsForm
-            action={createEngineer}
+            mode="create"
             seniorityLevels={seniorityLevels}
             submitLabel="Create Profile"
             redirectOnSuccess={!onCreated}

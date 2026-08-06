@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  assignEngineerToBd,
-  unassignEngineerFromBd,
-  type EngineerActionState,
-} from "@/lib/actions/engineers";
+  assignEngineerToBdRequest,
+  unassignEngineerFromBdRequest,
+} from "@/lib/api/engineers-client";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const initialState: EngineerActionState = {};
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -31,13 +30,55 @@ type Assignment = {
   email: string;
 };
 
-function UnassignButton({ engineerId, bdUserId }: { engineerId: string; bdUserId: string }) {
-  const [state, formAction, isPending] = useActionState(unassignEngineerFromBd, initialState);
+function useAssignmentRefresh(onChanged?: () => void) {
+  const router = useRouter();
+
+  return () => {
+    if (onChanged) {
+      onChanged();
+    } else {
+      router.refresh();
+    }
+  };
+}
+
+function UnassignButton({
+  engineerId,
+  bdUserId,
+  onChanged,
+}: {
+  engineerId: string;
+  bdUserId: string;
+  onChanged?: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const refresh = useAssignmentRefresh(onChanged);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isPending) {
+      return;
+    }
+
+    setError(null);
+    setIsPending(true);
+
+    const result = await unassignEngineerFromBdRequest(engineerId, bdUserId);
+
+    setIsPending(false);
+
+    if (!result.success) {
+      setError(result.error ?? "Something went wrong. Please try again.");
+      return;
+    }
+
+    refresh();
+  };
 
   return (
-    <form action={formAction} className="flex items-center gap-3">
-      <input type="hidden" name="engineerId" value={engineerId} />
-      <input type="hidden" name="bdUserId" value={bdUserId} />
+    <form onSubmit={handleSubmit} className="flex items-center gap-3">
       <Button
         type="submit"
         variant="outline"
@@ -47,9 +88,9 @@ function UnassignButton({ engineerId, bdUserId }: { engineerId: string; bdUserId
       >
         {isPending ? "Removing…" : "Remove"}
       </Button>
-      {state.error && (
+      {error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">
-          {state.error}
+          {error}
         </p>
       )}
     </form>
@@ -59,11 +100,41 @@ function UnassignButton({ engineerId, bdUserId }: { engineerId: string; bdUserId
 function AssignForm({
   engineerId,
   candidates,
+  onChanged,
 }: {
   engineerId: string;
   candidates: { id: string; fullName: string; email: string }[];
+  onChanged?: () => void;
 }) {
-  const [state, formAction, isPending] = useActionState(assignEngineerToBd, initialState);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const refresh = useAssignmentRefresh(onChanged);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isPending) {
+      return;
+    }
+
+    const bdUserId = String(
+      new FormData(event.currentTarget).get("bdUserId") ?? "",
+    );
+
+    setError(null);
+    setIsPending(true);
+
+    const result = await assignEngineerToBdRequest(engineerId, bdUserId);
+
+    setIsPending(false);
+
+    if (!result.success) {
+      setError(result.error ?? "Something went wrong. Please try again.");
+      return;
+    }
+
+    refresh();
+  };
 
   if (candidates.length === 0) {
     return (
@@ -74,8 +145,7 @@ function AssignForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <input type="hidden" name="engineerId" value={engineerId} />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <Select name="bdUserId" required>
         <SelectTrigger className="w-full sm:w-64">
           <SelectValue placeholder="Select a BD Executive" />
@@ -91,9 +161,9 @@ function AssignForm({
       <Button type="submit" size="sm" disabled={isPending}>
         {isPending ? "Assigning…" : "Assign"}
       </Button>
-      {state.error && (
+      {error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">
-          {state.error}
+          {error}
         </p>
       )}
     </form>
@@ -104,11 +174,13 @@ export function EngineerAssignments({
   assignments,
   candidates,
   isAdmin,
+  onChanged,
 }: {
   engineerId: string;
   assignments: Assignment[];
   candidates: { id: string; fullName: string; email: string }[];
   isAdmin: boolean;
+  onChanged?: () => void;
 }) {
   return (
     <div className="rounded-lg border border-border bg-muted/40 p-4">
@@ -142,6 +214,7 @@ export function EngineerAssignments({
                 <UnassignButton
                   engineerId={engineerId}
                   bdUserId={assignment.bdUserId}
+                  onChanged={onChanged}
                 />
               )}
             </li>
@@ -154,6 +227,7 @@ export function EngineerAssignments({
           <AssignForm
             engineerId={engineerId}
             candidates={candidates}
+            onChanged={onChanged}
           />
         </div>
       )}
