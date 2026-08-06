@@ -46,7 +46,7 @@ export type DiscoveryJob = {
   postedAt: string;
   applyUrl: string;
   parser: string;
-  status: "new";
+  status: "new" | "applied" | "dismissed";
   description: string;
   relevanceScore: number | null;
   cvMatches: CvMatch[];
@@ -103,11 +103,20 @@ function toDiscoveryProfile(row: ProfileRow): DiscoveryProfile {
 
 function toDiscoveryJob(
   job: JobWithMatches,
-  excludedPairs: Set<string>,
   profileId: string | undefined,
   userCvIds: Set<string>,
+  stateByPair: Map<string, "applied" | "dismissed">,
+  status: "new" | "applied" | "dismissed",
 ): DiscoveryJob | null {
-  if (profileId && excludedPairs.has(`${job.id}:${profileId}`)) {
+  // The default feed ("new") shows only jobs with no applied/dismissed state
+  // for the acting profile. A status feed inverts that: it shows exactly the
+  // jobs the profile marked applied (or dismissed), dropping the rest.
+  const pairStatus = profileId ? stateByPair.get(`${job.id}:${profileId}`) : undefined;
+  if (status === "new") {
+    if (pairStatus) {
+      return null;
+    }
+  } else if (pairStatus !== status) {
     return null;
   }
 
@@ -142,7 +151,7 @@ function toDiscoveryJob(
     postedAt: job.job_posted_at ?? job.created_at,
     applyUrl: job.apply_url,
     parser: job.scrapers?.name ?? "",
-    status: "new",
+    status,
     description: job.description ?? "",
     relevanceScore: bestMatch?.relevanceScore ?? null,
     cvMatches,
@@ -173,6 +182,15 @@ export async function GET(request: NextRequest) {
   const parser = searchParams.get("parser") ?? "";
   const search = (searchParams.get("search") ?? "").trim();
   const region = searchParams.get("region") ?? "";
+
+  // Feed the jobs are returned as. Defaults to the discovery feed ("new").
+  const statusParam = (searchParams.get("status") ?? "new").toLowerCase();
+  const status: "new" | "applied" | "dismissed" =
+    statusParam === "applied" || statusParam === "dismissed" ? statusParam : "new";
+
+  // A status feed only makes sense against the acting user's assigned profile,
+  // so derive it here and pass profileId through once.
+  const isStatusFeed = status !== "new";
 
   const { data: userRow } = await supabase
     .from("users")
@@ -236,11 +254,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const excludedPairs = new Set(
-    (stateRows ?? [])
-      .filter((s) => s.status === "applied" || s.status === "dismissed")
-      .map((s) => `${s.job_id}:${s.profile_id}`),
-  );
+  const stateByPair = new Map<string, "applied" | "dismissed">();
+  for (const s of stateRows ?? []) {
+    if (s.status === "applied" || s.status === "dismissed") {
+      stateByPair.set(`${s.job_id}:${s.profile_id}`, s.status);
+    }
+  }
 
   let query = supabase.from("jobs").select(
     "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, job_posted_at, description, possibly_closed, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
@@ -251,11 +270,14 @@ export async function GET(request: NextRequest) {
   // Default: only jobs the AI enrichment marked as globally open. "US Only"
   // is exclusive — it shows region-restricted postings (is_globally_open =
   // false) alone, never alongside the worldwide ones. Unenriched jobs (null)
-  // stay hidden either way.
-  if (region === "us_only") {
-    query = query.eq("is_globally_open", false);
-  } else {
-    query = query.eq("is_globally_open", true);
+  // stay hidden either way. Applied/dismissed feeds skip this — a job the
+  // user already acted on is returned regardless of whether it's still open.
+  if (!isStatusFeed) {
+    if (region === "us_only") {
+      query = query.eq("is_globally_open", false);
+    } else {
+      query = query.eq("is_globally_open", true);
+    }
   }
 
   if (workType === "remote") {
@@ -282,7 +304,7 @@ export async function GET(request: NextRequest) {
   }
 
   const jobs = ((rows ?? []) as JobWithMatches[])
-    .map((job) => toDiscoveryJob(job, excludedPairs, profileRow?.id, userCvIds))
+    .map((job) => toDiscoveryJob(job, profileRow?.id, userCvIds, stateByPair, status))
     .filter((job): job is DiscoveryJob => job !== null)
     .sort((a, b) => (b.relevanceScore ?? -1) - (a.relevanceScore ?? -1));
 

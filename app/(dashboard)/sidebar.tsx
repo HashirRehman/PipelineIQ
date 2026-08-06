@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Briefcase,
+  CheckCircle2,
   LogOut,
   Moon,
   Search,
@@ -30,6 +31,7 @@ const NAV: {
 }[] = [
   { id: "profiles", label: "Profiles", icon: UserRound, href: "/profiles" },
   { id: "discovery", label: "Discovery", icon: Search, href: "/discovery" },
+  { id: "applied-jobs", label: "Applied Jobs", icon: CheckCircle2, href: "/applied-jobs" },
   { id: "leads", label: "Leads", icon: Briefcase, href: "/leads" },
   { id: "users", label: "Users", icon: Users, href: "/users" },
   { id: "statistics", label: "Statistics", icon: BarChart3, href: "/statistics" },

@@ -5,6 +5,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 const DASHBOARD_PATHS = [
   "/profiles",
   "/discovery",
+  "/applied-jobs",
   "/leads",
   "/users",
   "/statistics",
