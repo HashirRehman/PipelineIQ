@@ -8,32 +8,46 @@ export type TabId =
   | "users"
   | "statistics";
 
+// Mirrors the pipeline_stages seed in
+// supabase/migrations/20260724120000_module4_lead_management.sql, in
+// order_index order, so this UI doesn't need re-labelling when it's wired
+// to real data. Stage tracking itself is Module 5 and not built yet.
 export const LEAD_STATUSES = [
   "Applied",
-  "Screening",
-  "Interview",
-  "Technical",
-  "Offer",
+  "Assessment Received",
+  "Assessment Submitted",
+  "HR Interview",
+  "Tech Interview 1",
+  "Tech Interview 2",
+  "Client Interview",
+  "Offer Received",
+  "Offer Accepted/Rejected",
   "Closed",
 ] as const
 
+export type LeadStatus = (typeof LEAD_STATUSES)[number]
+
+// The terminal stage a lead moves to when its list-view checkbox is ticked.
+export const LEAD_STATUS_DONE: LeadStatus = "Closed"
+
 export const LEAD_STATUS_COLOR: Record<string, string> = {
   Applied: "#6366f1",
-  Screening: "#f59e0b",
-  Interview: "#06b6d4",
-  Technical: "#ec4899",
-  Offer: "#10b981",
+  "Assessment Received": "#8b5cf6",
+  "Assessment Submitted": "#a855f7",
+  "HR Interview": "#f59e0b",
+  "Tech Interview 1": "#06b6d4",
+  "Tech Interview 2": "#0ea5e9",
+  "Client Interview": "#ec4899",
+  "Offer Received": "#10b981",
+  "Offer Accepted/Rejected": "#14b8a6",
   Closed: "#64748b",
 }
 
-export const LEAD_STATUS_BG: Record<string, string> = {
-  Applied: "rgba(99,102,241,0.1)",
-  Screening: "rgba(245,158,11,0.1)",
-  Interview: "rgba(6,182,212,0.1)",
-  Technical: "rgba(236,72,153,0.1)",
-  Offer: "rgba(16,185,129,0.1)",
-  Closed: "rgba(100,116,139,0.1)",
-}
+// Derived rather than hand-maintained — a second literal map was one more
+// place to forget when the stage list changes.
+export const LEAD_STATUS_BG: Record<string, string> = Object.fromEntries(
+  Object.entries(LEAD_STATUS_COLOR).map(([status, color]) => [status, `${color}1a`]),
+)
 
 export const WORK_TYPE_COLOR: Record<string, string> = {
   remote: "#10b981",

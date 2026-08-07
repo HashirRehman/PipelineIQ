@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react"
 import { X } from "lucide-react"
 
+import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
+
 // Minimal shape — only profile.name is rendered; both the real discovery
 // profile and any caller-supplied profile satisfy it.
 type ActiveProfile = { name: string }
@@ -125,6 +127,10 @@ interface Props {
   onMarkApplied?: (id: string) => void
   onDismiss?: (id: string, reason: string) => void
   showActions?: boolean
+  // Lead-only: DiscoveryTab renders jobs that have no lead (and so no
+  // note) behind them, so both stay optional.
+  notes?: string
+  onNotesSave?: (value: string) => void
   dismissReason?: string
   setDismissReason?: (r: string) => void
   dismissOpen?: boolean
@@ -134,6 +140,7 @@ interface Props {
 export default function JobDrawer({
   job, onClose, activeProfile,
   onApply, onMarkApplied, onDismiss, showActions = true,
+  notes, onNotesSave,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
 }: Props) {
 
@@ -225,6 +232,9 @@ export default function JobDrawer({
             <p className="text-xs text-[var(--fg)] leading-relaxed m-0">{job.description}</p>
           </div>
 
+          {notes !== undefined && onNotesSave && (
+            <LeadNotesPanel key={job.id} notes={notes} onSave={onNotesSave} />
+          )}
         </div>
       </DrawerContent>
     </Drawer>
