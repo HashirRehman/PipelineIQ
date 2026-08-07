@@ -32,5 +32,28 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Enforce deactivation on live sessions. users.is_active is checked at
+  // login (app/api/auth/login) — this closes the gap where an account
+  // deactivated by an admin keeps a still-valid session until token expiry.
+  // We read the row on every authenticated request; unauthenticated requests
+  // short-circuit above and pay nothing. Mirrors the login gate exactly
+  // (a row that exists but is flagged inactive blocks; a missing row does
+  // not, so an invited user whose users row isn't inserted yet isn't locked
+  // out of the confirm flow).
+  if (user) {
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (userRow && !userRow.is_active) {
+      // Best-effort signOut so the stale cookie is cleared, then report
+      // no user so the proxy redirects to /login.
+      await supabase.auth.signOut();
+      return { response, user: null, supabase };
+    }
+  }
+
   return { response, user, supabase };
 }

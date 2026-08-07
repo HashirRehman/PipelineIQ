@@ -1,3 +1,4 @@
+"use client"
 import { useState } from 'react'
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"

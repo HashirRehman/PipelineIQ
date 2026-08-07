@@ -64,3 +64,14 @@ export const getCachedIsAdmin = cache(async () => {
   const { data } = await supabase.auth.getClaims();
   return data?.claims?.is_admin === true;
 });
+
+// The display role name (e.g. "Admin", "User") baked into the JWT as the
+// user_role claim by custom_access_token_hook. Read locally via cached JWKS
+// (no per-call network request, same as getCachedIsAdmin). Returns null when
+// the claim is missing so callers can hide the label rather than guess.
+export const getCachedUserRole = cache(async () => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const role = data?.claims?.user_role;
+  return typeof role === "string" && role.length > 0 ? role : null;
+});

@@ -1,5 +1,13 @@
 export type UserRole = "admin" | "lead" | "bd";
 
+/** Top-level sections of the dashboard shell (mirrors the sidebar NAV). */
+export type TabId =
+  | "profiles"
+  | "discovery"
+  | "leads"
+  | "users"
+  | "statistics";
+
 export const LEAD_STATUSES = [
   "Applied",
   "Screening",

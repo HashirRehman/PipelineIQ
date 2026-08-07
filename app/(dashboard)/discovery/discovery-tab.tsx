@@ -1,3 +1,4 @@
+"use client"
 import { useEffect, useState } from "react"
 import { Search } from "lucide-react"
 
@@ -24,7 +25,7 @@ import {
 } from "@/lib/constants"
 import { timeAgo } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import JobDrawer, { type Job } from "./JobDrawer"
+import JobDrawer, { type Job } from "@/components/job-drawer"
 import { apiPost } from "@/lib/api/client"
 
 const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { apiPost } from "@/lib/api/client";
@@ -77,15 +76,6 @@ export function LoginForm() {
             )}
           </button>
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <Link
-          href="/forgot-password"
-          className="text-xs text-[var(--muted-fg)] transition-colors hover:text-[var(--primary)]"
-        >
-          Forgot password?
-        </Link>
       </div>
 
       {error && (

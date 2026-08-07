@@ -1,12 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+/** Sections that live inside the authenticated dashboard shell. */
+const DASHBOARD_PATHS = [
+  "/profiles",
+  "/discovery",
+  "/leads",
+  "/users",
+  "/statistics",
+];
+
+export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
 
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/" && !user) {
+  const isDashboard =
+    pathname === "/" ||
+    DASHBOARD_PATHS.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    );
+
+  if (isDashboard && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

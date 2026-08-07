@@ -14,7 +14,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PipelineIQ",
+  title: {
+    default: "PipelineIQ",
+    template: "%s — PipelineIQ",
+  },
   description: "Internal profile placement and BD tracking platform",
 };
 

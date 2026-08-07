@@ -1,6 +1,7 @@
+"use client"
 import { useState } from 'react'
 import { LayoutGrid, List } from 'lucide-react'
-import JobDrawer, { type Job } from './JobDrawer'
+import JobDrawer, { type Job } from '@/components/job-drawer'
 import { Avatar } from "@/components/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

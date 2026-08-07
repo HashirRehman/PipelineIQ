@@ -131,7 +131,7 @@ export function ProfileDetailSheet({
           if (onClose) {
             onClose();
           } else {
-            router.replace("/", { scroll: false });
+            router.replace("/profiles", { scroll: false });
           }
         }
       }}
