@@ -4,6 +4,7 @@ export type UserRole = "admin" | "lead" | "bd";
 export type TabId =
   | "profiles"
   | "discovery"
+  | "applied-jobs"
   | "leads"
   | "users"
   | "statistics";
