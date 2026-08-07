@@ -44,7 +44,7 @@ export default async function LoginPage({
               Automate Lead Gen
             </h1>
             <p className="mt-3 max-w-xs text-sm text-[var(--muted-fg)]">
-              PipelineIQ helps you automate engineer profiles, job discovery,
+              PipelineIQ helps you automate candidate profiles, job discovery,
               and lead tracking — end to end.
             </p>
           </div>

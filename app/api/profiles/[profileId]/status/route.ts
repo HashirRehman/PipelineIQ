@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import {
-  engineerMutationResponse,
+  profileMutationResponse,
   readJsonBody,
-} from "@/lib/api/engineers-response";
+} from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
-import { assignEngineerToBd } from "@/lib/services/engineers";
+import { setProfileActive } from "@/lib/services/profiles";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
+export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ engineerId: string }> },
+  context: { params: Promise<{ profileId: string }> },
 ) {
   if (!isSameOrigin(request)) {
     return NextResponse.json(
@@ -21,7 +21,7 @@ export async function POST(
     );
   }
 
-  const { engineerId } = await context.params;
+  const { profileId } = await context.params;
 
   const { body, response: badBody } = await readJsonBody(request);
   if (badBody) {
@@ -29,12 +29,11 @@ export async function POST(
   }
 
   const supabase = await createClient();
-  const result = await assignEngineerToBd(supabase, engineerId, body);
+  const result = await setProfileActive(supabase, profileId, body);
 
   if (result.success) {
-    revalidatePath("/engineers");
-    revalidatePath(`/engineers/${engineerId}`);
+    revalidatePath("/");
   }
 
-  return engineerMutationResponse(result);
+  return profileMutationResponse(result);
 }

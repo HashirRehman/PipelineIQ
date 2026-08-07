@@ -56,7 +56,7 @@ const optionalTrimmedText = z
     return trimmed ? trimmed : undefined;
   });
 
-export const engineerCoreFieldsSchema = z.object({
+export const profileCoreFieldsSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required."),
   email: z.email("Enter a valid email address."),
   phone: optionalTrimmedText,
@@ -73,31 +73,38 @@ export const engineerCoreFieldsSchema = z.object({
   summary: optionalTrimmedText,
 });
 
-export const createEngineerSchema = engineerCoreFieldsSchema;
+export const createProfileSchema = profileCoreFieldsSchema;
 
-export const updateEngineerSchema = engineerCoreFieldsSchema.extend({
-  engineerId: z.uuid(),
+export const updateProfileSchema = profileCoreFieldsSchema.extend({
+  profileId: z.uuid(),
 });
 
-export const setEngineerActiveSchema = z.object({
-  engineerId: z.uuid(),
+export const setProfileActiveSchema = z.object({
+  profileId: z.uuid(),
   isActive: z.union([
     z.boolean(),
     z.enum(["true", "false"]).transform((value) => value === "true"),
   ]),
 });
 
-export const engineerBdAssignmentSchema = z.object({
-  engineerId: z.uuid(),
-  bdUserId: z.uuid("Select a BD Executive."),
-});
-
-export const uploadEngineerCvSchema = z.object({
-  engineerId: z.uuid(),
-  label: z.string().trim().min(1, "Label is required."),
+export const uploadProfileCvSchema = z.object({
+  profileId: z.uuid(),
   file: z
     .instanceof(File)
     .refine((file) => file.size > 0, "Select a file to upload."),
+});
+
+export const deleteProfileCvSchema = z.object({
+  profileId: z.uuid(),
+  cvId: z.uuid(),
+});
+
+export const setProfileAssignmentSchema = z.object({
+  profileId: z.uuid(),
+  // null (or "" from the select's unassigned option) clears the assignment.
+  userId: z
+    .union([z.uuid("Select a user."), z.null(), z.literal("")])
+    .transform((value) => (value === "" ? null : value)),
 });
 
 export const dismissJobSchema = z.object({

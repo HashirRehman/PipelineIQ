@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { engineerMutationResponse } from "@/lib/api/engineers-response";
+import { profileMutationResponse } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
-import { unassignEngineerFromBd } from "@/lib/services/engineers";
+import { deleteProfileCv } from "@/lib/services/profiles";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ engineerId: string; bdUserId: string }> },
+  context: { params: Promise<{ profileId: string; cvId: string }> },
 ) {
   if (!isSameOrigin(request)) {
     return NextResponse.json(
@@ -18,15 +18,14 @@ export async function DELETE(
     );
   }
 
-  const { engineerId, bdUserId } = await context.params;
+  const { profileId, cvId } = await context.params;
 
   const supabase = await createClient();
-  const result = await unassignEngineerFromBd(supabase, engineerId, bdUserId);
+  const result = await deleteProfileCv(supabase, profileId, cvId);
 
   if (result.success) {
-    revalidatePath("/engineers");
-    revalidatePath(`/engineers/${engineerId}`);
+    revalidatePath("/");
   }
 
-  return engineerMutationResponse(result);
+  return profileMutationResponse(result);
 }

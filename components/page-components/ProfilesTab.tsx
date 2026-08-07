@@ -2,20 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { EngineersListApiResponse } from "@/app/api/engineers/route";
-import type { EngineerDetailApiResponse } from "@/app/api/engineers/[engineerId]/route";
-import { EngineerDetailSheet } from "@/components/engineers/engineer-detail-sheet";
-import { EngineersList } from "@/components/engineers/engineers-list";
+import type { ProfilesListApiResponse } from "@/app/api/profiles/route";
+import type { ProfileDetailApiResponse } from "@/app/api/profiles/[profileId]/route";
+import { ProfileDetailSheet } from "@/components/profiles/profile-detail-sheet";
+import { ProfilesList } from "@/components/profiles/profiles-list";
 
 export default function ProfilesTab() {
   const [listData, setListData] =
-    useState<EngineersListApiResponse | null>(null);
+    useState<ProfilesListApiResponse | null>(null);
 
-  const [selectedEngineerId, setSelectedEngineerId] =
+  const [selectedProfileId, setSelectedProfileId] =
     useState<string | null>(null);
 
   const [detailData, setDetailData] =
-    useState<EngineerDetailApiResponse | null>(null);
+    useState<ProfileDetailApiResponse | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -23,27 +23,26 @@ export default function ProfilesTab() {
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const loadEngineers = useCallback(
+  const loadProfiles = useCallback(
     async (
       signal?: AbortSignal,
       options?: { silent?: boolean },
     ) => {
       try {
-        if (!options?.silent) {
-          setLoading(true);
-        }
-
-        const response = await fetch("/api/engineers", {
+        // loading already starts true on mount; callers that want a fresh
+        // spinner (e.g. after creating a profile) set it themselves before
+        // calling, so no synchronous setState happens inside an effect.
+        const response = await fetch("/api/profiles", {
           signal,
           cache: "no-store",
         });
 
         if (!response.ok) {
-          throw new Error("Failed to load engineer profiles.");
+          throw new Error("Failed to load candidate profiles.");
         }
 
         const data =
-          (await response.json()) as EngineersListApiResponse;
+          (await response.json()) as ProfilesListApiResponse;
 
         setListData(data);
         setError(null);
@@ -56,11 +55,11 @@ export default function ProfilesTab() {
         }
 
         console.error(
-          "ProfilesTab: engineers request failed",
+          "ProfilesTab: profiles request failed",
           requestError,
         );
 
-        setError("Unable to load engineer profiles.");
+        setError("Unable to load candidate profiles.");
       } finally {
         if (!signal?.aborted && !options?.silent) {
           setLoading(false);
@@ -73,42 +72,45 @@ export default function ProfilesTab() {
   useEffect(() => {
     const controller = new AbortController();
 
-    loadEngineers(controller.signal);
+    async function loadInitial() {
+      await loadProfiles(controller.signal);
+    }
+    loadInitial();
 
     return () => controller.abort();
-  }, [loadEngineers]);
+  }, [loadProfiles]);
 
-  const fetchEngineerDetail = useCallback(async (engineerId: string) => {
+  const fetchProfileDetail = useCallback(async (profileId: string) => {
     const response = await fetch(
-      `/api/engineers/${encodeURIComponent(engineerId)}`,
+      `/api/profiles/${encodeURIComponent(profileId)}`,
       {
         cache: "no-store",
       },
     );
 
     if (!response.ok) {
-      throw new Error("Failed to load engineer profile.");
+      throw new Error("Failed to load candidate profile.");
     }
 
-    return (await response.json()) as EngineerDetailApiResponse;
+    return (await response.json()) as ProfileDetailApiResponse;
   }, []);
 
-  const selectEngineer = async (engineerId: string) => {
-    setSelectedEngineerId(engineerId);
+  const selectProfile = async (profileId: string) => {
+    setSelectedProfileId(profileId);
     setDetailData(null);
     setDetailError(null);
     setDetailLoading(true);
 
     try {
-      setDetailData(await fetchEngineerDetail(engineerId));
+      setDetailData(await fetchProfileDetail(profileId));
     } catch (requestError) {
       console.error(
-        "ProfilesTab: engineer detail request failed",
+        "ProfilesTab: profile detail request failed",
         requestError,
       );
 
       setDetailError(
-        "Unable to load the selected engineer profile.",
+        "Unable to load the selected candidate profile.",
       );
     } finally {
       setDetailLoading(false);
@@ -116,14 +118,14 @@ export default function ProfilesTab() {
   };
 
   const refreshAfterMutation = async () => {
-    if (!selectedEngineerId) {
-      await loadEngineers(undefined, { silent: true });
+    if (!selectedProfileId) {
+      await loadProfiles(undefined, { silent: true });
       return;
     }
 
     const [, detailResult] = await Promise.allSettled([
-      loadEngineers(undefined, { silent: true }),
-      fetchEngineerDetail(selectedEngineerId),
+      loadProfiles(undefined, { silent: true }),
+      fetchProfileDetail(selectedProfileId),
     ]);
 
     if (detailResult.status === "fulfilled") {
@@ -133,15 +135,15 @@ export default function ProfilesTab() {
     }
 
     console.error(
-      "ProfilesTab: engineer detail refresh failed",
+      "ProfilesTab: profile detail refresh failed",
       detailResult.reason,
     );
 
-    setDetailError("Unable to refresh the selected engineer profile.");
+    setDetailError("Unable to refresh the selected candidate profile.");
   };
 
-  const closeEngineerDetail = () => {
-    setSelectedEngineerId(null);
+  const closeProfileDetail = () => {
+    setSelectedProfileId(null);
     setDetailData(null);
     setDetailError(null);
   };
@@ -164,7 +166,7 @@ export default function ProfilesTab() {
           role="alert"
           className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          {error ?? "Unable to load engineer profiles."}
+          {error ?? "Unable to load candidate profiles."}
         </div>
       </div>
     );
@@ -172,18 +174,19 @@ export default function ProfilesTab() {
 
   return (
     <>
-      <EngineersList
-        engineers={listData.engineers}
+      <ProfilesList
+        profiles={listData.profiles}
         isAdmin={listData.isAdmin}
         seniorityLevels={listData.seniorityLevels}
-        onSelectEngineer={selectEngineer}
-        onEngineerCreated={async (engineerId) => {
-          await loadEngineers();
-          await selectEngineer(engineerId);
+        onSelectProfile={selectProfile}
+        onProfileCreated={async (profileId) => {
+          setLoading(true);
+          await loadProfiles();
+          await selectProfile(profileId);
         }}
       />
 
-      {detailLoading && selectedEngineerId && (
+      {detailLoading && selectedProfileId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
           <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm shadow-lg">
             <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -199,14 +202,13 @@ export default function ProfilesTab() {
       )}
 
       {detailData && (
-        <EngineerDetailSheet
-          engineer={detailData.engineer}
+        <ProfileDetailSheet
+          profile={detailData.profile}
           seniorityLevels={listData.seniorityLevels}
-          assignments={detailData.assignments}
-          bdCandidates={detailData.bdCandidates}
+          assignableUsers={listData.assignableUsers}
           cvs={detailData.cvs}
           isAdmin={listData.isAdmin}
-          onClose={closeEngineerDetail}
+          onClose={closeProfileDetail}
           onChanged={refreshAfterMutation}
         />
       )}

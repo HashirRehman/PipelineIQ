@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react"
 import { X } from "lucide-react"
 
-import type { Profile } from "@/app/page"
+// Minimal shape — only profile.name is rendered; both the real discovery
+// profile and any caller-supplied profile satisfy it.
+type ActiveProfile = { name: string }
 import { TintedBadge } from "@/components/tinted-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -43,7 +45,7 @@ function scoreColor(score: number) {
   return score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444"
 }
 
-function RelevanceMatch({ profile, job }: { profile: Profile; job: Job }) {
+function RelevanceMatch({ profile, job }: { profile: ActiveProfile; job: Job }) {
   const score = job.relevanceScore ?? 0
   const cvMatches = job.cvMatches ?? []
   const bestCv = cvMatches.length > 0
@@ -118,7 +120,7 @@ function RelevanceMatch({ profile, job }: { profile: Profile; job: Job }) {
 interface Props {
   job: Job
   onClose: () => void
-  activeProfile: Profile | null
+  activeProfile: ActiveProfile | null
   onApply?: (id: string) => void
   onMarkApplied?: (id: string) => void
   onDismiss?: (id: string, reason: string) => void

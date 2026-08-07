@@ -2,7 +2,7 @@
 // scoreRelevance + extractRemoteRegion ship in MVP, both Module 3 scope —
 // see docs/03-technical-implementation-plan.md Section 12).
 
-export type EngineerContext = {
+export type ProfileContext = {
   seniorityLevel: string;
   yearsExperience: number | null;
   summary: string | null;
@@ -27,7 +27,7 @@ export type LeadContext = {
 
 export interface AiClient {
   scoreRelevance(
-    engineerProfile: EngineerContext,
+    profile: ProfileContext,
     job: JobListing,
   ): Promise<{ score: number; modelVersion: string }>;
   extractRemoteRegion(job: JobListing): Promise<{
@@ -38,7 +38,7 @@ export interface AiClient {
   }>;
   summarizeNotes(notes: string[]): Promise<string>;
   suggestFollowUp(leadContext: LeadContext): Promise<string>;
-  recommendCv(engineerId: string, job: JobListing): Promise<{ cvId: string; reasoning: string }>;
+  recommendCv(profileId: string, job: JobListing): Promise<{ cvId: string; reasoning: string }>;
   detectDuplicateJob(
     candidate: JobListing,
     existing: JobListing[],

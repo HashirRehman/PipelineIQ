@@ -2,21 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { setEngineerActiveRequest } from "@/lib/api/engineers-client";
+import { setProfileActiveRequest } from "@/lib/api/profiles-client";
 import { Button } from "@/components/ui/button";
 
-export function EngineerActiveToggle({
-  engineerId,
+export function ProfileActiveToggle({
+  profileId,
   isActive,
   onChanged,
 }: {
-  engineerId: string;
+  profileId: string;
   isActive: boolean;
   onChanged?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [displayActive, setDisplayActive] = useState(isActive);
+  const [prevIsActive, setPrevIsActive] = useState(isActive);
   const router = useRouter();
+
+  if (!isPending && isActive !== prevIsActive) {
+    setPrevIsActive(isActive);
+    setDisplayActive(isActive);
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -25,14 +32,18 @@ export function EngineerActiveToggle({
       return;
     }
 
+    const next = !displayActive;
+
     setError(null);
     setIsPending(true);
+    setDisplayActive(next); // optimistic — button + next click reflect intent
 
-    const result = await setEngineerActiveRequest(engineerId, !isActive);
+    const result = await setProfileActiveRequest(profileId, next);
 
     setIsPending(false);
 
     if (!result.success) {
+      setDisplayActive(!next); // revert on failure
       setError(result.error ?? "Something went wrong. Please try again.");
       return;
     }
@@ -47,7 +58,7 @@ export function EngineerActiveToggle({
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-3">
       <Button type="submit" variant="outline" size="sm" disabled={isPending}>
-        {isPending ? "Saving…" : isActive ? "Deactivate" : "Activate"}
+        {isPending ? "Saving…" : displayActive ? "Deactivate" : "Activate"}
       </Button>
       {error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">

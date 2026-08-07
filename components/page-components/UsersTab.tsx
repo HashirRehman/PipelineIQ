@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Check, Plus, X, Loader2 } from 'lucide-react'
-import type { AppUser, UserRole } from '@/app/page'
+import type { ApiAppUser } from '@/app/api/users/route'
 import { apiPost, apiRequest } from '@/lib/api/client'
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
@@ -38,7 +38,7 @@ interface RoleOption { id: string; name: string }
 interface InviteModalProps {
   roles: RoleOption[]
   onClose: () => void
-  onInvite: (u: AppUser) => void
+  onInvite: (u: ApiAppUser) => void
 }
 
 function InviteModal({ roles, onClose, onInvite }: InviteModalProps) {
@@ -55,7 +55,7 @@ function InviteModal({ roles, onClose, onInvite }: InviteModalProps) {
     setError('');
 
     try {
-      const data = await apiPost<{ success: boolean; user: AppUser }>("/api/users", {
+      const data = await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", {
         name,
         email,
         roleId,
@@ -152,7 +152,7 @@ function InviteModal({ roles, onClose, onInvite }: InviteModalProps) {
 }
 
 interface EditUserModalProps {
-  user: AppUser
+  user: ApiAppUser
   roles: RoleOption[]
   isSelf: boolean
   onClose: () => void
@@ -251,18 +251,16 @@ function EditUserModal({ user, roles, isSelf, onClose, onSave }: EditUserModalPr
   )
 }
 
-function mapRoleName(name: string): UserRole {
+function mapRoleName(name: string): ApiAppUser["role"] {
   const n = name.toLowerCase()
   if (n.includes('admin')) return 'admin'
   if (n.includes('lead') || n.includes('manager')) return 'lead'
   return 'bd'
 }
 
-interface Props { currentUser: AppUser }
-
-export default function UsersTab({ currentUser }: Props) {
-  const [users, setUsers] = useState<AppUser[]>([])
-  const [activeUser, setActiveUser] = useState<AppUser>(currentUser)
+export default function UsersTab() {
+  const [users, setUsers] = useState<ApiAppUser[]>([])
+  const [activeUser, setActiveUser] = useState<ApiAppUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionError, setActionError] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
@@ -272,7 +270,7 @@ export default function UsersTab({ currentUser }: Props) {
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [accessDenied, setAccessDenied] = useState(false)
-  const [editingUser, setEditingUser] = useState<AppUser | null>(null)
+  const [editingUser, setEditingUser] = useState<ApiAppUser | null>(null)
 
   useEffect(() => {
     async function loadUsers() {
@@ -311,7 +309,7 @@ export default function UsersTab({ currentUser }: Props) {
     return matchQ && matchRole && matchStatus
   })
 
-  const handleInvite = (u: AppUser) => setUsers(us => [u, ...us])
+  const handleInvite = (u: ApiAppUser) => setUsers(us => [u, ...us])
 
   const saveUserEdit = async (userId: string, updates: { name?: string; roleId?: string }) => {
     setActionError('');
@@ -331,7 +329,7 @@ export default function UsersTab({ currentUser }: Props) {
   }
 
   const toggleStatus = async (id: string) => {
-    if (id === activeUser.id || updatingId) return;
+    if (id === activeUser?.id || updatingId) return;
     setActionError('');
     setUpdatingId(id);
 
@@ -459,7 +457,7 @@ export default function UsersTab({ currentUser }: Props) {
                     <Avatar name={u.name} size={34} />
                     <div>
                       <div className="font-semibold text-[var(--fg)]">{u.name}</div>
-                      {u.id === activeUser.id && <div className="text-[10px] text-[var(--primary)] font-mono">You</div>}
+                      {u.id === activeUser?.id && <div className="text-[10px] text-[var(--primary)] font-mono">You</div>}
                     </div>
                   </div>
                 </TableCell>
@@ -487,7 +485,7 @@ export default function UsersTab({ currentUser }: Props) {
                     >
                       Edit
                     </Button>
-                    {u.id !== activeUser.id && (
+                    {u.id !== activeUser?.id && (
                       <Button
                         onClick={() => toggleStatus(u.id)}
                         disabled={updatingId === u.id}
@@ -515,7 +513,7 @@ export default function UsersTab({ currentUser }: Props) {
         <EditUserModal
           user={editingUser}
           roles={roles}
-          isSelf={editingUser.id === activeUser.id}
+          isSelf={editingUser.id === activeUser?.id}
           onClose={() => setEditingUser(null)}
           onSave={saveUserEdit}
         />

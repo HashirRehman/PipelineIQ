@@ -1,6 +1,6 @@
 // Module 3 — nightly job-discovery orchestration core.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AiClient, EngineerContext, JobListing } from "@/lib/ai/client";
+import type { AiClient, JobListing, ProfileContext } from "@/lib/ai/client";
 import { getJobSourceAdapters } from "@/lib/job-sources/registry";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -250,7 +250,7 @@ export async function runJobDiscovery(
     const eligibleCvIds = cvsByProfile.get(profile.id) ?? [];
     if (eligibleCvIds.length === 0) continue;
 
-    const profileContext: EngineerContext = {
+    const profileContext: ProfileContext = {
       seniorityLevel: profile.seniority_level?.name ?? "Unspecified",
       yearsExperience: profile.years_of_experience,
       summary: profile.summary,

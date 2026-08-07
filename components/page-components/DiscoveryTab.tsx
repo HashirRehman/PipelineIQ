@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Search } from "lucide-react"
 
-import type { Profile } from "@/app/page"
+import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { PageHeader } from "@/components/page-header"
 import { SearchInput } from "@/components/search-input"
 import { RunDiscoveryButton } from "@/components/run-discovery-button"
@@ -29,14 +29,23 @@ import { apiPost } from "@/lib/api/client"
 
 const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
 const WORK_TYPES = ["All Types", "remote", "onsite"]
+const REGIONS = ["Global", "US Only"]
 
 const PAGE_SIZE = 5
+
+const REGION_TO_PARAM: Record<string, string> = {
+  Global: "",
+  "US Only": "us_only",
+}
+
+const regionToParam = (region: string) => REGION_TO_PARAM[region] ?? ""
 
 const buildQueryKey = (opts: {
   page: number
   workType: string
   parser: string
   search: string
+  region: string
 }) =>
   new URLSearchParams({
     page: String(opts.page),
@@ -44,11 +53,12 @@ const buildQueryKey = (opts: {
     workType: opts.workType === "All Types" ? "" : opts.workType,
     parser: opts.parser === "All Sources" ? "" : opts.parser,
     search: opts.search,
+    region: regionToParam(opts.region),
   }).toString()
 
 interface DiscoveryResponse {
   jobs: Job[]
-  profile: Profile | null
+  profile: DiscoveryProfile | null
   totalCount: number
   page: number
   pageSize: number
@@ -57,10 +67,11 @@ interface DiscoveryResponse {
 
 export default function DiscoveryTab() {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<DiscoveryProfile | null>(null)
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
+  const [regionFilter, setRegionFilter] = useState("Global")
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -76,13 +87,14 @@ export default function DiscoveryTab() {
     workType: workTypeFilter,
     parser: parserFilter,
     search,
+    region: regionFilter,
   })
   const loading = appliedKey !== loadingKey
 
   useEffect(() => {
     const controller = new AbortController()
 
-    fetch(`/api/discovery?${buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search })}`, { signal: controller.signal })
+    fetch(`/api/discovery?${buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, region: regionFilter })}`, { signal: controller.signal })
       .then(async res => {
         if (!res.ok) throw new Error("Failed to load jobs")
         return res.json() as Promise<DiscoveryResponse>
@@ -103,7 +115,7 @@ export default function DiscoveryTab() {
       })
 
     return () => controller.abort()
-  }, [page, workTypeFilter, parserFilter, search, loadingKey])
+  }, [page, workTypeFilter, parserFilter, search, regionFilter, loadingKey])
 
   const changeSearch = (value: string) => {
     setSearch(value)
@@ -117,6 +129,11 @@ export default function DiscoveryTab() {
 
   const changeParser = (value: string) => {
     setParserFilter(value)
+    setPage(1)
+  }
+
+  const changeRegion = (value: string) => {
+    setRegionFilter(value)
     setPage(1)
   }
 
@@ -217,6 +234,7 @@ export default function DiscoveryTab() {
               setSearch("")
               setParserFilter("All Sources")
               setWorkTypeFilter("All Types")
+              setRegionFilter("Global")
               setPage(1)
             }}
             className="h-auto p-0 bg-transparent text-[11px] text-[var(--primary)] hover:underline shadow-none"
@@ -238,6 +256,19 @@ export default function DiscoveryTab() {
                   t.charAt(0).toUpperCase() + t.slice(1),
                   t !== "All Types" ? WORK_TYPE_COLOR[t] : undefined
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-5">
+          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
+            Region
+          </div>
+          <div className="flex flex-col gap-1">
+            {REGIONS.map(r => (
+              <div key={r}>
+                {filterOption(regionFilter === r, () => changeRegion(r), r)}
               </div>
             ))}
           </div>

@@ -2,9 +2,9 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 7 · **Tables:** 13 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 10 · **Tables:** 13 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
-- **Last updated:** 2026-08-06
+- **Last updated:** 2026-08-07
 
 > Migrations are intentionally comment-free; this document is the single source of truth for schema reasoning, old-DB mappings, and open questions. Keep it in sync when migrations change.
 
@@ -34,6 +34,9 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 5 | `20260806190000_custom_access_token_hook.sql` | `custom_access_token_hook()` (JWT `is_admin` / `user_role` claims) |
 | 6 | `20260806200000_rls_policies_and_helpers.sql` | `is_admin()` + RLS policies for all 13 tables |
 | 7 | `20260806210000_discovery_functions.sql` | `job_profile_states.dismissed_reason`, `upsert_job_profile_match()`, `apply_job_profile()` |
+| 8 | `20260806220000_cron_lock_and_auth_triggers.sql` | seeds the `cron_run_locks` row; cron/auth trigger hardening |
+| 9 | `20260806230000_security_and_constraint_hardening.sql` | trigger helper `search_path`; `profiles.user_id` FK `ON DELETE SET NULL`; `profile_cvs` MIME/size/unique-storage-path constraints |
+| 10 | `20260806240000_discovery_actions_by_job_profile.sql` | discovery actions (mark-applied / dismiss) keyed on `(job_id, profile_id)` pairs |
 
 ---
 
@@ -135,7 +138,7 @@ CVs attached to a profile. A profile can have **multiple** CVs; files live in a 
 |---|---|---|
 | id | uuid | PK |
 | profile_id | uuid | NOT NULL, FK → `profiles(id)` ON DELETE CASCADE |
-| storage_path | text | NOT NULL |
+| storage_path | text | NOT NULL — Cloudinary CDN URL for uploaded CVs; seeded rows carry dummy paths |
 | file_name | text | NOT NULL |
 | file_type | text | NOT NULL |
 | file_size_bytes | bigint | NOT NULL |
@@ -372,10 +375,10 @@ job_profile_states 1─N leads  (the replied application)
 
 | Source | What it seeds |
 |---|---|
-| `supabase/seed.sql` (runs automatically on `supabase db reset` via `[db.seed]` in `config.toml`) | Data-API grants (`anon` read, `authenticated`/`service_role` full + enum usage), `Recurso Labs` organization, `Admin`/`User` roles, seniority levels (`Lead`/`Senior`/`Mid`/`Junior`), pipeline stages (`New Lead` → `Rejected`), `Jsearch` scraper, 2 profiles (`Saad Mumtaz`, `Hashir Rehman`), 1 CV for each profile, 2 jobs (YO AI Labs, Mercor). Idempotent — fixed UUIDs + `ON CONFLICT DO NOTHING` |
+| `supabase/seed.sql` (runs automatically on `supabase db reset` via `[db.seed]` in `config.toml`) | Data-API grants (`anon` read, `authenticated`/`service_role` full + enum usage), `Recurso Labs` organization, `Admin`/`User` roles, seniority levels (`Lead`/`Senior`/`Mid`/`Junior`), pipeline stages (`New Lead` → `Rejected`), `Jsearch` scraper, 2 profiles (`Saad Mumtaz`, `Hashir Rehman`), 1 CV for each profile (dummy paths), 2 jobs (YO AI Labs, Mercor). Idempotent — fixed UUIDs + `ON CONFLICT DO NOTHING` |
 | `scripts/createUser.cjs` (`npm run seed:user`) | The admin auth user (Fareed Zafar) via the service-role admin API — auth identities cannot be created from SQL — plus the matching `users` row with a single `Admin` role via `users.role_id`, and links the `Saad Mumtaz` profile to the user (1:1 ownership). Idempotent; requires migrations + `seed.sql` applied first |
 
 **Not yet built:**
 
-- `cv-files` storage bucket (the seeded `profile_cvs` rows reference paths that do not exist yet)
-- The `engineers/*` → `profiles` module port (Phase 3 of `docs/update-code-plan.md`; the module still references old tables and fails `tsc`). The old leads module was removed (2026-08-06) — the static `LeadsTab` is the current UI; a fresh leads module will be built against this schema when real data lands
+- The old leads module — the static `LeadsTab` is the current UI; a fresh leads module will be built against this schema when real data lands
+- CV file storage — CVs are uploaded to Cloudinary (raw assets, `profiles/<profileId>/` folder) and `profile_cvs.storage_path` holds the CDN secure URL; seeded rows carry dummy paths until real files are uploaded through the app

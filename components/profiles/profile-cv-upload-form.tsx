@@ -3,20 +3,19 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
-import { uploadEngineerCvRequest } from "@/lib/api/engineers-client";
-import type { EngineerMutationResponse } from "@/lib/api/engineers-client";
+import { uploadProfileCvRequest } from "@/lib/api/profiles-client";
+import type { ProfileMutationResponse } from "@/lib/api/profiles-client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function EngineerCvUploadForm({
-  engineerId,
+export function ProfileCvUploadForm({
+  profileId,
   onChanged,
 }: {
-  engineerId: string;
+  profileId: string;
   onChanged?: () => void;
 }) {
-  const [state, setState] = useState<EngineerMutationResponse>({});
+  const [state, setState] = useState<ProfileMutationResponse>({});
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
@@ -24,8 +23,7 @@ export function EngineerCvUploadForm({
   const [fileName, setFileName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fileInputId = `cv-file-${engineerId}`;
-  const labelInputId = `cv-label-${engineerId}`;
+  const fileInputId = `cv-file-${profileId}`;
 
   function handleDroppedFile(file: File | undefined) {
     if (!file || !fileInputRef.current) {
@@ -51,7 +49,7 @@ export function EngineerCvUploadForm({
     setState({});
     setIsPending(true);
 
-    const result = await uploadEngineerCvRequest(engineerId, formData);
+    const result = await uploadProfileCvRequest(profileId, formData);
 
     setState(result);
     setIsPending(false);
@@ -74,17 +72,6 @@ export function EngineerCvUploadForm({
       onSubmit={handleSubmit}
       className="flex flex-col gap-4 border-t border-border pt-5"
     >
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={labelInputId}>Label</Label>
-
-        <Input
-          id={labelInputId}
-          name="label"
-          placeholder="e.g. Updated resume"
-          required
-        />
-      </div>
-
       <div className="flex flex-col gap-2">
         <Label htmlFor={fileInputId}>Resume file</Label>
 

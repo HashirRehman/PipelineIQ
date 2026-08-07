@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
-  createEngineerRequest,
-  updateEngineerRequest,
-  type EngineerCoreFieldsPayload,
-  type EngineerMutationResponse,
-} from "@/lib/api/engineers-client";
+  createProfileRequest,
+  updateProfileRequest,
+  type ProfileCoreFieldsPayload,
+  type ProfileMutationResponse,
+} from "@/lib/api/profiles-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +21,7 @@ import {
 
 type SeniorityLevel = { id: string; name: string };
 
-type EngineerFieldValues = {
+type ProfileFieldValues = {
   fullName: string;
   email: string;
   phone: string;
@@ -34,7 +33,7 @@ type EngineerFieldValues = {
   summary: string;
 };
 
-const BLANK_VALUES: EngineerFieldValues = {
+const BLANK_VALUES: ProfileFieldValues = {
   fullName: "",
   email: "",
   phone: "",
@@ -46,9 +45,9 @@ const BLANK_VALUES: EngineerFieldValues = {
   summary: "",
 };
 
-function readPayload(form: HTMLFormElement): EngineerCoreFieldsPayload {
+function readPayload(form: HTMLFormElement): ProfileCoreFieldsPayload {
   const formData = new FormData(form);
-  const value = (name: keyof EngineerCoreFieldsPayload) =>
+  const value = (name: keyof ProfileCoreFieldsPayload) =>
     String(formData.get(name) ?? "");
 
   return {
@@ -61,30 +60,26 @@ function readPayload(form: HTMLFormElement): EngineerCoreFieldsPayload {
     rateExpectation: value("rateExpectation"),
     rateCurrency: value("rateCurrency"),
     summary: value("summary"),
-    skillNames: value("skillNames"),
   };
 }
 
-export function EngineerCoreFieldsForm({
+export function ProfileCoreFieldsForm({
   mode,
-  engineerId,
+  profileId,
   initialValues = BLANK_VALUES,
   seniorityLevels,
   submitLabel,
-  redirectOnSuccess = false,
   onSuccess,
 }: {
   mode: "create" | "update";
-  engineerId?: string;
-  initialValues?: EngineerFieldValues;
+  profileId?: string;
+  initialValues?: ProfileFieldValues;
   seniorityLevels: SeniorityLevel[];
   submitLabel: string;
-  redirectOnSuccess?: boolean;
-  onSuccess?: (engineerId: string) => void;
+  onSuccess?: (profileId: string) => void;
 }) {
-  const [state, setState] = useState<EngineerMutationResponse>({});
+  const [state, setState] = useState<ProfileMutationResponse>({});
   const [isPending, setIsPending] = useState(false);
-  const router = useRouter();
   const [seedValues] = useState(initialValues);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -100,27 +95,20 @@ export function EngineerCoreFieldsForm({
     setState({});
 
     const result =
-      mode === "update" && engineerId
-        ? await updateEngineerRequest(engineerId, payload)
-        : await createEngineerRequest(payload);
+      mode === "update" && profileId
+        ? await updateProfileRequest(profileId, payload)
+        : await createProfileRequest(payload);
 
     setState(result);
     setIsPending(false);
 
-    if (!result.success || !result.engineerId) {
+    if (!result.success || !result.profileId) {
       return;
     }
 
     if (onSuccess) {
-      onSuccess(result.engineerId);
-      return;
+      onSuccess(result.profileId);
     }
-
-    if (redirectOnSuccess) {
-      router.push(`/engineers/${result.engineerId}`);
-      return;
-    }
-    router.refresh();
   }
 
   return (

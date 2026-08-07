@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { AppUser, Profile } from '@/app/page'
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
 import { PageHeader } from "@/components/page-header"
@@ -17,6 +16,29 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+
+// Minimal mock shapes used only while this tab renders static data (no
+// analytics API yet). Kept local so the app shell stays clean.
+type MockUser = { id: string; name: string; role: 'admin' | 'lead' | 'bd' }
+type MockProfile = { id: string; name: string; seniority: string; status: 'active' | 'inactive' }
+
+const MOCK_USERS: MockUser[] = [
+  { id: 'u1', name: 'Alex Rivera', role: 'admin' },
+  { id: 'u2', name: 'Jamie Park', role: 'bd' },
+  { id: 'u3', name: 'Morgan Lee', role: 'bd' },
+  { id: 'u4', name: 'Casey Torres', role: 'lead' },
+  { id: 'u5', name: 'Dana Shah', role: 'bd' },
+]
+
+const MOCK_CURRENT_USER: MockUser = MOCK_USERS[0]
+
+const MOCK_PROFILES: MockProfile[] = [
+  { id: 'p1', name: 'Sarah Chen', seniority: 'Senior', status: 'active' },
+  { id: 'p2', name: 'Marcus Webb', seniority: 'Lead', status: 'active' },
+  { id: 'p3', name: 'Priya Nair', seniority: 'Mid', status: 'active' },
+  { id: 'p4', name: 'Jordan Kim', seniority: 'Principal', status: 'inactive' },
+  { id: 'p5', name: 'Nia Okonkwo', seniority: 'Senior', status: 'active' },
+]
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug']
 
@@ -147,9 +169,11 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
   )
 }
 
-interface Props { profiles: Profile[]; users: AppUser[]; currentUser: AppUser }
+export default function StatisticsTab() {
+  const profiles = MOCK_PROFILES
+  const users = MOCK_USERS
+  const currentUser = MOCK_CURRENT_USER
 
-export default function StatisticsTab({ profiles, users, currentUser }: Props) {
   const [userFilter, setUserFilter] = useState(currentUser.role === 'admin' ? 'all' : currentUser.id)
   const [profileFilter, setProfileFilter] = useState('all')
   const [granularity, setGranularity] = useState('monthly')

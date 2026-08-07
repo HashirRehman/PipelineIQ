@@ -1,4 +1,4 @@
-import type { ProfileStatus, UserRole } from "@/app/page"
+export type UserRole = "admin" | "lead" | "bd";
 
 export const LEAD_STATUSES = [
   "Applied",
@@ -39,12 +39,6 @@ export const PARSER_COLOR: Record<string, string> = {
   Greenhouse: "#24a148",
   Lever: "#7c3aed",
   Workday: "#f59e0b",
-}
-
-export const PROFILE_STATUS_COLOR: Record<ProfileStatus, string> = {
-  active: "#10b981",
-  inactive: "#f59e0b",
-  archived: "#64748b",
 }
 
 export const ROLE_COLOR: Record<UserRole, string> = {

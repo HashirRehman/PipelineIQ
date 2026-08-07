@@ -8,7 +8,7 @@ An internal platform (single-tenant, built for one company's own BD team — nev
 
 ## Stack
 
-- **Frontend + backend**: Next.js (App Router). Server Actions / Route Handlers only — no separate backend service.
+- **Frontend + backend**: Next.js (App Router), API-first — all mutations go through Route Handlers (`app/api/*`) driven by `lib/api/*` client helpers; no Server Actions, no separate backend service.
 - **Database + Auth + Storage**: Supabase (Postgres, built-in Auth, Storage, RLS).
 - **Scheduled jobs**: nightly cron (Vercel Cron or pg_cron + Edge Function) — must be idempotent.
 - **Job source**: recommended MVP source is JSearch (free tier, explicit remote-job filter). Confirm before building if this hasn't been finalized yet.
@@ -16,7 +16,7 @@ An internal platform (single-tenant, built for one company's own BD team — nev
 
 ## Current build scope — read this before touching anything
 
-**Current scope**: Authentication & User Management, Profiles (candidate roster), AI-Powered Job Discovery, and Leads — all on the fresh 13-table schema. See `docs/update-code-plan.md` for what's done and what's deferred (Profiles and Leads modules still need porting from the old `engineers`/`leads` code and currently fail `tsc`). Don't build screens, Server Actions, or UI for anything outside that scope unless explicitly asked — stop and ask rather than assuming.
+**Current scope**: Authentication & User Management, Profiles (candidate roster), AI-Powered Job Discovery, and Leads — all on the fresh 13-table schema. The Profiles (candidate roster) module is ported from the old `engineers` code onto `profiles`/`profile_cvs` via API routes (`app/api/profiles/*`) backed by `lib/services/profiles.ts`; Leads is still the static `LeadsTab` until real data lands. Don't build screens, Server Actions, or UI for anything outside that scope unless explicitly asked — stop and ask rather than assuming.
 
 ## Rules that must not be silently reinterpreted
 
@@ -33,7 +33,7 @@ An internal platform (single-tenant, built for one company's own BD team — nev
 
 - UUID primary keys, `timestamptz` for all timestamps, `created_at`/`updated_at` only where a row is actually ever updated.
 - Use Plan Mode (`Shift+Tab`) before any multi-file change — lay out the approach, wait for approval, then execute.
-- Migrations before features: when starting a new module, write/verify the relevant SQL migration first, get it reviewed, then build the Server Actions and UI on top.
+- Migrations before features: when starting a new module, write/verify the relevant SQL migration first, get it reviewed, then build the API routes and UI on top.
 - Build in this order: Module 1 → 2 → 3 → 4. Don't jump ahead or parallelize modules without asking.
 
 ## Commit discipline

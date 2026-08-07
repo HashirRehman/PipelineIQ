@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { engineerMutationResponse } from "@/lib/api/engineers-response";
+import { profileMutationResponse } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
-import { uploadEngineerCv } from "@/lib/services/engineers";
+import { uploadProfileCv } from "@/lib/services/profiles";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ engineerId: string }> },
+  context: { params: Promise<{ profileId: string }> },
 ) {
   if (!isSameOrigin(request)) {
     return NextResponse.json(
@@ -18,7 +18,7 @@ export async function POST(
     );
   }
 
-  const { engineerId } = await context.params;
+  const { profileId } = await context.params;
 
   let formData: FormData;
   try {
@@ -31,12 +31,11 @@ export async function POST(
   }
 
   const supabase = await createClient();
-  const result = await uploadEngineerCv(supabase, engineerId, formData);
+  const result = await uploadProfileCv(supabase, profileId, formData);
 
   if (result.success) {
-    revalidatePath("/engineers");
-    revalidatePath(`/engineers/${engineerId}`);
+    revalidatePath("/");
   }
 
-  return engineerMutationResponse(result);
+  return profileMutationResponse(result);
 }

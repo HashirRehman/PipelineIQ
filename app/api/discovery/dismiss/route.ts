@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabase.rpc("dismiss_job_profile", {
+  const { error } = await supabase.rpc("dismiss_job_profile", {
     p_job_id: parsed.data.jobId,
     p_profile_id: parsed.data.profileId,
     p_reason: parsed.data.reason,

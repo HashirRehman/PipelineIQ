@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import type { EngineerMutationResult } from "@/lib/services/engineers";
+import type { ProfileMutationResult } from "@/lib/services/profiles";
 
-export function engineerMutationResponse(result: EngineerMutationResult) {
+export function profileMutationResponse(result: ProfileMutationResult) {
   if (!result.success) {
     return NextResponse.json(
       { success: false, error: result.error },
@@ -11,7 +11,7 @@ export function engineerMutationResponse(result: EngineerMutationResult) {
 
   return NextResponse.json({
     success: true,
-    engineerId: result.engineerId,
+    profileId: result.profileId,
     ...(result.error ? { error: result.error } : {}),
   });
 }

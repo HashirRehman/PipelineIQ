@@ -11,19 +11,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { EngineerCoreFieldsForm } from "./engineer-core-fields-form";
+import { ProfileCoreFieldsForm } from "./profile-core-fields-form";
 
 type SeniorityLevel = {
   id: string;
   name: string;
 };
 
-export function NewEngineerDialog({
+export function NewProfileDialog({
   seniorityLevels,
   onCreated,
 }: {
   seniorityLevels: SeniorityLevel[];
-  onCreated?: (engineerId: string) => void;
+  onCreated?: (profileId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -39,21 +39,20 @@ export function NewEngineerDialog({
         <DialogHeader>
           <DialogTitle>New Profile</DialogTitle>
           <DialogDescription>
-            Add a new engineer profile to the candidate roster.
+            Add a new candidate profile to the roster.
           </DialogDescription>
         </DialogHeader>
 
         <div className="overflow-y-auto px-6 py-5">
-          <EngineerCoreFieldsForm
+          <ProfileCoreFieldsForm
             mode="create"
             seniorityLevels={seniorityLevels}
             submitLabel="Create Profile"
-            redirectOnSuccess={!onCreated}
             onSuccess={
               onCreated
-                ? (engineerId) => {
+                ? (profileId) => {
                   setOpen(false);
-                  onCreated(engineerId);
+                  onCreated(profileId);
                 }
                 : undefined
             }

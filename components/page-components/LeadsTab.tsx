@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { LayoutGrid, List } from 'lucide-react'
-import type { AppUser, Profile } from '@/app/page'
 import JobDrawer, { type Job } from './JobDrawer'
 import { Avatar } from "@/components/avatar"
 import { Button } from "@/components/ui/button"
@@ -46,6 +45,27 @@ export interface Lead {
   parser: string
 }
 
+// Minimal mock shapes used only while this tab renders static data (the
+// leads API doesn't exist yet). Kept local so the app shell stays clean.
+type MockUser = { id: string; name: string; role: 'admin' | 'lead' | 'bd' }
+type MockProfile = { id: string; name: string }
+
+const MOCK_USERS: MockUser[] = [
+  { id: 'u1', name: 'Alex Rivera', role: 'admin' },
+  { id: 'u2', name: 'Jamie Park', role: 'bd' },
+  { id: 'u3', name: 'Morgan Lee', role: 'bd' },
+  { id: 'u4', name: 'Casey Torres', role: 'lead' },
+  { id: 'u5', name: 'Dana Shah', role: 'bd' },
+]
+
+const MOCK_PROFILES: MockProfile[] = [
+  { id: 'p1', name: 'Sarah Chen' },
+  { id: 'p2', name: 'Marcus Webb' },
+  { id: 'p3', name: 'Priya Nair' },
+  { id: 'p4', name: 'Jordan Kim' },
+  { id: 'p5', name: 'Nia Okonkwo' },
+]
+
 const MOCK_LEADS: Lead[] = [
   { id: 'l1', profileId: 'p1', profileName: 'Sarah Chen', jobTitle: 'Senior Frontend Engineer', company: 'Vercel', jobLocation: 'Remote', workType: 'remote', appliedAt: '2026-07-28', status: 'Interview', assignedTo: 'u2', bdNotes: 'Strong interest from hiring manager. Technical round scheduled for next week.', salary: '$150k – $185k', parser: 'LinkedIn' },
   { id: 'l2', profileId: 'p2', profileName: 'Marcus Webb', jobTitle: 'Staff Software Engineer', company: 'Linear', jobLocation: 'Remote', workType: 'remote', appliedAt: '2026-07-25', status: 'Screening', assignedTo: 'u3', bdNotes: 'Initial call went well. Waiting on recruiter response.', salary: '$200k – $240k', parser: 'Greenhouse' },
@@ -57,13 +77,9 @@ const MOCK_LEADS: Lead[] = [
   { id: 'l8', profileId: 'p3', profileName: 'Priya Nair', jobTitle: 'ML Infrastructure Engineer', company: 'Anthropic', jobLocation: 'San Francisco', workType: 'onsite', appliedAt: '2026-08-02', status: 'Applied', assignedTo: 'u3', bdNotes: '', salary: '$180k – $220k', parser: 'Indeed' },
 ]
 
-interface Props {
-  users: AppUser[]
-  currentUser: AppUser
-  profiles: Profile[]
-}
-
-export default function LeadsTab({ users, profiles }: Props) {
+export default function LeadsTab() {
+  const users = MOCK_USERS
+  const profiles = MOCK_PROFILES
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
   const [view, setView] = useState<'list' | 'board'>('list')
   const [search, setSearch] = useState('')

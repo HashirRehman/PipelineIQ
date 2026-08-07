@@ -25,7 +25,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
@@ -98,9 +97,6 @@ export default function Sidebar({
         <SidebarContent className="px-2.5">
           {/* Nav Links */}
           <SidebarGroup>
-            <SidebarGroupLabel className="px-2.5 py-1 h-auto text-[10px] font-semibold text-[var(--muted-fg)] uppercase font-mono tracking-wider">
-              Menu
-            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="flex flex-col gap-0.5">
                 {NAV.map((item) => {

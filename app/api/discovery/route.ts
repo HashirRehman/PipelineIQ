@@ -80,10 +80,7 @@ export type DiscoveryProfile = {
   rate: number;
   rateCurrency: string;
   summary: string;
-  skills: string[];
   status: "active" | "inactive";
-  assignedBDs: string[];
-  cvLabels: string[];
   createdAt: string;
 };
 
@@ -99,10 +96,7 @@ function toDiscoveryProfile(row: ProfileRow): DiscoveryProfile {
     rate: row.rate_expectation ?? 0,
     rateCurrency: row.rate_currency,
     summary: row.summary ?? "",
-    skills: [],
     status: row.is_active ? "active" : "inactive",
-    assignedBDs: [],
-    cvLabels: [],
     createdAt: row.created_at,
   };
 }
@@ -111,18 +105,19 @@ function toDiscoveryJob(
   job: JobWithMatches,
   excludedPairs: Set<string>,
   profileId: string | undefined,
+  userCvIds: Set<string>,
 ): DiscoveryJob | null {
   if (profileId && excludedPairs.has(`${job.id}:${profileId}`)) {
     return null;
   }
 
+  // Only the current user's assigned profile's matches belong in this
+  // user's discovery feed — and only for CVs the profile still has. Users
+  // with no assigned profile, or whose profile has no CVs, see the job
+  // with no match data at all (the jobs are still listed).
   const matches = (job.job_profile_matches ?? []).filter(
-    (m) => !excludedPairs.has(`${job.id}:${m.profile_id}`),
+    (m) => m.profile_id === profileId && userCvIds.has(m.cv_id),
   );
-
-  if (job.job_profile_matches.length > 0 && matches.length === 0) {
-    return null;
-  }
 
   const cvMatches: CvMatch[] = matches.map((m) => ({
     matchId: m.id,
@@ -177,6 +172,7 @@ export async function GET(request: NextRequest) {
   const workType = searchParams.get("workType") ?? "";
   const parser = searchParams.get("parser") ?? "";
   const search = (searchParams.get("search") ?? "").trim();
+  const region = searchParams.get("region") ?? "";
 
   const { data: userRow } = await supabase
     .from("users")
@@ -215,6 +211,31 @@ export async function GET(request: NextRequest) {
       .is("deleted_at", null),
   ]);
 
+  // Live CVs of the current user's assigned profile. Match rows for soft-
+  // deleted CVs linger in job_profile_matches (FK rows are kept), so matches
+  // are filtered down to the profile's current CVs — empty when the user has
+  // no assigned profile or no CVs, in which case jobs render match-free.
+  const userCvIds = new Set<string>();
+  if (profileRow) {
+    const { data: cvRows, error: cvError } = await supabase
+      .from("profile_cvs")
+      .select("id")
+      .eq("profile_id", profileRow.id)
+      .is("deleted_at", null);
+
+    if (cvError) {
+      console.error("api/discovery: profile CVs query failed", cvError);
+      return NextResponse.json(
+        { error: "Failed to load jobs." },
+        { status: 500 },
+      );
+    }
+
+    for (const cv of cvRows ?? []) {
+      userCvIds.add(cv.id);
+    }
+  }
+
   const excludedPairs = new Set(
     (stateRows ?? [])
       .filter((s) => s.status === "applied" || s.status === "dismissed")
@@ -225,8 +246,17 @@ export async function GET(request: NextRequest) {
     "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, job_posted_at, description, possibly_closed, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
   )
     .eq("organization_id", organizationId)
-    .eq("is_globally_open", true)
     .order("job_posted_at", { ascending: false, nullsFirst: false });
+
+  // Default: only jobs the AI enrichment marked as globally open. "US Only"
+  // is exclusive — it shows region-restricted postings (is_globally_open =
+  // false) alone, never alongside the worldwide ones. Unenriched jobs (null)
+  // stay hidden either way.
+  if (region === "us_only") {
+    query = query.eq("is_globally_open", false);
+  } else {
+    query = query.eq("is_globally_open", true);
+  }
 
   if (workType === "remote") {
     query = query.eq("is_remote", true);
@@ -252,7 +282,7 @@ export async function GET(request: NextRequest) {
   }
 
   const jobs = ((rows ?? []) as JobWithMatches[])
-    .map((job) => toDiscoveryJob(job, excludedPairs, profileRow?.id))
+    .map((job) => toDiscoveryJob(job, excludedPairs, profileRow?.id, userCvIds))
     .filter((job): job is DiscoveryJob => job !== null)
     .sort((a, b) => (b.relevanceScore ?? -1) - (a.relevanceScore ?? -1));
 
