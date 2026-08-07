@@ -33,13 +33,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
+  // users.id = auth.users.id — the app account row gates login by is_active.
+  const { data: userRow } = await supabase
+    .from("users")
     .select("is_active")
     .eq("id", data.user.id)
-    .single();
+    .maybeSingle();
 
-  if (profile && !profile.is_active) {
+  if (userRow && !userRow.is_active) {
     await supabase.auth.signOut();
     return NextResponse.json(
       { error: "This account has been deactivated. Contact an administrator." },

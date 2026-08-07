@@ -44,18 +44,14 @@ export default async function EngineerDetailPage({
   // Only Admin edits core details, so these extra reads (and the form
   // itself) never run for a BD viewer.
   let seniorityLevels: { id: string; name: string }[] = [];
-  let skillNames = "";
 
   if (isAdmin) {
-    const [{ data: levels }, { data: engineerSkills }] = await Promise.all([
-      supabase.from("seniority_levels").select("id, name").eq("is_active", true).order("rank"),
-      supabase.from("engineer_skills").select("skills(name)").eq("engineer_id", engineerId),
-    ]);
+    const { data: levels } = await supabase
+      .from("seniority_levels")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("rank");
     seniorityLevels = levels ?? [];
-    skillNames = (engineerSkills ?? [])
-      .map((row) => row.skills?.name)
-      .filter((name): name is string => Boolean(name))
-      .join(", ");
   }
 
   // engineer_bd_assignments_select RLS already scopes a BD viewer to only
@@ -158,7 +154,6 @@ export default async function EngineerDetailPage({
                 rateExpectation: engineer.rate_expectation?.toString() ?? "",
                 rateCurrency: engineer.rate_currency,
                 summary: engineer.summary ?? "",
-                skillNames,
               }}
               seniorityLevels={seniorityLevels}
               submitLabel="Save changes"

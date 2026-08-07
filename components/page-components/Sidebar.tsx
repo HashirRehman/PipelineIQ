@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Briefcase,
-  ChevronDown,
   LogOut,
   Moon,
   Search,
@@ -13,7 +12,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import type { TabId, Profile } from "@/app/page";
+import type { TabId } from "@/app/page";
 import { useTheme } from "next-themes";
 import { useMounted } from "@/hooks/use-mounted";
 import { Avatar } from "@/components/avatar";
@@ -34,14 +33,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const NAV: {
@@ -69,21 +60,14 @@ function ProfileAvatar({
 interface SidebarProps {
   activeTab: TabId;
   setActiveTab: (t: TabId) => void;
-  profiles: Profile[];
-  activeProfile: Profile;
-  setActiveProfile: (p: Profile) => void;
   counts?: Record<string, number>;
 }
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
-  profiles,
-  activeProfile,
-  setActiveProfile,
   counts,
 }: SidebarProps) {
-  const [profileOpen, setProfileOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
 
@@ -112,75 +96,6 @@ export default function Sidebar({
         </SidebarHeader>
 
         <SidebarContent className="px-2.5">
-          {/* Profile Switcher */}
-          <div className="mb-4">
-            <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    className="w-full h-auto p-2 px-2.5 justify-between gap-2 bg-[var(--card)] border border-[var(--border)] rounded-lg cursor-pointer text-left hover:bg-[var(--card)] hover:border-[var(--border-strong)] transition-colors shadow-none"
-                  />
-                }
-              >
-                <ProfileAvatar name={activeProfile.name} size={24} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-[var(--fg)] truncate">
-                    {activeProfile.name}
-                  </div>
-                  <div className="font-mono text-[10px] text-[var(--muted-fg)] truncate">
-                    {activeProfile.seniority}
-                  </div>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    "shrink-0 text-[var(--muted-fg)] transition-transform",
-                    profileOpen && "rotate-180"
-                  )}
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                sideOffset={4}
-                className="p-1 bg-[var(--card)] text-[var(--fg)] border border-[var(--border-strong)] rounded-lg shadow-xl"
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="px-2.5 py-1 text-[10px] font-semibold text-[var(--muted-fg)] uppercase font-mono border-b border-[var(--border)] rounded-none">
-                    Switch Profile
-                  </DropdownMenuLabel>
-                </DropdownMenuGroup>
-                {profiles.map((p) => (
-                  <DropdownMenuItem
-                    key={p.id}
-                    onClick={() => {
-                      setActiveProfile(p);
-                      setProfileOpen(false);
-                    }}
-                    className={cn(
-                      "w-full gap-2 rounded-none px-2.5 py-2 text-left cursor-pointer",
-                      p.id === activeProfile.id
-                        ? "bg-[var(--secondary)] font-medium focus:bg-[var(--secondary)]"
-                        : "hover:bg-black/5 dark:hover:bg-white/5"
-                    )}
-                  >
-                    <ProfileAvatar name={p.name} size={20} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-[var(--fg)] truncate">
-                        {p.name}
-                      </div>
-                      <div className="font-mono text-[9px] text-[var(--muted-fg)] truncate">
-                        {p.seniority}
-                      </div>
-                    </div>
-                    {p.id === activeProfile.id && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shrink-0" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
           {/* Nav Links */}
           <SidebarGroup>
             <SidebarGroupLabel className="px-2.5 py-1 h-auto text-[10px] font-semibold text-[var(--muted-fg)] uppercase font-mono tracking-wider">

@@ -27,7 +27,6 @@ type EngineerFieldValues = {
   rateExpectation: string;
   rateCurrency: string;
   summary: string;
-  skillNames: string;
 };
 
 const BLANK_VALUES: EngineerFieldValues = {
@@ -40,7 +39,6 @@ const BLANK_VALUES: EngineerFieldValues = {
   rateExpectation: "",
   rateCurrency: "USD",
   summary: "",
-  skillNames: "",
 };
 
 export function EngineerCoreFieldsForm({
@@ -153,19 +151,6 @@ export function EngineerCoreFieldsForm({
       <div className="flex flex-col gap-2">
         <Label htmlFor="summary">Summary</Label>
         <Textarea id="summary" name="summary" defaultValue={initialValues.summary} rows={4} />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="skillNames">Skills</Label>
-        <Input
-          id="skillNames"
-          name="skillNames"
-          placeholder="React, Node.js, PostgreSQL"
-          defaultValue={initialValues.skillNames}
-        />
-        <p className="text-xs text-muted-foreground">
-          Comma-separated. New skills are added automatically.
-        </p>
       </div>
 
       {state.error && (

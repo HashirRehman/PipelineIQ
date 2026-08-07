@@ -66,10 +66,6 @@ export const engineerCoreFieldsSchema = z.object({
     .transform((value) => (value ? value.toUpperCase() : "USD"))
     .refine((value) => value.length === 3, "Currency must be a 3-letter code."),
   summary: optionalTrimmedText,
-  // Raw comma-separated skill names — parsing, case-insensitive dedup, and
-  // resolving/creating the actual skills rows happens in
-  // lib/actions/engineers.ts's resolveSkillIds(), not here.
-  skillNames: z.string().default(""),
 });
 
 export const createEngineerSchema = engineerCoreFieldsSchema;
@@ -90,51 +86,22 @@ export const engineerBdAssignmentSchema = z.object({
   bdUserId: z.uuid("Select a BD Executive."),
 });
 
-export const createSkillSchema = z.object({
-  name: z.string().trim().min(1, "Name is required."),
-});
-
-export const setSkillActiveSchema = z.object({
-  skillId: z.uuid(),
-  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
-});
-
 export const uploadEngineerCvSchema = z.object({
   engineerId: z.uuid(),
   label: z.string().trim().min(1, "Label is required."),
-  // Size/mime-type limits are Admin-tunable (app_settings), so they can't be
-  // expressed statically here — that check happens at runtime against the DB.
   file: z
     .instanceof(File)
     .refine((file) => file.size > 0, "Select a file to upload."),
 });
 
-export const dismissMatchSchema = z.object({
-  matchId: z.uuid(),
+export const dismissJobSchema = z.object({
+  jobId: z.uuid(),
+  profileId: z.uuid(),
   reason: z.string().trim().min(1, "A reason is required.").max(500),
 });
 
 export const markAppliedSchema = z.object({
-  matchId: z.uuid(),
+  jobId: z.uuid(),
+  profileId: z.uuid(),
 });
 
-export const withdrawLeadSchema = z.object({
-  leadId: z.uuid(),
-  reason: z.string().trim().min(1, "A reason is required.").max(500),
-});
-
-export const reapplyLeadSchema = z.object({
-  leadId: z.uuid(),
-});
-
-// Parses /leads' searchParams. A malformed/tampered value (hand-edited
-// URL) is treated as "no filter" for that field via .catch(undefined),
-// not a page error — this is a read-only page and RLS still bounds the
-// result regardless of what filters are applied, so failing open to
-// "unfiltered" is the safe direction.
-export const leadsFilterSchema = z.object({
-  engineerId: z.uuid().optional().catch(undefined),
-  status: z.enum(["active", "withdrawn", "closed"]).optional().catch(undefined),
-  from: z.iso.date().optional().catch(undefined),
-  to: z.iso.date().optional().catch(undefined),
-});

@@ -29,13 +29,6 @@ function mapRoleNameToUserRole(roleName?: string | null): ApiAppUser["role"] {
   return "bd";
 }
 
-interface ProfileWithRole {
-  user_roles?: {
-    role_id?: string | null;
-    roles?: { name?: string | null } | null;
-  }[] | null;
-}
-
 async function findRoleById(
   supabase: Awaited<ReturnType<typeof createClient>>,
   roleId: string,
@@ -72,18 +65,16 @@ export async function GET() {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
-  const [profilesRes, rolesRes] = await Promise.all([
+  const [usersRes, rolesRes] = await Promise.all([
     supabase
-      .from("profiles")
-      .select(
-        "id, email, full_name, is_active, created_at, user_roles!user_roles_user_id_fkey(role_id, roles(name, id))",
-      )
+      .from("users")
+      .select("id, email, full_name, is_active, created_at, role_id, roles(name, id)")
       .order("created_at", { ascending: false }),
     supabase.from("roles").select("id, name").order("name"),
   ]);
 
-  if (profilesRes.error) {
-    console.error("api/users: profiles query failed", profilesRes.error);
+  if (usersRes.error) {
+    console.error("api/users: users query failed", usersRes.error);
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 },
@@ -96,10 +87,9 @@ export async function GET() {
 
   const roles: ApiRole[] = rolesRes.data ?? [];
 
-  const users: ApiAppUser[] = (profilesRes.data ?? []).map((p) => {
-    const assigned = (p as unknown as ProfileWithRole).user_roles?.[0];
-    const roleId = assigned?.role_id ?? null;
-    const roleName = assigned?.roles?.name ?? "";
+  const users: ApiAppUser[] = (usersRes.data ?? []).map((p) => {
+    const roleId = p.role_id;
+    const roleName = p.roles?.name ?? "";
 
     const joinedAt = p.created_at
       ? p.created_at.split("T")[0]
@@ -201,16 +191,46 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: roleError } = await supabase.from("user_roles").insert({
-    user_id: inviteData.user.id,
-    role_id: role.id,
-    assigned_by: user.id,
-  });
+  const { data: callerRow } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  if (roleError) {
-    console.error("api/users: user_roles insert failed", roleError);
+  let organizationId = callerRow?.organization_id ?? null;
+  if (!organizationId) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("name", "Recurso Labs")
+      .maybeSingle();
+    organizationId = org?.id ?? null;
+  }
+
+  if (!organizationId) {
+    console.error("api/users: no organization resolved for invited user");
     return NextResponse.json(
-      { error: "User invited, but role assignment failed — contact an administrator." },
+      { error: "No organization found — apply supabase/seed.sql first." },
+      { status: 500 },
+    );
+  }
+
+  const { error: usersError } = await supabase.from("users").upsert(
+    {
+      id: inviteData.user.id,
+      organization_id: organizationId,
+      full_name: name,
+      email,
+      role_id: role.id,
+      is_active: true,
+    },
+    { onConflict: "id" },
+  );
+
+  if (usersError) {
+    console.error("api/users: users insert failed", usersError);
+    return NextResponse.json(
+      { error: "User invited, but account setup failed — contact an administrator." },
       { status: 500 },
     );
   }
@@ -284,71 +304,27 @@ export async function PATCH(request: Request) {
     role = roleResult.role;
   }
 
-  const profileUpdates: { full_name?: string; is_active?: boolean } = {};
-  if (name !== undefined) profileUpdates.full_name = name;
-  if (status !== undefined) profileUpdates.is_active = status === "active";
+  const userUpdates: { full_name?: string; is_active?: boolean; role_id?: string } = {};
+  if (name !== undefined) userUpdates.full_name = name;
+  if (status !== undefined) userUpdates.is_active = status === "active";
+  if (role) userUpdates.role_id = role.id;
 
-  const hasProfileUpdates = Object.keys(profileUpdates).length > 0;
+  const { data, error } = await supabase
+    .from("users")
+    .update(userUpdates)
+    .eq("id", userId)
+    .select("id");
 
-  if (hasProfileUpdates) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(profileUpdates)
-      .eq("id", userId)
-      .select("id");
-
-    if (error) {
-      console.error("api/users: profiles update failed", error);
-      return NextResponse.json(
-        { error: "Something went wrong. Please try again." },
-        { status: 500 },
-      );
-    }
-
-    if (!data || data.length === 0) {
-      return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
-    }
+  if (error) {
+    console.error("api/users: users update failed", error);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
   }
 
-  if (role && !hasProfileUpdates) {
-    const { data: target } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (!target) {
-      return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
-    }
-  }
-
-  if (role) {
-    const { error: deleteError } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId);
-
-    if (deleteError) {
-      console.error("api/users: user_roles delete failed", deleteError);
-      return NextResponse.json(
-        { error: "Something went wrong. Please try again." },
-        { status: 500 },
-      );
-    }
-
-    const { error: insertError } = await supabase.from("user_roles").insert({
-      user_id: userId,
-      role_id: role.id,
-      assigned_by: user.id,
-    });
-
-    if (insertError) {
-      console.error("api/users: user_roles insert failed", insertError);
-      return NextResponse.json(
-        { error: "Something went wrong. Please try again." },
-        { status: 500 },
-      );
-    }
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });

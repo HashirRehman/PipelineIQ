@@ -419,7 +419,6 @@ function CreateModal({ onClose, onCreate }: CreateModalProps) {
 interface Props {
   profiles: Profile[]
   setProfiles: (p: Profile[]) => void
-  activeProfile: Profile
   users: AppUser[]
 }
 

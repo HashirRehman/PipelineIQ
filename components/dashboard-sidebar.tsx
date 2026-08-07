@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Briefcase, Contact, ListChecks, Menu, Sparkles } from "lucide-react";
+import { Contact, Menu, Sparkles } from "lucide-react";
 import { apiPost } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,18 +13,11 @@ import {
 } from "@/components/ui/sheet";
 import { DashboardNav, type DashboardNavItem } from "@/components/dashboard-nav";
 
-function buildNavItems(isAdmin: boolean): DashboardNavItem[] {
-  const items: DashboardNavItem[] = [
+function buildNavItems(_isAdmin: boolean): DashboardNavItem[] {
+  return [
     { href: "/engineers", label: "Engineers", icon: Contact },
     { href: "/", label: "Discovery", icon: Sparkles },
-    { href: "/leads", label: "Leads", icon: Briefcase },
   ];
-
-  if (isAdmin) {
-    items.push({ href: "/admin/skills", label: "Skills", icon: ListChecks });
-  }
-
-  return items;
 }
 
 function SidebarContent({

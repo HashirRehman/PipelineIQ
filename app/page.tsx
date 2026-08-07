@@ -238,9 +238,6 @@ export const INITIAL_PROFILES: Profile[] = [
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>("profiles");
   const [profiles, setProfiles] = useState<Profile[]>(INITIAL_PROFILES);
-  const [activeProfile, setActiveProfile] = useState<Profile>(
-    INITIAL_PROFILES[0],
-  );
 
   return (
     <div
@@ -252,13 +249,7 @@ export default function App() {
         color: "var(--fg)",
       }}
     >
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        activeProfile={activeProfile}
-        setActiveProfile={setActiveProfile}
-        profiles={profiles}
-      />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main
         style={{
           flex: 1,
@@ -272,13 +263,10 @@ export default function App() {
           <ProfilesTab
             profiles={profiles}
             setProfiles={setProfiles}
-            activeProfile={activeProfile}
             users={APP_USERS}
           />
         )}
-        {activeTab === "discovery" && (
-          <DiscoveryTab activeProfile={activeProfile} />
-        )}
+        {activeTab === "discovery" && <DiscoveryTab />}
         {activeTab === "leads" && (
           <LeadsTab
             users={APP_USERS}

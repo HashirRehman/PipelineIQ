@@ -42,103 +42,6 @@ export async function requireAdmin(supabase: SupabaseClient) {
   return { user };
 }
 
-// Splits/trims/drops-empties, then dedupes case-insensitively (keeping the
-// first-seen casing) — "React, react" submitted together should resolve to
-// one skill, not two, same guarantee the DB's own
-// skills_name_unique_ci index provides across separate submissions.
-function parseSkillNames(raw: string): string[] {
-  const seen = new Map<string, string>();
-  for (const name of raw.split(",").map((part) => part.trim()).filter(Boolean)) {
-    const key = name.toLowerCase();
-    if (!seen.has(key)) {
-      seen.set(key, name);
-    }
-  }
-  return [...seen.values()];
-}
-
-// Resolves each submitted skill name to a skills.id, creating rows for
-// names that don't exist yet and reactivating any that exist but are
-// currently soft-disabled (is_active = false) — typing a retired skill's
-// name is an explicit request to use it again, not a request to duplicate
-// it (which the DB's case-insensitive unique index would reject anyway).
-// Fetches the whole skills table rather than filtering server-side:
-// PostgREST has no case-insensitive multi-value IN, and this table is a
-// small curated vocabulary, not a high-cardinality one.
-async function resolveSkillIds(
-  supabase: SupabaseClient,
-  names: string[],
-): Promise<{ skillIds: string[]; error?: string }> {
-  if (names.length === 0) {
-    return { skillIds: [] };
-  }
-
-  const { data: allSkills, error: fetchError } = await supabase
-    .from("skills")
-    .select("id, name, is_active");
-
-  if (fetchError) {
-    console.error("resolveSkillIds: skills fetch failed", fetchError);
-    return { skillIds: [], error: "Something went wrong. Please try again." };
-  }
-
-  const byLowerName = new Map((allSkills ?? []).map((skill) => [skill.name.toLowerCase(), skill]));
-
-  const resolvedIds: string[] = [];
-  const idsNeedingReactivation: string[] = [];
-  const namesToCreate: string[] = [];
-
-  for (const name of names) {
-    const match = byLowerName.get(name.toLowerCase());
-    if (match) {
-      resolvedIds.push(match.id);
-      if (!match.is_active) {
-        idsNeedingReactivation.push(match.id);
-      }
-    } else {
-      namesToCreate.push(name);
-    }
-  }
-
-  if (namesToCreate.length > 0) {
-    const { data: created, error: insertError } = await supabase
-      .from("skills")
-      .insert(namesToCreate.map((name) => ({ name })))
-      .select("id");
-
-    if (insertError) {
-      // 23505 here means someone else created one of these exact names
-      // between the fetch above and this insert — rare, but a clean retry
-      // (which will now find it via the fetch) is safer than partially
-      // resolving and silently dropping a skill.
-      console.error("resolveSkillIds: skills insert failed", insertError);
-      return {
-        skillIds: [],
-        error:
-          insertError.code === "23505"
-            ? "One of these skills was just added elsewhere — please try again."
-            : "Something went wrong. Please try again.",
-      };
-    }
-
-    resolvedIds.push(...(created ?? []).map((skill) => skill.id));
-  }
-
-  if (idsNeedingReactivation.length > 0) {
-    const { error: reactivateError } = await supabase
-      .from("skills")
-      .update({ is_active: true })
-      .in("id", idsNeedingReactivation);
-
-    if (reactivateError) {
-      console.error("resolveSkillIds: skills reactivate failed", reactivateError);
-      return { skillIds: [], error: "Something went wrong. Please try again." };
-    }
-  }
-
-  return { skillIds: resolvedIds };
-}
-
 // engineerCoreFieldsSchema (lib/validation/schemas.ts) is camelCase to match
 // form field naming; the engineers table columns are snake_case. This was
 // previously spread straight into .insert()/.update() with no conversion —
@@ -168,36 +71,6 @@ function toEngineerRow(fields: {
   };
 }
 
-async function syncEngineerSkills(
-  supabase: SupabaseClient,
-  engineerId: string,
-  skillIds: string[],
-) {
-  const uniqueSkillIds = [...new Set(skillIds)];
-
-  const { error: deleteError } = await supabase
-    .from("engineer_skills")
-    .delete()
-    .eq("engineer_id", engineerId);
-
-  if (deleteError) {
-    return deleteError;
-  }
-
-  if (uniqueSkillIds.length === 0) {
-    return null;
-  }
-
-  const { error: insertError } = await supabase.from("engineer_skills").insert(
-    uniqueSkillIds.map((skillId) => ({
-      engineer_id: engineerId,
-      skill_id: skillId,
-    })),
-  );
-
-  return insertError;
-}
-
 export async function createEngineer(
   _prevState: EngineerActionState,
   formData: FormData,
@@ -212,7 +85,6 @@ export async function createEngineer(
     rateExpectation: formData.get("rateExpectation"),
     rateCurrency: formData.get("rateCurrency"),
     summary: formData.get("summary"),
-    skillNames: formData.get("skillNames"),
   });
 
   if (!parsed.success) {
@@ -226,7 +98,7 @@ export async function createEngineer(
     return { error: adminCheck.error };
   }
 
-  const { skillNames, ...engineerFields } = parsed.data;
+  const engineerFields = parsed.data;
 
   const { data, error } = await supabase
     .from("engineers")
@@ -240,21 +112,6 @@ export async function createEngineer(
     }
     console.error("createEngineer: engineers insert failed", error);
     return { error: "Something went wrong. Please try again." };
-  }
-
-  const { skillIds, error: resolveError } = await resolveSkillIds(supabase, parseSkillNames(skillNames));
-  if (resolveError) {
-    return { success: true, engineerId: data.id, error: resolveError };
-  }
-
-  const skillsError = await syncEngineerSkills(supabase, data.id, skillIds);
-  if (skillsError) {
-    console.error("createEngineer: engineer_skills insert failed", skillsError);
-    return {
-      success: true,
-      engineerId: data.id,
-      error: "Engineer created, but skills failed to save — edit the engineer to try again.",
-    };
   }
 
   revalidatePath("/engineers");
@@ -276,7 +133,6 @@ export async function updateEngineer(
     rateExpectation: formData.get("rateExpectation"),
     rateCurrency: formData.get("rateCurrency"),
     summary: formData.get("summary"),
-    skillNames: formData.get("skillNames"),
   });
 
   if (!parsed.success) {
@@ -290,7 +146,7 @@ export async function updateEngineer(
     return { error: adminCheck.error };
   }
 
-  const { engineerId, skillNames, ...engineerFields } = parsed.data;
+  const { engineerId, ...engineerFields } = parsed.data;
 
   const { error } = await supabase
     .from("engineers")
@@ -303,21 +159,6 @@ export async function updateEngineer(
     }
     console.error("updateEngineer: engineers update failed", error);
     return { error: "Something went wrong. Please try again." };
-  }
-
-  const { skillIds, error: resolveError } = await resolveSkillIds(supabase, parseSkillNames(skillNames));
-  if (resolveError) {
-    return { success: true, engineerId, error: resolveError };
-  }
-
-  const skillsError = await syncEngineerSkills(supabase, engineerId, skillIds);
-  if (skillsError) {
-    console.error("updateEngineer: engineer_skills sync failed", skillsError);
-    return {
-      success: true,
-      engineerId,
-      error: "Engineer updated, but skills failed to save — try again.",
-    };
   }
 
   revalidatePath("/engineers");
@@ -363,7 +204,7 @@ export async function setEngineerActive(
 }
 
 // reassign_engineer_bd() closes an old assignment row and/or opens a new one
-// in one function call — see supabase/migrations/20260717130000_*.sql. Both
+// in one function call — see migrated/migrations/20260717130000_*.sql. Both
 // actions below call it with one of the two BD-id params left null, so the
 // close-then-open pair used by a future "reassign" UI action shares the same
 // atomic path instead of being reinvented separately.

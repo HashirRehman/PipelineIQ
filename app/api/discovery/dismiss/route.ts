@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
-import { dismissMatchSchema } from "@/lib/validation/schemas";
+import { dismissJobSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const parsed = dismissMatchSchema.safeParse(body);
+  const parsed = dismissJobSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid input." },
@@ -33,22 +33,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabase
-    .from("job_engineer_matches")
-    .update({ status: "dismissed", dismissed_reason: parsed.data.reason })
-    .eq("id", parsed.data.matchId)
-    .select("id");
+  const { data, error } = await supabase.rpc("dismiss_job_profile", {
+    p_job_id: parsed.data.jobId,
+    p_profile_id: parsed.data.profileId,
+    p_reason: parsed.data.reason,
+  });
 
   if (error) {
-    console.error("api/discovery/dismiss: job_engineer_matches update failed", error);
+    if (error.code === "P0001") {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    console.error("api/discovery/dismiss: dismiss_job_profile rpc failed", error);
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 },
     );
-  }
-
-  if (!data || data.length === 0) {
-    return NextResponse.json({ error: "Match not found or not accessible." }, { status: 404 });
   }
 
   revalidatePath("/");

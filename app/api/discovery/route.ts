@@ -1,55 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
 
-// Discovery feed — the client-facing counterpart to the main app
-// page. Query runs with the user's RLS-scoped client (the jobs_select /
-// job_engineer_matches_select policies scope BD visibility, same as the old
-// server-rendered page). The admin score floor below is the same deliberate
-// BD-only filter the page used: Admin's view stays unfiltered for QA.
-//
-// Scope: engineerId is required and filters job_engineer_matches to a single
-// engineer — the tab only ever renders the currently active profile's matches,
-// never the whole company's. RLS still independently restricts a BD to the
-// engineers actually assigned to them.
-//
-// job_engineer_matches is one row per (job, engineer, cv) — an engineer can
-// have several CVs, each scored independently against the same job. This
-// route groups those rows by job before paginating, so the client sees one
-// card per job (not one per CV) with a per-CV breakdown attached.
 export const dynamic = "force-dynamic";
 
-const DEFAULT_MIN_RELEVANCE_SCORE = 60;
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 
-const VALID_STATUSES: readonly ("suggested" | "applied" | "dismissed")[] = [
-  "suggested",
-  "applied",
-  "dismissed",
-];
-
-type MatchRow = {
+type JobWithMatches = {
   id: string;
   created_at: string;
-  relevance_score: number;
-  status: "suggested" | "applied" | "dismissed";
-  dismissed_reason: string | null;
-  cv_id: string;
-  engineer_cvs: { label: string; is_current: boolean } | null;
-  engineers: { full_name: string | null } | null;
-  jobs: {
+  title: string;
+  company_name: string;
+  company_location: string | null;
+  apply_url: string;
+  is_remote: boolean | null;
+  remote_allowed_region: string | null;
+  job_posted_at: string | null;
+  description: string | null;
+  possibly_closed: boolean | null;
+  scrapers: { name: string } | null;
+  job_profile_matches: {
     id: string;
-    title: string;
-    company_name: string;
-    location: string | null;
-    apply_url: string;
-    is_remote: boolean | null;
-    remote_region: string | null;
-    posted_at: string | null;
-    description: string | null;
-    possibly_closed: boolean | null;
-    job_sources: { name: string } | null;
-  } | null;
+    profile_id: string;
+    cv_id: string;
+    relevance_score: number;
+    profile_cvs: { file_name: string } | null;
+  }[];
 };
 
 export type CvMatch = {
@@ -58,8 +34,7 @@ export type CvMatch = {
   cvLabel: string;
   isCurrentCv: boolean;
   relevanceScore: number;
-  status: "new" | "applied" | "dismissed";
-  dismissReason?: string;
+  status: "new";
 };
 
 export type DiscoveryJob = {
@@ -71,16 +46,15 @@ export type DiscoveryJob = {
   postedAt: string;
   applyUrl: string;
   parser: string;
-  status: "new" | "applied" | "dismissed";
-  dismissReason?: string;
+  status: "new";
   description: string;
-  relevanceScore: number;
+  relevanceScore: number | null;
   cvMatches: CvMatch[];
   possiblyClosed: boolean | null;
   remoteRegion: string | null;
 };
 
-type EngineerRow = {
+type ProfileRow = {
   id: string;
   full_name: string;
   email: string;
@@ -88,17 +62,14 @@ type EngineerRow = {
   location: string | null;
   rate_expectation: number | null;
   rate_currency: string;
-  years_experience: number | null;
+  years_of_experience: number | null;
   summary: string | null;
   is_active: boolean;
   created_at: string;
-  seniority_levels: { name: string } | null;
-  engineer_skills: { skills: { name: string } | null }[] | null;
+  seniority_level: { name: string } | null;
 };
 
-// Mirrors the SPA's Profile shape so the tab can pass this straight to the
-// JobDrawer as the active profile — the engineer whose matches we're showing.
-export type DiscoveryEngineer = {
+export type DiscoveryProfile = {
   id: string;
   name: string;
   email: string;
@@ -116,21 +87,19 @@ export type DiscoveryEngineer = {
   createdAt: string;
 };
 
-function toDiscoveryEngineer(row: EngineerRow): DiscoveryEngineer {
+function toDiscoveryProfile(row: ProfileRow): DiscoveryProfile {
   return {
     id: row.id,
     name: row.full_name,
     email: row.email,
     phone: row.phone ?? "",
     location: row.location ?? "",
-    seniority: row.seniority_levels?.name ?? "",
-    yearsExp: row.years_experience ?? 0,
+    seniority: row.seniority_level?.name ?? "",
+    yearsExp: row.years_of_experience ?? 0,
     rate: row.rate_expectation ?? 0,
     rateCurrency: row.rate_currency,
     summary: row.summary ?? "",
-    skills: (row.engineer_skills ?? [])
-      .map((es) => es.skills?.name ?? "")
-      .filter((name) => name.length > 0),
+    skills: [],
     status: row.is_active ? "active" : "inactive",
     assignedBDs: [],
     cvLabels: [],
@@ -138,63 +107,53 @@ function toDiscoveryEngineer(row: EngineerRow): DiscoveryEngineer {
   };
 }
 
-function toCvMatchStatus(status: MatchRow["status"]): CvMatch["status"] {
-  return status === "applied" ? "applied" : status === "dismissed" ? "dismissed" : "new";
-}
-
-// One job can back several match rows (one per CV) — group before turning
-// each group into a single card. relevanceScore/status are derived from the
-// group, not copied from any one row: relevanceScore is the best (max)
-// score across CVs (a BD scanning the list wants "is there any angle that
-// works," not a score diluted by a weaker/older CV); status is "applied" if
-// any CV match is applied, else "dismissed" only if every CV match is
-// dismissed, else "new".
-function groupIntoDiscoveryJobs(rows: MatchRow[]): DiscoveryJob[] {
-  const byJobId = new Map<string, MatchRow[]>();
-  for (const row of rows) {
-    if (!row.jobs) continue;
-    const list = byJobId.get(row.jobs.id) ?? [];
-    list.push(row);
-    byJobId.set(row.jobs.id, list);
+function toDiscoveryJob(
+  job: JobWithMatches,
+  excludedPairs: Set<string>,
+  profileId: string | undefined,
+): DiscoveryJob | null {
+  if (profileId && excludedPairs.has(`${job.id}:${profileId}`)) {
+    return null;
   }
 
-  return Array.from(byJobId.values()).map((groupRows) => {
-    const job = groupRows[0].jobs!;
-    const cvMatches: CvMatch[] = groupRows.map((row) => ({
-      matchId: row.id,
-      cvId: row.cv_id,
-      cvLabel: row.engineer_cvs?.label ?? "Untitled CV",
-      isCurrentCv: row.engineer_cvs?.is_current ?? false,
-      relevanceScore: row.relevance_score,
-      status: toCvMatchStatus(row.status),
-      dismissReason: row.dismissed_reason ?? undefined,
-    }));
+  const matches = (job.job_profile_matches ?? []).filter(
+    (m) => !excludedPairs.has(`${job.id}:${m.profile_id}`),
+  );
 
-    const bestMatch = cvMatches.reduce((best, cv) => (cv.relevanceScore > best.relevanceScore ? cv : best));
-    const status: DiscoveryJob["status"] = cvMatches.some((cv) => cv.status === "applied")
-      ? "applied"
-      : cvMatches.every((cv) => cv.status === "dismissed")
-        ? "dismissed"
-        : "new";
+  if (job.job_profile_matches.length > 0 && matches.length === 0) {
+    return null;
+  }
 
-    return {
-      id: job.id,
-      title: job.title,
-      company: job.company_name,
-      location: job.location ?? "",
-      workType: job.is_remote ? "remote" : "onsite",
-      postedAt: job.posted_at ?? groupRows[0].created_at,
-      applyUrl: job.apply_url,
-      parser: job.job_sources?.name ?? "",
-      status,
-      dismissReason: status === "dismissed" ? bestMatch.dismissReason : undefined,
-      description: job.description ?? "",
-      relevanceScore: bestMatch.relevanceScore,
-      cvMatches,
-      possiblyClosed: job.possibly_closed ?? null,
-      remoteRegion: job.remote_region ?? null,
-    };
-  });
+  const cvMatches: CvMatch[] = matches.map((m) => ({
+    matchId: m.id,
+    cvId: m.cv_id,
+    cvLabel: m.profile_cvs?.file_name ?? "Untitled CV",
+    isCurrentCv: false,
+    relevanceScore: m.relevance_score,
+    status: "new",
+  }));
+
+  const bestMatch = cvMatches.reduce<CvMatch | null>(
+    (best, cv) => (best === null || cv.relevanceScore > best.relevanceScore ? cv : best),
+    null,
+  );
+
+  return {
+    id: job.id,
+    title: job.title,
+    company: job.company_name,
+    location: job.company_location ?? "",
+    workType: job.is_remote ? "remote" : "onsite",
+    postedAt: job.job_posted_at ?? job.created_at,
+    applyUrl: job.apply_url,
+    parser: job.scrapers?.name ?? "",
+    status: "new",
+    description: job.description ?? "",
+    relevanceScore: bestMatch?.relevanceScore ?? null,
+    cvMatches,
+    possiblyClosed: job.possibly_closed ?? null,
+    remoteRegion: job.remote_allowed_region ?? null,
+  };
 }
 
 function parsePositiveInt(value: string | null, fallback: number, max: number): number {
@@ -215,79 +174,75 @@ export async function GET(request: NextRequest) {
   const page = parsePositiveInt(searchParams.get("page"), 1, Number.MAX_SAFE_INTEGER);
   const pageSize = parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
 
-  const status = searchParams.get("status") ?? "";
   const workType = searchParams.get("workType") ?? "";
   const parser = searchParams.get("parser") ?? "";
   const search = (searchParams.get("search") ?? "").trim();
-  const engineerId = (searchParams.get("engineerId") ?? "").trim();
 
-  if (!engineerId) {
-    return NextResponse.json({ error: "engineerId is required." }, { status: 400 });
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  let organizationId = userRow?.organization_id ?? null;
+  if (!organizationId) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("name", "Recurso Labs")
+      .maybeSingle();
+    organizationId = org?.id ?? null;
+  }
+  if (!organizationId) {
+    console.error("api/discovery: no organization resolved for user", user.id);
+    return NextResponse.json(
+      { error: "No organization found for this account." },
+      { status: 500 },
+    );
   }
 
-  // Admin-tunable BD score floor, same pattern + fail-closed default as the
-  // server-rendered page. isAdmin and the setting are independent — fetched
-  // concurrently, along with the engineer whose matches this feed is scoped to.
-  const [isAdmin, { data: minScoreSetting }, { data: engineerRow }] = await Promise.all([
-    getCachedIsAdmin(),
+  const [{ data: profileRow }, { data: stateRows }] = await Promise.all([
     supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "discovery_min_relevance_score")
-      .maybeSingle(),
-    supabase
-      .from("engineers")
+      .from("profiles")
       .select(
-        "id, full_name, email, phone, location, rate_expectation, rate_currency, years_experience, summary, is_active, created_at, seniority_levels(name), engineer_skills(skills(name))",
+        "id, full_name, email, phone, location, rate_expectation, rate_currency, years_of_experience, summary, is_active, created_at, seniority_level(name)",
       )
-      .eq("id", engineerId)
+      .eq("user_id", user.id)
       .maybeSingle(),
+    supabase
+      .from("job_profile_states")
+      .select("job_id, profile_id, status")
+      .eq("organization_id", organizationId)
+      .is("deleted_at", null),
   ]);
-  const minRelevanceScore =
-    typeof minScoreSetting?.value === "number" ? minScoreSetting.value : DEFAULT_MIN_RELEVANCE_SCORE;
 
-  // No DB-level .range() here — grouping by job has to happen in
-  // application code first (see groupIntoDiscoveryJobs), so pagination is
-  // applied after grouping, below. This fetches every match row for the
-  // engineer up front; fine at this app's current scale (bounded by "jobs
-  // an engineer has been scored against"), but would need to move to a
-  // Postgres-side rollup if that number ever gets large.
-  //
-  // RLS does all row-level role scoping; jobs!inner (not a plain embed) is
-  // required for the .eq("jobs...") filters below to apply to the join, same
-  // rationale as the old page. The relevance floor is applied per CV match
-  // row, before grouping — a job surfaces if at least one of its CVs clears
-  // the floor.
-  let query = supabase
-    .from("job_engineer_matches")
-    .select(
-      "id, created_at, relevance_score, status, dismissed_reason, cv_id, engineer_cvs!cv_id(label, is_current), engineers(full_name), jobs!inner(id, title, company_name, location, apply_url, is_remote, remote_region, posted_at, description, possibly_closed, job_sources(name))",
-    )
-    .eq("engineer_id", engineerId)
-    .eq("jobs.is_globally_open", true)
-    .order("relevance_score", { ascending: false });
+  const excludedPairs = new Set(
+    (stateRows ?? [])
+      .filter((s) => s.status === "applied" || s.status === "dismissed")
+      .map((s) => `${s.job_id}:${s.profile_id}`),
+  );
 
-  if (!isAdmin) {
-    query = query.gte("relevance_score", minRelevanceScore);
-  }
+  let query = supabase.from("jobs").select(
+    "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, job_posted_at, description, possibly_closed, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
+  )
+    .eq("organization_id", organizationId)
+    .eq("is_globally_open", true)
+    .order("job_posted_at", { ascending: false, nullsFirst: false });
 
   if (workType === "remote") {
-    query = query.eq("jobs.is_remote", true);
+    query = query.eq("is_remote", true);
   } else if (workType === "onsite") {
-    query = query.eq("jobs.is_remote", false);
+    query = query.eq("is_remote", false);
   }
 
   if (parser && parser !== "All Sources") {
-    query = query.eq("jobs.job_sources.name", parser);
+    query = query.eq("scrapers.name", parser);
   }
 
   if (search) {
-    // Single-quote doubling keeps a user's search term from breaking the
-    // PostgREST filter string; stray commas/parens only yield zero results.
     const term = search.replace(/'/g, "''");
-    query = query.or(`title.ilike.%${term}%,company_name.ilike.%${term}%,location.ilike.%${term}%`, {
-      foreignTable: "jobs",
-    });
+    query = query.or(
+      `title.ilike.%${term}%,company_name.ilike.%${term}%,company_location.ilike.%${term}%`,
+    );
   }
 
   const { data: rows, error } = await query;
@@ -296,15 +251,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to load jobs." }, { status: 500 });
   }
 
-  let jobs = groupIntoDiscoveryJobs((rows ?? []) as MatchRow[]);
-
-  // status is derived per job from its CV matches (see
-  // groupIntoDiscoveryJobs), so this filter must run post-grouping rather
-  // than as a query-level .eq() on the raw match rows.
-  if ((VALID_STATUSES as readonly string[]).includes(status)) {
-    const wantedStatus = status === "suggested" ? "new" : (status as "applied" | "dismissed");
-    jobs = jobs.filter((job) => job.status === wantedStatus);
-  }
+  const jobs = ((rows ?? []) as JobWithMatches[])
+    .map((job) => toDiscoveryJob(job, excludedPairs, profileRow?.id))
+    .filter((job): job is DiscoveryJob => job !== null)
+    .sort((a, b) => (b.relevanceScore ?? -1) - (a.relevanceScore ?? -1));
 
   const totalCount = jobs.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -313,7 +263,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     jobs: pagedJobs,
-    engineer: engineerRow ? toDiscoveryEngineer(engineerRow) : null,
+    profile: profileRow ? toDiscoveryProfile(profileRow) : null,
     totalCount,
     page,
     pageSize,

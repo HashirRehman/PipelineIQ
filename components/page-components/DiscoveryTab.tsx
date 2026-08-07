@@ -30,15 +30,10 @@ import { apiPost } from "@/lib/api/client"
 const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
 const WORK_TYPES = ["All Types", "remote", "onsite"]
 
-interface Props {
-  activeProfile: Profile
-}
-
 const PAGE_SIZE = 5
 
 const buildQueryKey = (opts: {
   page: number
-  status: string
   workType: string
   parser: string
   search: string
@@ -46,8 +41,6 @@ const buildQueryKey = (opts: {
   new URLSearchParams({
     page: String(opts.page),
     pageSize: String(PAGE_SIZE),
-    engineerId: 'a1ca0629-de13-48d3-a8c8-8fc8c75c7ab6',
-    status: opts.status === "all" ? "" : opts.status === "new" ? "suggested" : opts.status,
     workType: opts.workType === "All Types" ? "" : opts.workType,
     parser: opts.parser === "All Sources" ? "" : opts.parser,
     search: opts.search,
@@ -55,20 +48,19 @@ const buildQueryKey = (opts: {
 
 interface DiscoveryResponse {
   jobs: Job[]
-  engineer: Profile | null
+  profile: Profile | null
   totalCount: number
   page: number
   pageSize: number
   totalPages: number
 }
 
-export default function DiscoveryTab({ activeProfile }: Props) {
+export default function DiscoveryTab() {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [engineer, setEngineer] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
-  const [statusFilter, setStatusFilter] = useState("all")
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -79,26 +71,25 @@ export default function DiscoveryTab({ activeProfile }: Props) {
   const [dismissReason, setDismissReason] = useState("")
   const [pendingDismissId, setPendingDismissId] = useState<string | null>(null)
 
-  const loadingKey = `${buildQueryKey({
+  const loadingKey = buildQueryKey({
     page,
-    status: statusFilter,
     workType: workTypeFilter,
     parser: parserFilter,
     search,
-  })}|${activeProfile.id}`
+  })
   const loading = appliedKey !== loadingKey
 
   useEffect(() => {
     const controller = new AbortController()
 
-    fetch(`/api/discovery?${buildQueryKey({ page, status: statusFilter, workType: workTypeFilter, parser: parserFilter, search })}`, { signal: controller.signal })
+    fetch(`/api/discovery?${buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search })}`, { signal: controller.signal })
       .then(async res => {
         if (!res.ok) throw new Error("Failed to load jobs")
         return res.json() as Promise<DiscoveryResponse>
       })
       .then(json => {
         setJobs(json.jobs)
-        setEngineer(json.engineer)
+        setProfile(json.profile)
         setTotalCount(json.totalCount)
         setTotalPages(json.totalPages)
         if (page > json.totalPages) setPage(Math.max(1, json.totalPages))
@@ -112,15 +103,10 @@ export default function DiscoveryTab({ activeProfile }: Props) {
       })
 
     return () => controller.abort()
-  }, [page, statusFilter, workTypeFilter, parserFilter, search, activeProfile.id, loadingKey])
+  }, [page, workTypeFilter, parserFilter, search, loadingKey])
 
   const changeSearch = (value: string) => {
     setSearch(value)
-    setPage(1)
-  }
-
-  const changeStatus = (value: string) => {
-    setStatusFilter(value)
     setPage(1)
   }
 
@@ -134,12 +120,6 @@ export default function DiscoveryTab({ activeProfile }: Props) {
     setPage(1)
   }
 
-  const getBestMatchId = (job: Job): string | null => {
-    const matches = job.cvMatches ?? []
-    if (matches.length === 0) return null
-    return matches.reduce((best, cv) => (cv.relevanceScore > best.relevanceScore ? cv : best)).matchId
-  }
-
   const handleApply = (id: string) => {
     const job = jobs.find(j => j.id === id) ?? selectedJob
     if (job?.applyUrl) {
@@ -148,31 +128,34 @@ export default function DiscoveryTab({ activeProfile }: Props) {
   }
 
   const handleMarkApplied = async (id: string) => {
-    const job = jobs.find(j => j.id === id)
-    const matchId = job ? getBestMatchId(job) : null
-    if (matchId) {
-      try {
-        await apiPost<{ success: boolean }>("/api/discovery/mark-applied", { matchId })
-      } catch (err) {
-        console.error("markApplied failed", err)
-      }
+    if (!profile) return
+    try {
+      await apiPost<{ success: boolean }>("/api/discovery/mark-applied", {
+        jobId: id,
+        profileId: profile.id,
+      })
+    } catch (err) {
+      console.error("markApplied failed", err)
+      return
     }
-    setJobs(js => js.map(j => j.id === id ? { ...j, status: "applied" } : j))
-    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "applied" } : null)
+    setJobs(js => js.filter(j => j.id !== id))
+    if (selectedJob?.id === id) setSelectedJob(null)
   }
 
   const handleDismiss = async (id: string, reason: string) => {
-    const job = jobs.find(j => j.id === id) ?? selectedJob
-    const matchId = job ? getBestMatchId(job) : null
-    if (matchId) {
-      try {
-        await apiPost<{ success: boolean }>("/api/discovery/dismiss", { matchId, reason })
-      } catch (err) {
-        console.error("dismissMatch failed", err)
-      }
+    if (!profile) return
+    try {
+      await apiPost<{ success: boolean }>("/api/discovery/dismiss", {
+        jobId: id,
+        profileId: profile.id,
+        reason,
+      })
+    } catch (err) {
+      console.error("dismissJob failed", err)
+      return
     }
-    setJobs(js => js.map(j => j.id === id ? { ...j, status: "dismissed", dismissReason: reason } : j))
-    if (selectedJob?.id === id) setSelectedJob(j => j ? { ...j, status: "dismissed", dismissReason: reason } : null)
+    setJobs(js => js.filter(j => j.id !== id))
+    if (selectedJob?.id === id) setSelectedJob(null)
     setPendingDismissId(null)
     setDismissReason("")
   }
@@ -234,31 +217,12 @@ export default function DiscoveryTab({ activeProfile }: Props) {
               setSearch("")
               setParserFilter("All Sources")
               setWorkTypeFilter("All Types")
-              setStatusFilter("all")
               setPage(1)
             }}
             className="h-auto p-0 bg-transparent text-[11px] text-[var(--primary)] hover:underline shadow-none"
           >
             Clear all
           </Button>
-        </div>
-
-        <div className="mb-5">
-          <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
-            Status
-          </div>
-          <div className="flex flex-col gap-1">
-            {[
-              ["all", "All Jobs"],
-              ["new", "New"],
-              ["applied", "Applied"],
-              ["dismissed", "Dismissed"],
-            ].map(([v, l]) => (
-              <div key={v}>
-                {filterOption(statusFilter === v, () => changeStatus(v), l)}
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="mb-5">
@@ -281,7 +245,7 @@ export default function DiscoveryTab({ activeProfile }: Props) {
 
         <div className="mb-5">
           <div className="text-[11px] font-semibold text-[var(--muted-fg)] mb-2 uppercase tracking-[0.6px]">
-            Source Parser
+            Platforms
           </div>
           <div className="flex flex-col gap-1">
             {PARSERS.map(p => (
@@ -315,18 +279,13 @@ export default function DiscoveryTab({ activeProfile }: Props) {
           />
 
           <div className="flex gap-1.5 overflow-x-auto pb-3.5">
-            {filterBtn("All", statusFilter === "all" && workTypeFilter === "All Types", () => {
-              changeStatus("all")
+            {filterBtn("All", workTypeFilter === "All Types", () => {
               changeWorkType("All Types")
             })}
              {filterBtn("Remote", workTypeFilter === "remote", () =>
                changeWorkType(workTypeFilter === "remote" ? "All Types" : "remote")
-             )}
-             {filterBtn("Onsite", workTypeFilter === "onsite", () =>
-              changeWorkType(workTypeFilter === "onsite" ? "All Types" : "onsite")
-            )}
-            {filterBtn("Applied", statusFilter === "applied", () =>
-              changeStatus(statusFilter === "applied" ? "all" : "applied")
+             )}             {filterBtn("Onsite", workTypeFilter === "onsite", () =>
+               changeWorkType(workTypeFilter === "onsite" ? "All Types" : "onsite")
             )}
           </div>
         </div>
@@ -350,16 +309,6 @@ export default function DiscoveryTab({ activeProfile }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[15px] font-semibold text-[var(--fg)]">{job.title}</span>
-                        {job.status === "applied" && (
-                          <TintedBadge color="#10b981" className="px-1.75 py-0.5 rounded-full text-[10px] font-bold">
-                            APPLIED
-                          </TintedBadge>
-                        )}
-                        {job.status === "dismissed" && (
-                          <TintedBadge color="#ef4444" className="px-1.75 py-0.5 rounded-full text-[10px] font-bold">
-                            DISMISSED
-                          </TintedBadge>
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-[var(--muted-fg)]">
                         <span className="font-medium text-[var(--fg)]">{job.company}</span>
@@ -375,22 +324,31 @@ export default function DiscoveryTab({ activeProfile }: Props) {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-center">
-                        <div
-                          className={`font-mono text-[15px] font-bold ${
-                            matchScore >= 70
-                              ? "text-emerald-500"
-                              : matchScore >= 40
-                              ? "text-amber-500"
-                              : "text-red-500"
-                          }`}
-                        >
-                          {matchScore}%
+                      {job.cvMatches && job.cvMatches.length > 0 ? (
+                        <div className="text-center">
+                          <div
+                            className={`font-mono text-[15px] font-bold ${
+                              matchScore >= 70
+                                ? "text-emerald-500"
+                                : matchScore >= 40
+                                ? "text-amber-500"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {matchScore}%
+                          </div>
+                          <div className="text-[9px] text-[var(--muted-fg)] uppercase tracking-[0.4px] font-mono">
+                            match
+                          </div>
                         </div>
-                        <div className="text-[9px] text-[var(--muted-fg)] uppercase tracking-[0.4px] font-mono">
-                          match
+                      ) : (
+                        <div className="text-center">
+                          <div className="font-mono text-[15px] font-bold text-[var(--muted-fg)]">—</div>
+                          <div className="text-[9px] text-[var(--muted-fg)] uppercase tracking-[0.4px] font-mono">
+                            no match
+                          </div>
                         </div>
-                      </div>
+                      )}
                       {job.possiblyClosed && (
                         <Badge variant="secondary" className="px-1.75 py-0.5 rounded text-[10px] text-amber-600 font-mono font-normal">
                           Possibly Closed
@@ -542,7 +500,7 @@ export default function DiscoveryTab({ activeProfile }: Props) {
         <JobDrawer
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
-          activeProfile={engineer ?? activeProfile}
+          activeProfile={profile}
           onApply={handleApply}
           onMarkApplied={handleMarkApplied}
           onDismiss={handleDismiss}

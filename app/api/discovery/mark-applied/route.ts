@@ -33,16 +33,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabase.rpc("create_lead_from_match", {
-    p_match_id: parsed.data.matchId,
-    p_bd_user_id: user.id,
+  const { data, error } = await supabase.rpc("apply_job_profile", {
+    p_job_id: parsed.data.jobId,
+    p_profile_id: parsed.data.profileId,
+    p_user_id: user.id,
   });
 
   if (error) {
     if (error.code === "P0001") {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.error("api/discovery/mark-applied: create_lead_from_match rpc failed", error);
+    console.error("api/discovery/mark-applied: apply_job_profile rpc failed", error);
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
       { status: 500 },
@@ -50,6 +51,5 @@ export async function POST(request: Request) {
   }
 
   revalidatePath("/");
-  revalidatePath("/leads");
   return NextResponse.json({ success: true, leadId: data as string });
 }
