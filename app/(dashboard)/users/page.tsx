@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import UsersTab from "./users-tab";
 
 export const metadata: Metadata = {
-  title: "Users",
+  title: "Team — PipelineIQ",
 };
 
 export default function UsersPage() {

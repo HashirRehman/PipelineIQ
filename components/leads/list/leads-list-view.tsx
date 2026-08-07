@@ -43,7 +43,7 @@ export function LeadsListView({
 
   if (sections.length === 0) {
     return (
-      <div className="flex-1 py-10 text-center text-sm text-[var(--muted-fg)]">
+      <div className="flex-1 py-10 text-center text-sm text-muted-foreground">
         No leads match your filters
       </div>
     )

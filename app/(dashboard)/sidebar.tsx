@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import type { LucideIcon } from "lucide-react"
 import {
   BarChart3,
   Briefcase,
@@ -13,168 +13,153 @@ import {
   Sun,
   UserRound,
   Users,
-} from "lucide-react";
-import type { TabId } from "@/lib/constants";
-import { useTheme } from "next-themes";
-import { useMounted } from "@/hooks/use-mounted";
-import { Avatar } from "@/components/avatar";
-import { PipelineIQLogo } from "@/components/pipelineiq-logo";
-import { apiPost } from "@/lib/api/client";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+} from "lucide-react"
+import { useTheme } from "next-themes"
+import { useMounted } from "@/hooks/use-mounted"
+import { Avatar } from "@/components/avatar"
+import { PipelineIQLogo } from "@/components/pipelineiq-logo"
+import { apiPost } from "@/lib/api/client"
+import { cn } from "@/lib/utils"
+import type { TabId } from "@/lib/constants"
 
-const NAV: {
-  id: TabId;
-  label: string;
-  icon: LucideIcon;
-  href: string;
-}[] = [
-  { id: "profiles", label: "Profiles", icon: UserRound, href: "/profiles" },
-  { id: "discovery", label: "Discovery", icon: Search, href: "/discovery" },
+const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
+  { id: "profiles",     label: "Profiles",     icon: UserRound,    href: "/profiles"     },
+  { id: "discovery",    label: "Discovery",    icon: Search,       href: "/discovery"    },
   { id: "applied-jobs", label: "Applied Jobs", icon: CheckCircle2, href: "/applied-jobs" },
-  { id: "leads", label: "Leads", icon: Briefcase, href: "/leads" },
-  { id: "users", label: "Users", icon: Users, href: "/users" },
-  { id: "statistics", label: "Statistics", icon: BarChart3, href: "/statistics" },
-];
+  { id: "leads",        label: "Leads",        icon: Briefcase,    href: "/leads"        },
+  { id: "users",        label: "Users",        icon: Users,        href: "/users"        },
+  { id: "statistics",   label: "Statistics",   icon: BarChart3,    href: "/statistics"   },
+]
 
-/** Derive the active section from the current pathname. */
 function getActiveTab(pathname: string): TabId {
-  if (pathname === "/") return "profiles";
-  const segment = pathname.split("/")[1];
-  return NAV.some((item) => item.id === segment)
-    ? (segment as TabId)
-    : "profiles";
+  if (pathname === "/") return "profiles"
+  const segment = pathname.split("/")[1]
+  return NAV.some(item => item.id === segment) ? (segment as TabId) : "profiles"
 }
 
 interface SidebarProps {
-  counts?: Record<string, number>;
-  user?: {
-    name: string;
-    email: string;
-    role: string | null;
-  } | null;
+  counts?: Record<string, number>
+  user?: { name: string; email: string; role: string | null } | null
 }
 
 export default function Sidebar({ counts, user }: SidebarProps) {
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useMounted();
-  const pathname = usePathname();
-  const activeTab = getActiveTab(pathname);
+  const { resolvedTheme, setTheme } = useTheme()
+  const mounted = useMounted()
+  const pathname = usePathname()
+  const activeTab = getActiveTab(pathname)
 
   const handleSignOut = async () => {
     try {
-      await apiPost<{ success: boolean }>("/api/auth/logout", {});
+      await apiPost<{ success: boolean }>("/api/auth/logout", {})
     } catch {
       // Session may already be gone — navigate away regardless.
     }
-    window.location.href = "/login";
-  };
+    window.location.href = "/login"
+  }
 
   return (
-    <aside className="flex h-full w-[216px] min-h-0 shrink-0 flex-col bg-[var(--sidebar)] text-[var(--sidebar-fg)] border-r border-[var(--border)] select-none">
-      {/* Logo */}
-      <div className="mb-4 flex flex-col gap-2 p-2 px-2.5">
+    <aside className="flex h-full w-[220px] shrink-0 flex-col bg-sidebar border-r border-sidebar-border select-none">
+
+      {/* Logo row */}
+      <div className="flex h-[57px] items-center px-5 border-b border-sidebar-border">
         <PipelineIQLogo />
       </div>
 
-      {/* Nav Links */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto px-2.5">
-        <div className="flex w-full min-w-0 flex-col p-2">
-          <ul className="flex w-full min-w-0 flex-col gap-0.5">
-            {NAV.map((item) => {
-              const isActive = activeTab === item.id;
-              const count = counts?.[item.id];
-              const Icon = item.icon;
-              return (
-                <li key={item.id} className="relative">
-                  <Link
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/60">
+          Menu
+        </p>
+        <ul role="list" className="flex flex-col gap-px">
+          {NAV.map(item => {
+            const isActive = activeTab === item.id
+            const count = counts?.[item.id]
+            const Icon = item.icon
+            return (
+              <li key={item.id}>
+                <Link
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isActive
+                      ? "bg-accent text-primary font-semibold"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground font-normal",
+                    count !== undefined && count > 0 && "relative"
+                  )}
+                >
+                  <Icon
                     className={cn(
-                      "flex w-full items-center justify-start gap-2 overflow-hidden rounded-md p-2 px-2.5 text-left text-xs font-medium transition-all shadow-none cursor-pointer focus-visible:ring-2 focus-visible:ring-ring/50 outline-none",
-                      isActive
-                        ? "bg-cyan-500/15 text-[var(--primary)] font-semibold hover:bg-cyan-500/15"
-                        : "text-[var(--sidebar-fg)] hover:bg-black/5 dark:hover:bg-white/5",
-                      count !== undefined && count > 0 && "pr-8"
+                      "size-[15px] shrink-0",
+                      isActive ? "text-primary" : "text-muted-foreground/70",
                     )}
-                  >
-                    <Icon
-                      className={cn(
-                        "size-4 shrink-0",
-                        isActive
-                          ? "text-[var(--primary)]"
-                          : "text-[var(--muted-fg)]"
-                      )}
-                    />
-                    <span className="flex-1 text-left ml-2">
-                      {item.label}
-                    </span>
-                  </Link>
+                    strokeWidth={isActive ? 2.2 : 1.8}
+                  />
+                  <span className="leading-none">{item.label}</span>
                   {count !== undefined && count > 0 && (
                     <span
                       aria-hidden
                       className={cn(
-                        "pointer-events-none absolute right-1 flex min-w-0 h-4 items-center justify-center rounded-full px-1.5 font-mono text-[10px] tabular-nums select-none",
+                        "pointer-events-none absolute right-2 flex min-w-0 h-4 items-center justify-center rounded-full px-1.5 font-mono text-[10px] tabular-nums select-none",
                         isActive
-                          ? "bg-[var(--primary)] text-white font-bold"
-                          : "bg-[var(--secondary)] text-[var(--muted-fg)]"
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "bg-secondary text-muted-foreground"
                       )}
                     >
                       {count}
                     </span>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
 
-      {/* Bottom */}
-      <div className="flex flex-col gap-2 border-t border-[var(--border)] p-2.5">
-        <Button
-          variant="ghost"
+      {/* Bottom section */}
+      <div className="border-t border-sidebar-border px-3 py-3 space-y-1">
+
+        {/* Theme toggle */}
+        <button
+          type="button"
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          className="w-full h-auto justify-start gap-2 p-2 px-2.5 rounded-md text-xs text-[var(--sidebar-fg)] hover:bg-black/5 dark:hover:bg-white/5 shadow-none cursor-pointer"
+          className="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground transition-colors cursor-pointer"
         >
           {mounted && resolvedTheme === "dark" ? (
-            <Sun className="size-[13px]" />
+            <Sun className="size-[15px] shrink-0" strokeWidth={1.8} />
           ) : (
-            <Moon className="size-[13px]" />
+            <Moon className="size-[15px] shrink-0" strokeWidth={1.8} />
           )}
-          <span className="text-xs">
+          <span className="leading-none">
             {mounted && resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
           </span>
-        </Button>
+        </button>
 
-        <div className="flex items-center gap-2 p-0.5">
-          {user && (
-            <>
-              <Avatar name={user.name} size={30} />
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium text-[var(--sidebar-fg)] truncate">
-                  {user.name}
-                </div>
-                {user.role && (
-                  <div className="font-mono text-[10px] text-[var(--primary)]">
-                    {user.role}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-          <Button
-            onClick={handleSignOut}
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Log out"
-            title="Log out"
-            className="text-[var(--muted-fg)] hover:bg-black/5 hover:text-[var(--fg)] dark:hover:bg-white/5 shadow-none cursor-pointer"
-          >
-            <LogOut className="size-[13px]" />
-          </Button>
-        </div>
+        {/* User row */}
+        {user && (
+          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 group">
+            <Avatar name={user.name} size={26} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-sidebar-foreground truncate leading-none">
+                {user.name}
+              </p>
+              {user.role && (
+                <p className="text-[10px] text-primary/80 mt-0.5 font-medium capitalize">
+                  {user.role}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              aria-label="Log out"
+              className="flex size-6 items-center justify-center rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+            >
+              <LogOut className="size-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
-  );
+  )
 }

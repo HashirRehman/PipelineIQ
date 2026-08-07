@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { uploadProfileCvRequest } from "@/lib/api/profiles-client";
 import type { ProfileMutationResponse } from "@/lib/api/profiles-client";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 
 export function ProfileCvUploadForm({
   profileId,
@@ -68,85 +66,69 @@ export function ProfileCvUploadForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-4 border-t border-border pt-5"
-    >
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={fileInputId}>Resume file</Label>
-
-        <label
-          htmlFor={fileInputId}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setIsDragging(true);
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <label
+        htmlFor={fileInputId}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setIsDragging(false);
+          handleDroppedFile(event.dataTransfer.files[0]);
+        }}
+        className={[
+          "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed px-4 py-3 text-center",
+          "transition-colors",
+          isDragging
+            ? "border-primary bg-primary/10"
+            : "border-border bg-background hover:border-primary/50 hover:text-foreground",
+        ].join(" ")}
+      >
+        <input
+          ref={fileInputRef}
+          id={fileInputId}
+          name="file"
+          type="file"
+          accept=".pdf,.doc,.docx"
+          required
+          className="sr-only"
+          onChange={(event) => {
+            setFileName(event.target.files?.[0]?.name ?? "");
           }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setIsDragging(false);
-            handleDroppedFile(event.dataTransfer.files[0]);
-          }}
-          className={[
-            "flex cursor-pointer flex-col items-center justify-center",
-            "rounded-lg border border-dashed px-5 py-7 text-center",
-            "transition-colors",
-            isDragging
-              ? "border-primary bg-primary/10"
-              : "border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
-          ].join(" ")}
-        >
-          <input
-            ref={fileInputRef}
-            id={fileInputId}
-            name="file"
-            type="file"
-            accept=".pdf,.doc,.docx"
-            required
-            className="sr-only"
-            onChange={(event) => {
-              setFileName(event.target.files?.[0]?.name ?? "");
-            }}
-          />
+        />
 
-          <div className="flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-            <Upload className="size-5" />
-          </div>
+        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Upload className="size-4" />
+          {fileName || "Upload CV (PDF / DOC / DOCX)"}
+        </span>
 
-          <p className="mt-3 text-sm text-muted-foreground">
-            Drop PDF or Word resume here
-          </p>
-
-          <p className="mt-1 text-xs text-muted-foreground">
-            or <span className="font-medium text-primary">browse files</span>
-          </p>
-
-          {fileName && (
-            <p className="mt-3 max-w-full truncate rounded-md bg-secondary px-3 py-1.5 text-xs text-secondary-foreground">
-              {fileName}
-            </p>
-          )}
-        </label>
-      </div>
+        <span className="text-xs text-muted-foreground">
+          or drop the file here
+        </span>
+      </label>
 
       {state.error && (
-        <p
-          role="alert"
-          className="text-sm text-destructive dark:text-red-400"
-        >
+        <p role="alert" className="text-xs text-destructive">
           {state.error}
         </p>
       )}
 
       {state.success && !state.error && (
-        <p role="status" className="text-sm text-success-foreground">
+        <p role="status" className="text-xs text-success-foreground">
           CV uploaded successfully.
         </p>
       )}
 
-      <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Uploading…" : "Upload CV"}
-      </Button>
+      <button
+        type="submit"
+        disabled={isPending || !fileName}
+        className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+      >
+        {isPending ? "Uploading…" : "Upload"}
+      </button>
     </form>
   );
 }

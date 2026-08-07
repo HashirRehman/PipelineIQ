@@ -1,33 +1,26 @@
+"use client"
 import { Search } from "lucide-react"
-
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-export function SearchInput({
-  value,
-  onChange,
-  placeholder,
-  className,
-  inputClassName,
-}: {
+interface SearchInputProps {
   value: string
-  onChange: (value: string) => void
+  onChange: (v: string) => void
   placeholder?: string
   className?: string
   inputClassName?: string
-}) {
+}
+
+export function SearchInput({ value, onChange, placeholder = "Search...", className, inputClassName }: SearchInputProps) {
   return (
     <div className={cn("relative", className)}>
-      <Search
-        size={14}
-        className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--muted-fg)]"
-      />
-      <Input
-        placeholder={placeholder}
+      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+      <input
+        type="search"
         value={value}
         onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
         className={cn(
-          "w-full py-2 pl-7.5 pr-2.5 bg-[var(--card)] border-[var(--border-strong)] rounded-md text-[var(--fg)] text-xs outline-none focus:border-[var(--primary)]",
+          "h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-ring transition-shadow",
           inputClassName
         )}
       />

@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils"
 
-const GRADIENTS = [
-  "#06b6d4,#6366f1",
-  "#10b981,#06b6d4",
-  "#f59e0b,#ef4444",
-  "#6366f1,#ec4899",
-  "#06b6d4,#10b981",
+// Neutral palette — 5 muted tones that don't compete with status colors
+const COLORS = [
+  "#475569", // slate
+  "#4b5563", // cool grey
+  "#6b7280", // grey
+  "#374151", // dark grey
+  "#1e3a5f", // brand dark blue
 ]
 
 export function Avatar({
@@ -21,19 +22,25 @@ export function Avatar({
     .split(" ")
     .map(n => n[0])
     .join("")
-  const idx = name.charCodeAt(0) % GRADIENTS.length
+    .slice(0, 2)
+    .toUpperCase()
+
+  const bg = COLORS[name.charCodeAt(0) % COLORS.length]
+
   return (
     <div
       aria-hidden
+      role="img"
+      aria-label={name}
       className={cn(
-        "rounded-full shrink-0 flex items-center justify-center font-bold text-white select-none",
-        className
+        "rounded-full shrink-0 flex items-center justify-center font-semibold text-white select-none",
+        className,
       )}
       style={{
         width: size,
         height: size,
-        background: `linear-gradient(135deg, ${GRADIENTS[idx]})`,
-        fontSize: size * 0.32,
+        background: bg,
+        fontSize: size * 0.36,
       }}
     >
       {initials}

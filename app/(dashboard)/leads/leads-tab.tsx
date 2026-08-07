@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { LayoutGrid, List } from "lucide-react"
+import { List, LayoutDashboard, Plus, ChevronDown, Search } from "lucide-react"
 
 import { LeadsBoardView } from "@/components/leads/board/leads-board-view"
 import { LeadFilterBar } from "@/components/leads/lead-filter-bar"
@@ -9,8 +9,8 @@ import { LeadsListView } from "@/components/leads/list/leads-list-view"
 import { MOCK_LEADS } from "@/components/leads/mock-leads"
 import type { AppUser, Lead, Profile } from "@/components/leads/types"
 import { useLeadFilters } from "@/components/leads/use-lead-filters"
-import { Button } from "@/components/ui/button"
-import { LEAD_STATUS_DONE, type LeadStatus } from "@/lib/constants"
+import { cn } from "@/lib/utils"
+import { LEAD_STATUS_DONE, LEAD_STATUSES, type LeadStatus } from "@/lib/constants"
 import JobDrawer, { type Job } from "@/components/job-drawer"
 
 // Minimal mock shapes used only while this tab renders static data (the
@@ -43,6 +43,8 @@ export default function LeadsTab() {
 
   const { filtered, filterProps } = useLeadFilters(leads)
   const bdUsers = users.filter(u => u.role === "bd" || u.role === "lead")
+
+  const { search, setSearch, statusFilter, setStatusFilter } = filterProps
 
   const updateStatus = (id: string, status: LeadStatus) =>
     setLeads(current =>
@@ -85,52 +87,125 @@ export default function LeadsTab() {
   })
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden p-7 px-8">
-      <div className="mb-5 flex shrink-0 items-center justify-between">
-        <div>
-          <h1 className="m-0 text-[22px] font-bold text-[var(--fg)]">Leads</h1>
-          <p className="mt-0.5 mb-0 text-xs text-[var(--muted-fg)]">
-            {filtered.length} active leads
-          </p>
+    <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+
+      {/* Toolbar — compact row */}
+      <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-background shrink-0">
+        <span className="text-[14px] font-semibold text-foreground mr-1">
+          Leads
+        </span>
+        <span className="flex size-5 items-center justify-center rounded bg-accent text-[11px] font-semibold text-muted-foreground tabular-nums">
+          {filtered.length}
+        </span>
+
+        <div className="mx-2 h-4 w-px bg-border" />
+
+        {/* Search */}
+        <div className="relative w-48">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground/50" />
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search leads..."
+            className="h-7 w-full rounded border border-border bg-transparent pl-7 pr-2 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition"
+          />
         </div>
-        <div className="flex gap-2">
-          {(["list", "board"] as const).map(v => (
-            <Button
-              key={v}
-              onClick={() => setView(v)}
-              className={`h-auto cursor-pointer rounded-md px-3.5 py-1.75 text-xs shadow-none transition-colors hover:bg-transparent ${
-                view === v
-                  ? "border border-cyan-500/30 bg-cyan-500/12 font-semibold text-[var(--primary)]"
-                  : "border border-[var(--border-strong)] bg-transparent font-normal text-[var(--fg)] hover:border-gray-500"
-              }`}
+
+        {/* Status dropdown */}
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as LeadStatus | "all")}
+            className="h-7 appearance-none rounded border border-border bg-transparent pl-2.5 pr-6 text-[12px] text-muted-foreground outline-none hover:border-border/80 focus:border-primary/50 cursor-pointer transition"
+          >
+            <option value="all">Status: any</option>
+            {LEAD_STATUSES.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground/50" />
+        </div>
+
+        {/* Overdue chip */}
+        <button
+          type="button"
+          className="h-7 px-2.5 rounded border border-border text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground transition cursor-pointer"
+        >
+          Overdue
+        </button>
+
+        {/* Right: List / Board toggle + New button */}
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center rounded border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 h-7 text-[12px] transition cursor-pointer",
+                view === "list"
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-accent/50",
+              )}
             >
-              <span className="flex items-center gap-1.25">
-                {v === "list" ? <List size={12} /> : <LayoutGrid size={12} />}
-                {v === "list" ? "List" : "Board"}
-              </span>
-            </Button>
-          ))}
+              <List className="size-3.5" />
+              List
+            </button>
+            <div className="w-px h-4 bg-border" />
+            <button
+              type="button"
+              onClick={() => setView("board")}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 h-7 text-[12px] transition cursor-pointer",
+                view === "board"
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-accent/50",
+              )}
+            >
+              <LayoutDashboard className="size-3.5" />
+              Board
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="flex items-center gap-1.5 h-7 rounded bg-primary px-3 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
+          >
+            <Plus className="size-3.5" />
+            New lead
+          </button>
         </div>
       </div>
 
-      <LeadFilterBar {...filterProps} profiles={profiles} bdUsers={bdUsers} />
+      {/* Profile / BD filters (kept from the current app) */}
+      <LeadFilterBar
+        profiles={profiles}
+        bdUsers={bdUsers}
+        profileFilter={filterProps.profileFilter}
+        setProfileFilter={filterProps.setProfileFilter}
+        bdFilter={filterProps.bdFilter}
+        setBdFilter={filterProps.setBdFilter}
+      />
 
-      {view === "list" ? (
-        <LeadsListView
-          leads={filtered}
-          users={users}
-          onToggleDone={toggleDone}
-          onStatusChange={updateStatus}
-          onOpen={setSelectedLead}
-        />
-      ) : (
-        <LeadsBoardView
-          leads={filtered}
-          users={users}
-          onStatusChange={updateStatus}
-          onOpen={setSelectedLead}
-        />
-      )}
+      {/* Content */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {view === "list" ? (
+          <LeadsListView
+            leads={filtered}
+            users={users}
+            onToggleDone={toggleDone}
+            onStatusChange={updateStatus}
+            onOpen={setSelectedLead}
+          />
+        ) : (
+          <LeadsBoardView
+            leads={filtered}
+            users={users}
+            onStatusChange={updateStatus}
+            onOpen={setSelectedLead}
+          />
+        )}
+      </div>
 
       {selectedLead && (
         <JobDrawer

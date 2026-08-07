@@ -1,66 +1,33 @@
-/**
- * Shared PipelineIQ brand mark + wordmark. Extracted from the Figma
- * sidebar so the login screen and the app shell can't drift apart.
- */
+import Image from "next/image"
 
-export function PipelineIQMark({ size = 30 }: { size?: number }) {
+/** Recurso Labs "R" mark — the geometric gradient letterform */
+export function RecursoMark({ size = 32 }: { size?: number }) {
   return (
-    <svg
+    <Image
+      src="/recurso-labs-logo.png"
+      alt="Recurso Labs"
       width={size}
       height={size}
-      viewBox="0 0 30 30"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <rect width="30" height="30" rx="7" fill="#06b6d4" />
-      <path
-        d="M7 7.5h8.2c2.9 0 5.3 2.2 5.3 5s-2.4 5-5.3 5H11v5H7V7.5z"
-        fill="white"
-      />
-      <circle cx="22" cy="22" r="3.5" fill="white" opacity="0.85" />
-      <rect
-        x="11"
-        y="10.5"
-        width="3.8"
-        height="4"
-        rx="0.8"
-        fill="rgba(6,182,212,0.6)"
-      />
-    </svg>
-  );
+      className="shrink-0 object-contain"
+      priority
+    />
+  )
 }
 
-export function PipelineIQLogo({
-  size = "sm",
-}: {
-  size?: "sm" | "lg";
-}) {
-  const isLarge = size === "lg";
-
+export function PipelineIQLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const markSize = size === "lg" ? 40 : size === "sm" ? 20 : 28
+  const titleClass = size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm"
   return (
-    <div className="flex items-center gap-2.5">
-      <PipelineIQMark size={isLarge ? 44 : 30} />
-      <div>
-        <div
-          className={
-            isLarge
-              ? "font-mono text-2xl font-bold tracking-tight text-[var(--fg)]"
-              : "font-mono text-sm font-bold tracking-tight text-[var(--sidebar-fg)]"
-          }
-        >
-          PipeLine<span className="text-[var(--primary)]">IQ</span>
+    <div className="flex items-center gap-2.5 min-w-0">
+      <RecursoMark size={markSize} />
+      <div className="min-w-0">
+        <div className={`${titleClass} font-bold tracking-tight text-foreground leading-none`}>
+          Pipeline<span className="text-primary">IQ</span>
         </div>
-        <div
-          className={
-            isLarge
-              ? "font-mono text-xs uppercase tracking-[0.35em] text-[var(--muted-fg)]"
-              : "font-mono text-[10px] uppercase tracking-wider text-[var(--muted-fg)]"
-          }
-        >
+        <div className="text-[10px] text-muted-foreground tracking-widest uppercase font-medium mt-0.5">
           Recurso Labs
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Sidebar from "./sidebar";
+import { TopBar } from "@/components/top-bar";
 import { getCachedUser, getCachedUserRole } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -8,10 +9,10 @@ export const metadata: Metadata = {
 
 /**
  * Shared shell for every section of the app (profiles, discovery, leads,
- * users, statistics). The sidebar lives here so it persists across
- * navigation instead of being remounted per tab. The acting user's identity
- * is resolved on the server (middleware already guarantees they're authed
- * before reaching this shell) and passed down for display.
+ * users, statistics). The sidebar and top bar live here so they persist
+ * across navigation instead of being remounted per tab. The acting user's
+ * identity is resolved on the server (middleware already guarantees they're
+ * authed before reaching this shell) and passed down for display.
  */
 export default async function DashboardLayout({
   children,
@@ -24,7 +25,7 @@ export default async function DashboardLayout({
     "User";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)]">
+    <div className="flex h-screen overflow-hidden bg-[#f0f2f5] text-foreground">
       <Sidebar
         user={{
           name,
@@ -32,9 +33,18 @@ export default async function DashboardLayout({
           role: role ? role.toLowerCase() : null,
         }}
       />
-      <main className="flex min-w-0 flex-1 flex-col overflow-auto">
-        {children}
-      </main>
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+        <TopBar
+          user={{
+            name,
+            email: user?.email ?? "",
+            role: role ? role.toLowerCase() : null,
+          }}
+        />
+        <main className="flex flex-1 min-w-0 flex-col overflow-hidden">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

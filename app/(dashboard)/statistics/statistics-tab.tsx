@@ -17,6 +17,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { LEAD_STATUS_COLOR } from "@/lib/constants"
 
 // Minimal mock shapes used only while this tab renders static data (no
 // analytics API yet). Kept local so the app shell stays clean.
@@ -51,22 +52,22 @@ const LEAD_DATA_BY_USER: Record<string, number[]> = {
 }
 
 const STATUS_DATA = [
-  { label: 'Applied', value: 8, color: '#6366f1' },
-  { label: 'Screening', value: 5, color: '#f59e0b' },
-  { label: 'Interview', value: 4, color: '#06b6d4' },
-  { label: 'Technical', value: 3, color: '#ec4899' },
-  { label: 'Offer', value: 2, color: '#10b981' },
-  { label: 'Closed', value: 6, color: '#64748b' },
+  { label: 'Applied', value: 8, color: LEAD_STATUS_COLOR['Applied'] },
+  { label: 'Screening', value: 5, color: LEAD_STATUS_COLOR['HR Interview'] },
+  { label: 'Interview', value: 4, color: LEAD_STATUS_COLOR['Tech Interview 1'] },
+  { label: 'Technical', value: 3, color: LEAD_STATUS_COLOR['Client Interview'] },
+  { label: 'Offer', value: 2, color: LEAD_STATUS_COLOR['Offer Received'] },
+  { label: 'Closed', value: 6, color: LEAD_STATUS_COLOR['Closed'] },
 ]
 
-function BarChart({ data, labels, color = '#06b6d4' }: { data: number[]; labels: string[]; color?: string }) {
+function BarChart({ data, labels, color = '#0078d4' }: { data: number[]; labels: string[]; color?: string }) {
   const max = Math.max(...data, 1)
 
   return (
     <div className="flex items-end gap-2 h-[152px]">
       {data.map((v, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className={`font-mono text-[9px] text-[var(--muted-fg)] font-semibold ${v > 0 ? 'visible' : 'invisible'}`}>{v}</div>
+          <div className={`font-mono text-[9px] text-muted-foreground font-semibold ${v > 0 ? 'visible' : 'invisible'}`}>{v}</div>
           <div className="w-full relative h-[120px] flex items-end">
             <div
               className="w-full rounded-t transition-[height] duration-400 ease-in-out"
@@ -77,7 +78,7 @@ function BarChart({ data, labels, color = '#06b6d4' }: { data: number[]; labels:
               }}
             />
           </div>
-          <div className="font-mono text-[9px] text-[var(--muted-fg)] text-center">{labels[i]}</div>
+          <div className="font-mono text-[9px] text-muted-foreground text-center">{labels[i]}</div>
         </div>
       ))}
     </div>
@@ -108,12 +109,12 @@ function LineChart({ data, labels }: { data: number[]; labels: string[] }) {
           stroke="var(--border)" strokeWidth="0.5" />
       ))}
       {/* Fill */}
-      <path d={fill} fill="rgba(6,182,212,0.08)" />
+      <path d={fill} fill="rgba(0,120,212,0.08)" />
       {/* Line */}
-      <path d={path} fill="none" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke="#0078d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {/* Dots */}
       {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#06b6d4" />
+        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#0078d4" />
       ))}
       {/* Labels */}
       {labels.map((l, i) => (
@@ -161,8 +162,8 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
         {segments.map(s => (
           <div key={s.label} className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
-            <span className="text-xs text-[var(--fg)]">{s.label}</span>
-            <span className="font-mono text-[11px] text-[var(--muted-fg)] ml-auto">{s.value}</span>
+            <span className="text-xs text-foreground">{s.label}</span>
+            <span className="font-mono text-[11px] text-muted-foreground ml-auto">{s.value}</span>
           </div>
         ))}
       </div>
@@ -196,18 +197,17 @@ export default function StatisticsTab() {
   const topMonth = MONTHS[chartData.indexOf(Math.max(...chartData))]
 
   const statsCards = [
-    { label: 'Total Leads', value: totalLeads, sub: `last ${chartData.length} months`, color: '#06b6d4' },
-    { label: 'Avg / Month', value: avgPerMonth, sub: granularity, color: '#6366f1' },
-    { label: 'Best Month', value: topMonth, sub: `${Math.max(...chartData)} leads`, color: '#10b981' },
-    { label: 'Active Profiles', value: profiles.filter(p => p.status === 'active').length, sub: `of ${profiles.length} total`, color: '#f59e0b' },
+    { label: 'Total Leads', value: totalLeads, sub: `last ${chartData.length} months`, color: '#0078d4' },
+    { label: 'Avg / Month', value: avgPerMonth, sub: granularity, color: '#0369a1' },
+    { label: 'Best Month', value: topMonth, sub: `${Math.max(...chartData)} leads`, color: '#059669' },
+    { label: 'Active Profiles', value: profiles.filter(p => p.status === 'active').length, sub: `of ${profiles.length} total`, color: '#d97706' },
   ]
 
   return (
-    <div className="p-7 px-8 flex-1 overflow-auto">
+    <div className="flex flex-1 flex-col min-h-0 overflow-y-auto">
       <PageHeader
         title="Lead Statistics"
-        subtitle="Performance analytics across profiles and team members"
-        className="mb-6 items-start"
+        description="Performance analytics across profiles and team members"
         actions={
           <>
             {isAdmin && (
@@ -242,13 +242,13 @@ export default function StatisticsTab() {
               </SelectContent>
             </Select>
             <Tabs value={granularity} onValueChange={v => setGranularity(v ?? 'monthly')}>
-              <TabsList className="bg-[var(--card)] border border-[var(--border-strong)] rounded-md overflow-hidden p-0 h-auto gap-0 shadow-none">
+              <TabsList className="rounded-md border border-border overflow-hidden p-0 h-auto gap-0 shadow-none bg-card">
                 {['daily', 'weekly', 'monthly'].map(g => (
                   <TabsTrigger key={g} value={g}
-                    className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none data-active:bg-cyan-500/15 data-active:text-[var(--primary)] ${
+                    className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none ${
                       granularity === g
-                        ? 'bg-cyan-500/15 font-semibold text-[var(--primary)]'
-                        : 'bg-transparent font-normal text-[var(--fg)] hover:text-[var(--fg)] hover:bg-black/5 dark:hover:bg-white/5'
+                        ? 'bg-primary/15 font-semibold text-primary'
+                        : 'bg-transparent font-normal text-foreground hover:bg-accent'
                     }`}>
                     {g.charAt(0).toUpperCase() + g.slice(1)}
                   </TabsTrigger>
@@ -259,92 +259,94 @@ export default function StatisticsTab() {
         }
       />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-3.5 mb-6">
-        {statsCards.map(s => (
-          <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} color={s.color} />
-        ))}
-      </div>
+      <div className="p-6 space-y-6">
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {statsCards.map(s => (
+            <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} color={s.color} />
+          ))}
+        </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        {/* Line chart */}
-        <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
-          <CardContent className="p-0">
-            <div className="text-xs font-semibold text-[var(--fg)] mb-1">Leads Over Time</div>
-            <div className="text-[11px] text-[var(--muted-fg)] mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
-            <LineChart data={chartData} labels={MONTHS} />
-          </CardContent>
-        </Card>
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Line chart */}
+          <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+            <CardContent className="p-0">
+              <div className="text-sm font-semibold text-foreground mb-1">Leads Over Time</div>
+              <div className="text-[11px] text-muted-foreground mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
+              <LineChart data={chartData} labels={MONTHS} />
+            </CardContent>
+          </Card>
 
-        {/* Status donut */}
-        <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
-          <CardContent className="p-0">
-            <div className="text-xs font-semibold text-[var(--fg)] mb-1">Status Breakdown</div>
-            <div className="text-[11px] text-[var(--muted-fg)] mb-4">Current lead distribution</div>
-            <DonutChart segments={STATUS_DATA} />
-          </CardContent>
-        </Card>
-      </div>
+          {/* Status donut */}
+          <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+            <CardContent className="p-0">
+              <div className="text-sm font-semibold text-foreground mb-1">Status Breakdown</div>
+              <div className="text-[11px] text-muted-foreground mb-4">Current lead distribution</div>
+              <DonutChart segments={STATUS_DATA} />
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Per-BD bar charts (admin only) */}
-      {isAdmin && userFilter === 'all' && (
-        <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0 mb-4">
-          <CardContent className="p-0">
-            <div className="text-xs font-semibold text-[var(--fg)] mb-1">Leads by Team Member</div>
-            <div className="text-[11px] text-[var(--muted-fg)] mb-5">Monthly totals per BD</div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6">
-              {bdUsers.map((u, i) => {
-                const colors = ['#06b6d4', '#6366f1', '#10b981', '#f59e0b']
-                const data = LEAD_DATA_BY_USER[u.id] ?? MONTHS.map(() => 0)
-                return (
-                  <div key={u.id}>
-                    <div className="flex items-center gap-1.75 mb-2.5">
-                      <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: colors[i % colors.length] }}>
-                        {u.name.split(' ').map(n => n[0]).join('')}
+        {/* Per-BD bar charts (admin only) */}
+        {isAdmin && userFilter === 'all' && (
+          <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+            <CardContent className="p-0">
+              <div className="text-sm font-semibold text-foreground mb-1">Leads by Team Member</div>
+              <div className="text-[11px] text-muted-foreground mb-5">Monthly totals per BD</div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6">
+                {bdUsers.map((u, i) => {
+                  const colors = ['#0078d4', '#0369a1', '#059669', '#d97706']
+                  const data = LEAD_DATA_BY_USER[u.id] ?? MONTHS.map(() => 0)
+                  return (
+                    <div key={u.id}>
+                      <div className="flex items-center gap-1.75 mb-2.5">
+                        <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: colors[i % colors.length] }}>
+                          {u.name.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-foreground">{u.name.split(' ')[0]}</div>
+                          <div className="font-mono text-[10px]" style={{ color: colors[i % colors.length] }}>{data.reduce((s, v) => s + v, 0)} total</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs font-medium text-[var(--fg)]">{u.name.split(' ')[0]}</div>
-                        <div className="font-mono text-[10px]" style={{ color: colors[i % colors.length] }}>{data.reduce((s, v) => s + v, 0)} total</div>
-                      </div>
+                      <BarChart data={data.slice(-5)} labels={MONTHS.slice(-5)} color={colors[i % colors.length]} />
                     </div>
-                    <BarChart data={data.slice(-5)} labels={MONTHS.slice(-5)} color={colors[i % colors.length]} />
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Profile performance */}
+        <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+          <CardContent className="p-0">
+            <div className="text-sm font-semibold text-foreground mb-4">Profile Activity</div>
+            <div className="flex flex-col">
+              {profiles.map((p, i) => {
+                const leads = [8, 12, 4, 2, 6][i % 5]
+                const maxLeads = 15
+                const pct = (leads / maxLeads) * 100
+                return (
+                  <div key={p.id} className={`flex items-center gap-3 py-2.75 ${i < profiles.length - 1 ? 'border-b border-border' : ''}`}>
+                    <Avatar name={p.name} size={30} />
+                    <div className="w-[140px] shrink-0">
+                      <div className="text-xs font-medium text-foreground">{p.name}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{p.seniority} · {p.status}</div>
+                    </div>
+                    <Progress value={pct} className="flex-1 gap-0"
+                      trackClassName="h-1.5 bg-muted"
+                      indicatorClassName="h-full bg-gradient-to-r from-[#0078d4] to-[#0369a1] rounded-full" />
+                    <div className="font-mono w-[60px] text-right text-xs font-bold text-foreground shrink-0">
+                      {leads} <span className="font-normal text-muted-foreground text-[10px]">leads</span>
+                    </div>
                   </div>
                 )
               })}
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Profile performance */}
-      <Card className="py-5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0">
-        <CardContent className="p-0">
-          <div className="text-xs font-semibold text-[var(--fg)] mb-4">Profile Activity</div>
-          <div className="flex flex-col">
-            {profiles.map((p, i) => {
-              const leads = [8, 12, 4, 2, 6][i % 5]
-              const maxLeads = 15
-              const pct = (leads / maxLeads) * 100
-              return (
-                <div key={p.id} className={`flex items-center gap-3 py-2.75 ${i < profiles.length - 1 ? 'border-b border-[var(--border)]' : ''}`}>
-                  <Avatar name={p.name} size={30} />
-                  <div className="w-[140px] shrink-0">
-                    <div className="text-xs font-medium text-[var(--fg)]">{p.name}</div>
-                    <div className="font-mono text-[10px] text-[var(--muted-fg)]">{p.seniority} · {p.status}</div>
-                  </div>
-                  <Progress value={pct} className="flex-1 gap-0"
-                    trackClassName="h-1.5 bg-[var(--secondary)]"
-                    indicatorClassName="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full" />
-                  <div className="font-mono w-[60px] text-right text-xs font-bold text-[var(--fg)] shrink-0">
-                    {leads} <span className="font-normal text-[var(--muted-fg)] text-[10px]">leads</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   )
 }

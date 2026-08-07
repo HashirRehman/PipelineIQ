@@ -1,7 +1,6 @@
 "use client"
 
 import type { AppUser, Profile } from "@/components/leads/types"
-import { SearchInput } from "@/components/search-input"
 import {
   Select,
   SelectContent,
@@ -9,44 +8,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { LEAD_STATUSES } from "@/lib/constants"
-import type { LeadFilterProps } from "./use-lead-filters"
 
 export function LeadFilterBar({
   profiles,
   bdUsers,
-  search,
-  setSearch,
-  statusFilter,
-  setStatusFilter,
   profileFilter,
   setProfileFilter,
   bdFilter,
   setBdFilter,
-}: LeadFilterProps & { profiles: Profile[]; bdUsers: AppUser[] }) {
+}: {
+  profiles: Profile[]
+  bdUsers: AppUser[]
+  profileFilter: string
+  setProfileFilter: (value: string) => void
+  bdFilter: string
+  setBdFilter: (value: string) => void
+}) {
   return (
-    <div className="flex gap-2.5 mb-5 shrink-0 flex-wrap">
-      <SearchInput
-        placeholder="Search leads…"
-        value={search}
-        onChange={setSearch}
-        className="flex-1 min-w-[180px]"
-      />
-      <Select value={statusFilter} onValueChange={v => setStatusFilter(v ?? "all")}>
-        <SelectTrigger className="min-w-[160px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Stages</SelectItem>
-          {LEAD_STATUSES.map(s => (
-            <SelectItem key={s} value={s}>
-              {s}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-background shrink-0 flex-wrap">
       <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? "all")}>
-        <SelectTrigger className="min-w-[150px]">
+        <SelectTrigger size="sm" className="h-7 w-auto min-w-[150px] rounded-md text-[12px] text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -59,7 +40,7 @@ export function LeadFilterBar({
         </SelectContent>
       </Select>
       <Select value={bdFilter} onValueChange={v => setBdFilter(v ?? "all")}>
-        <SelectTrigger className="min-w-[140px]">
+        <SelectTrigger size="sm" className="h-7 w-auto min-w-[140px] rounded-md text-[12px] text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -34,11 +33,7 @@ type ProfileDetail = {
   assignedUserName: string | null;
 };
 
-type SeniorityLevel = {
-  id: string;
-  name: string;
-};
-
+type SeniorityLevel = { id: string; name: string };
 type CvEntry = {
   id: string;
   fileName: string;
@@ -63,39 +58,47 @@ function formatRate(profile: ProfileDetail) {
   return `${profile.rateCurrency} ${profile.rateExpectation}/hr`;
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
+}
+
 function ReadOnlyDetails({ profile }: { profile: ProfileDetail }) {
-  const fields = [
+  const fields: [string, string][] = [
     ["Full Name", profile.fullName],
     ["Email", profile.email],
     ["Phone", profile.phone || "Not provided"],
     ["Location", profile.location || "Not provided"],
-    ["Seniority Level", profile.seniority || "Not provided"],
+    ["Seniority", profile.seniority || "Not provided"],
     [
-      "Years of Experience",
-      profile.yearsExperience === null
-        ? "Not provided"
-        : String(profile.yearsExperience),
+      "Years Experience",
+      profile.yearsExperience !== null
+        ? String(profile.yearsExperience)
+        : "Not provided",
     ],
     ["Rate", formatRate(profile)],
-    ["Status", profile.isActive ? "Active" : "Inactive"],
   ];
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {fields.map(([label, value]) => (
           <div key={label}>
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-[11px] font-medium text-muted-foreground">
               {label}
             </p>
-            <p className="mt-1 text-sm text-foreground">{value}</p>
+            <p className="mt-0.5 text-sm text-foreground">{value}</p>
           </div>
         ))}
       </div>
-
-      <div className="mt-5">
-        <p className="text-xs font-medium text-muted-foreground">Summary</p>
-        <p className="mt-1 text-sm leading-6 text-foreground">
+      <div className="mt-4">
+        <p className="text-[11px] font-medium text-muted-foreground">
+          Summary
+        </p>
+        <p className="mt-0.5 text-sm text-foreground leading-relaxed">
           {profile.summary || "No summary provided."}
         </p>
       </div>
@@ -138,72 +141,51 @@ export function ProfileDetailSheet({
     >
       <SheetContent
         side="right"
-        className="!w-full !max-w-none gap-0 sm:!w-[560px] sm:!max-w-[560px]"
+        className="!w-full !max-w-none sm:!w-[540px] sm:!max-w-[540px] flex flex-col p-0 gap-0"
       >
-        <SheetHeader className="border-b border-border px-5 py-4">
-          <div className="flex items-center gap-3 pr-10">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-info-foreground text-sm font-semibold text-primary-foreground">
+        <SheetHeader className="border-b border-border px-5 py-4 shrink-0">
+          <div className="flex items-center gap-3 pr-8">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-info text-sm font-semibold text-primary-foreground select-none">
               {getInitials(profile.fullName)}
             </div>
-
             <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate text-lg font-semibold">
+              <SheetTitle className="truncate text-base font-semibold">
                 {profile.fullName}
               </SheetTitle>
-
-              <SheetDescription className="truncate">
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {profile.email}
-              </SheetDescription>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className={
-                    profile.isActive
-                      ? "rounded-md bg-success px-2 py-0.5 text-[11px] font-medium text-success-foreground"
-                      : "rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                  }
-                >
-                  {profile.isActive ? "Active" : "Inactive"}
-                </span>
-
-                {profile.seniority && (
-                  <span className="rounded-md bg-info px-2 py-0.5 text-[11px] font-medium text-info-foreground">
-                    {profile.seniority}
-                  </span>
-                )}
-
-                <span className="font-mono text-xs text-muted-foreground">
-                  {formatRate(profile)}
-                </span>
-              </div>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground">
+                {profile.isActive ? "Active" : "Inactive"}
+              </span>
+              {isAdmin && (
+                <ProfileActiveToggle
+                  profileId={profile.id}
+                  isActive={profile.isActive}
+                  onChanged={onChanged}
+                />
+              )}
             </div>
           </div>
-          {isAdmin && (
-            <div className="flex items-center justify-end gap-2 pr-10">
-              <ProfileActiveToggle
-                profileId={profile.id}
-                isActive={profile.isActive}
-                onChanged={onChanged}
-              />
-
-              <Button
-                type="button"
-                variant={isEditing ? "outline" : "secondary"}
-                size="sm"
-                onClick={() => setIsEditing((current) => !current)}
-              >
-                {isEditing ? "Cancel editing" : "Edit"}
-              </Button>
-            </div>
-          )}
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-7">
           <section>
-            <h2 className="mb-4 text-sm font-semibold">Core details</h2>
-
-
-            {isAdmin && isEditing ? (
+            <div className="flex items-center justify-between mb-3">
+              <SectionTitle>Details</SectionTitle>
+              {isAdmin && !isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer"
+                >
+                  <Pencil className="size-3" /> Edit
+                </button>
+              )}
+            </div>
+            {isEditing ? (
               <ProfileCoreFieldsForm
                 mode="update"
                 profileId={profile.id}
@@ -222,56 +204,46 @@ export function ProfileDetailSheet({
                 }}
                 seniorityLevels={seniorityLevels}
                 submitLabel="Save changes"
-                onSuccess={onChanged ? () => onChanged() : undefined}
+                onSuccess={() => {
+                  setIsEditing(false);
+                  onChanged?.();
+                }}
               />
             ) : (
               <ReadOnlyDetails profile={profile} />
             )}
           </section>
 
-          <section className="mt-7 border-t border-border pt-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Assigned user</h2>
-
-              {isAdmin && !profile.assignedUserId && (
-                <span className="text-xs text-muted-foreground">
-                  No user assigned
-                </span>
-              )}
-            </div>
-
-            <ProfileAssignment
-              profileId={profile.id}
-              assignedUserId={profile.assignedUserId}
-              assignedUserName={profile.assignedUserName}
-              users={assignableUsers}
-              isAdmin={isAdmin}
-              onChanged={onChanged}
-            />
-
-            <p className="mt-2 text-xs text-muted-foreground">
-              One user can be assigned to one profile at a time.
-            </p>
-          </section>
-
-          <section className="mt-7 border-t border-border pt-6">
-            <h2 className="mb-4 text-sm font-semibold">CVs</h2>
-
-            <div className="flex flex-col gap-4">
-              <ProfileCvList
-                cvs={cvs}
+          {isAdmin && (
+            <section>
+              <SectionTitle>Assignment</SectionTitle>
+              <ProfileAssignment
                 profileId={profile.id}
+                assignedUserId={profile.assignedUserId}
+                assignedUserName={profile.assignedUserName}
+                users={assignableUsers}
                 isAdmin={isAdmin}
                 onChanged={onChanged}
               />
+              <p className="mt-2 text-xs text-muted-foreground">
+                One user can be assigned to one profile at a time.
+              </p>
+            </section>
+          )}
 
-              {isAdmin && (
-                <ProfileCvUploadForm
-                  profileId={profile.id}
-                  onChanged={onChanged}
-                />
-              )}
-            </div>
+          <section>
+            <SectionTitle>CVs</SectionTitle>
+            <ProfileCvList
+              cvs={cvs}
+              profileId={profile.id}
+              isAdmin={isAdmin}
+              onChanged={onChanged}
+            />
+            {isAdmin && (
+              <div className="mt-3">
+                <ProfileCvUploadForm profileId={profile.id} onChanged={onChanged} />
+              </div>
+            )}
           </section>
         </div>
       </SheetContent>

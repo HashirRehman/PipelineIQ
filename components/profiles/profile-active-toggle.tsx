@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setProfileActiveRequest } from "@/lib/api/profiles-client";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ProfileActiveToggle({
   profileId,
@@ -25,9 +25,7 @@ export function ProfileActiveToggle({
     setDisplayActive(isActive);
   }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const handleToggle = async () => {
     if (isPending) {
       return;
     }
@@ -36,7 +34,7 @@ export function ProfileActiveToggle({
 
     setError(null);
     setIsPending(true);
-    setDisplayActive(next); // optimistic — button + next click reflect intent
+    setDisplayActive(next); // optimistic — switch reflects intent
 
     const result = await setProfileActiveRequest(profileId, next);
 
@@ -56,15 +54,31 @@ export function ProfileActiveToggle({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-3">
-      <Button type="submit" variant="outline" size="sm" disabled={isPending}>
-        {isPending ? "Saving…" : displayActive ? "Deactivate" : "Activate"}
-      </Button>
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={displayActive}
+        aria-label={displayActive ? "Deactivate profile" : "Activate profile"}
+        onClick={handleToggle}
+        disabled={isPending}
+        className={cn(
+          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+          displayActive ? "bg-primary" : "bg-muted",
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none block size-4 rounded-full bg-white shadow-sm transition-transform",
+            displayActive ? "translate-x-4" : "translate-x-0",
+          )}
+        />
+      </button>
       {error && (
-        <p role="alert" className="text-sm text-destructive dark:text-red-400">
+        <p role="alert" className="max-w-40 text-right text-xs text-destructive">
           {error}
         </p>
       )}
-    </form>
+    </div>
   );
 }

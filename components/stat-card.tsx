@@ -1,49 +1,26 @@
-import type { ReactNode } from "react"
-
-import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-export function StatCard({
-  label,
-  value,
-  sub,
-  color,
-  valueClassName,
-  labelClassName,
-  className,
-}: {
+interface StatCardProps {
   label: string
-  value: ReactNode
+  value: React.ReactNode
   sub?: string
   color?: string
+  className?: string
   valueClassName?: string
   labelClassName?: string
-  className?: string
-}) {
+}
+
+export function StatCard({ label, value, sub, color, className, valueClassName, labelClassName }: StatCardProps) {
   return (
-    <Card
-      className={cn(
-        "py-4.5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0",
-        className
-      )}
-    >
-      <CardContent className="p-0">
-        <div
-          className={cn(
-            "font-mono text-[26px] font-bold mb-0.5",
-            valueClassName
-          )}
-          style={{ color }}
-        >
-          {value}
-        </div>
-        <div className={cn("text-xs font-medium text-[var(--fg)] mb-0.5", labelClassName)}>
-          {label}
-        </div>
-        {sub && (
-          <div className="text-[11px] text-[var(--muted-fg)]">{sub}</div>
+    <div className={cn("rounded-lg border border-border bg-background p-4 flex flex-col gap-1", className)}>
+      <div className="flex items-center gap-2">
+        {color && (
+          <span className="size-2 rounded-full shrink-0" style={{ background: color }} />
         )}
-      </CardContent>
-    </Card>
+        <span className={cn("text-xs text-muted-foreground font-medium", labelClassName)}>{label}</span>
+      </div>
+      <div className={cn("text-2xl font-semibold text-foreground tabular-nums", valueClassName)}>{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
+    </div>
   )
 }

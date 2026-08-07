@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/select"
 import {
   LEAD_STATUSES,
-  LEAD_STATUS_BG,
   LEAD_STATUS_COLOR,
   type LeadStatus,
 } from "@/lib/constants"
@@ -21,26 +20,38 @@ export function LeadStatusSelect({
   value: LeadStatus
   onChange: (status: LeadStatus) => void
 }) {
+  const color = LEAD_STATUS_COLOR[value]
+
   return (
     <Select
       value={value}
-      onValueChange={v => onChange((v as LeadStatus | null) ?? "Applied")}
+      onValueChange={v => onChange(v as LeadStatus)}
     >
       <SelectTrigger
         size="sm"
-        className="h-auto w-auto px-2 py-0.75 rounded-md text-[11px] font-semibold cursor-pointer font-mono border whitespace-nowrap"
+        className="h-7 w-auto gap-1.5 px-2.5 rounded-md text-[12px] font-medium cursor-pointer border shadow-none bg-card whitespace-nowrap focus:ring-0"
         style={{
-          background: LEAD_STATUS_BG[value],
-          borderColor: `${LEAD_STATUS_COLOR[value]}40`,
-          color: LEAD_STATUS_COLOR[value],
+          borderColor: `${color}30`,
+          color,
         }}
       >
+        {/* Dot */}
+        <span
+          className="size-[6px] rounded-full shrink-0"
+          style={{ background: color }}
+        />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="text-[13px]">
         {LEAD_STATUSES.map(s => (
           <SelectItem key={s} value={s}>
-            {s}
+            <span className="flex items-center gap-2">
+              <span
+                className="size-[6px] rounded-full shrink-0"
+                style={{ background: LEAD_STATUS_COLOR[s] }}
+              />
+              {s}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>
