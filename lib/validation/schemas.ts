@@ -1,11 +1,23 @@
-// Zod schemas shared by forms and Server Actions, Modules 1-4
 import { z } from "zod";
 
-export const inviteUserSchema = z.object({
+export const createUserSchema = z.object({
+  name: z.string().trim().min(1, "Full name is required."),
   email: z.email("Enter a valid email address."),
-  fullName: z.string().trim().min(1, "Full name is required."),
   roleId: z.uuid("Select a role."),
 });
+
+export const updateUserSchema = z
+  .object({
+    userId: z.uuid(),
+    name: z.string().trim().min(1, "Full name is required.").optional(),
+    status: z.enum(["active", "inactive"]).optional(),
+    roleId: z.uuid("Select a role.").optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined || data.status !== undefined || data.roleId !== undefined,
+    { message: "Provide a name, status, or role to update." },
+  );
 
 export const signInSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -22,23 +34,29 @@ export const setPasswordSchema = z
     path: ["confirmPassword"],
   });
 
-// Optional numeric form fields arrive as strings ("" when left blank), so an
-// empty string must become undefined ("not provided"), not 0.
 const optionalNonNegativeNumber = z
-  .string()
-  .optional()
-  .transform((value) => (value ? Number(value) : undefined))
-  .refine((value) => value === undefined || value >= 0, "Must be zero or greater.");
+  .union([z.string(), z.number()])
+  .nullish()
+  .transform((value) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+    return Number(value);
+  })
+  .refine(
+    (value) => value === undefined || (Number.isFinite(value) && value >= 0),
+    "Must be zero or greater.",
+  );
 
 const optionalTrimmedText = z
   .string()
-  .optional()
+  .nullish()
   .transform((value) => {
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
   });
 
-export const engineerCoreFieldsSchema = z.object({
+export const profileCoreFieldsSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required."),
   email: z.email("Enter a valid email address."),
   phone: optionalTrimmedText,
@@ -49,79 +67,53 @@ export const engineerCoreFieldsSchema = z.object({
   rateCurrency: z
     .string()
     .trim()
-    .optional()
+    .nullish()
     .transform((value) => (value ? value.toUpperCase() : "USD"))
     .refine((value) => value.length === 3, "Currency must be a 3-letter code."),
   summary: optionalTrimmedText,
-  // Raw comma-separated skill names — parsing, case-insensitive dedup, and
-  // resolving/creating the actual skills rows happens in
-  // lib/actions/engineers.ts's resolveSkillIds(), not here.
-  skillNames: z.string().default(""),
 });
 
-export const createEngineerSchema = engineerCoreFieldsSchema;
+export const createProfileSchema = profileCoreFieldsSchema;
 
-export const updateEngineerSchema = engineerCoreFieldsSchema.extend({
-  engineerId: z.uuid(),
+export const updateProfileSchema = profileCoreFieldsSchema.extend({
+  profileId: z.uuid(),
 });
 
-export const setEngineerActiveSchema = z.object({
-  engineerId: z.uuid(),
-  // z.coerce.boolean() would treat the literal string "false" as truthy —
-  // an explicit enum is what makes deactivation actually work.
-  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
+export const setProfileActiveSchema = z.object({
+  profileId: z.uuid(),
+  isActive: z.union([
+    z.boolean(),
+    z.enum(["true", "false"]).transform((value) => value === "true"),
+  ]),
 });
 
-export const engineerBdAssignmentSchema = z.object({
-  engineerId: z.uuid(),
-  bdUserId: z.uuid("Select a BD Executive."),
-});
-
-export const createSkillSchema = z.object({
-  name: z.string().trim().min(1, "Name is required."),
-});
-
-export const setSkillActiveSchema = z.object({
-  skillId: z.uuid(),
-  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
-});
-
-export const uploadEngineerCvSchema = z.object({
-  engineerId: z.uuid(),
-  label: z.string().trim().min(1, "Label is required."),
-  // Size/mime-type limits are Admin-tunable (app_settings), so they can't be
-  // expressed statically here — that check happens at runtime against the DB.
+export const uploadProfileCvSchema = z.object({
+  profileId: z.uuid(),
   file: z
     .instanceof(File)
     .refine((file) => file.size > 0, "Select a file to upload."),
 });
 
-export const dismissMatchSchema = z.object({
-  matchId: z.uuid(),
+export const deleteProfileCvSchema = z.object({
+  profileId: z.uuid(),
+  cvId: z.uuid(),
+});
+
+export const setProfileAssignmentSchema = z.object({
+  profileId: z.uuid(),
+  // null (or "" from the select's unassigned option) clears the assignment.
+  userId: z
+    .union([z.uuid("Select a user."), z.null(), z.literal("")])
+    .transform((value) => (value === "" ? null : value)),
+});
+
+export const dismissJobSchema = z.object({
+  jobId: z.uuid(),
+  profileId: z.uuid(),
   reason: z.string().trim().min(1, "A reason is required.").max(500),
 });
 
 export const markAppliedSchema = z.object({
-  matchId: z.uuid(),
-});
-
-export const withdrawLeadSchema = z.object({
-  leadId: z.uuid(),
-  reason: z.string().trim().min(1, "A reason is required.").max(500),
-});
-
-export const reapplyLeadSchema = z.object({
-  leadId: z.uuid(),
-});
-
-// Parses /leads' searchParams. A malformed/tampered value (hand-edited
-// URL) is treated as "no filter" for that field via .catch(undefined),
-// not a page error — this is a read-only page and RLS still bounds the
-// result regardless of what filters are applied, so failing open to
-// "unfiltered" is the safe direction.
-export const leadsFilterSchema = z.object({
-  engineerId: z.uuid().optional().catch(undefined),
-  status: z.enum(["active", "withdrawn", "closed"]).optional().catch(undefined),
-  from: z.iso.date().optional().catch(undefined),
-  to: z.iso.date().optional().catch(undefined),
+  jobId: z.uuid(),
+  profileId: z.uuid(),
 });

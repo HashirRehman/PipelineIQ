@@ -6,14 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:types:remote": "npx supabase gen types typescript --linked > lib/supabase/database.types.ts",
+    "migrate:new": "node scripts/migrateNew.cjs",
+    "migrate:up": "node scripts/migrateUp.cjs",
+    "supa:link": "node scripts/supaLink.cjs",
+    "seed:user": "node scripts/createUser.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
+    "dotenv": "^16.6.1",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "next-themes": "^0.4.6",

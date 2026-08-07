@@ -4,7 +4,7 @@
 // on the AiClient interface is Phase 2 scope (see docs/03 Section 12) and
 // throws rather than pretending to work, so this class stays honestly
 // type-checked against the full interface without faking capability.
-import type { AiClient, EngineerContext, JobListing, LeadContext } from "./client";
+import type { AiClient, JobListing, LeadContext, ProfileContext } from "./client";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -168,7 +168,7 @@ function normalizeForMatch(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// This engineer skill catalog's "X Js" naming convention ("Node Js",
+// This profile skill catalog's "X Js" naming convention ("Node Js",
 // "React Js", "Express Js") frequently doesn't literally appear in real
 // postings, which more often just say "Node", "React", or "Node.js"
 // without a space — a bare substring match on "Node Js" misses "Node.js"
@@ -185,24 +185,24 @@ function hasLiteralSkillMention(skills: string[], description: string): boolean 
 
 export class GroqAiClient implements AiClient {
   async scoreRelevance(
-    engineerProfile: EngineerContext,
+    profile: ProfileContext,
     job: JobListing,
   ): Promise<{ score: number; modelVersion: string }> {
     const systemPrompt =
-      "You score how well an engineer's profile matches a job listing for a recruiting platform. " +
-      'Respond only with JSON: {"score": <integer 0-100>, "matched_skills": [<engineer skills found ' +
+      "You score how well a candidate's profile matches a job listing for a recruiting platform. " +
+      'Respond only with JSON: {"score": <integer 0-100>, "matched_skills": [<candidate skills found ' +
       'explicitly named in the job description>], "rationale": "<one sentence>"}. ' +
-      "matched_skills must only include skills from the engineer's own skills list explicitly named " +
+      "matched_skills must only include skills from the candidate's own skills list explicitly named " +
       "in the job description — an extraction task, list only literal terms present in the text. " +
       "0 means completely unrelated, 100 means an ideal match on seniority, skills, and experience. " +
       "If the job description names no specific technology, weight seniority/domain match only — " +
       "do not treat the absence of a stack mismatch as a strong positive signal.";
 
     const userPrompt = [
-      `Engineer seniority: ${engineerProfile.seniorityLevel}`,
-      `Engineer years of experience: ${engineerProfile.yearsExperience ?? "unknown"}`,
-      `Engineer skills: ${engineerProfile.skills.join(", ") || "none listed"}`,
-      `Engineer summary: ${engineerProfile.summary ?? "none provided"}`,
+      `Candidate seniority: ${profile.seniorityLevel}`,
+      `Candidate years of experience: ${profile.yearsExperience ?? "unknown"}`,
+      `Candidate skills: ${profile.skills.join(", ") || "none listed"}`,
+      `Candidate summary: ${profile.summary ?? "none provided"}`,
       "---",
       `Job title: ${job.title}`,
       `Company: ${job.companyName}`,
@@ -232,7 +232,7 @@ export class GroqAiClient implements AiClient {
     // does not need to be exhaustive, only directionally generous, since
     // both signals must agree there's no evidence before the cap fires.
     const noModelMatch = matchedSkills.length === 0;
-    const noTextEvidence = !hasLiteralSkillMention(engineerProfile.skills, job.description ?? "");
+    const noTextEvidence = !hasLiteralSkillMention(profile.skills, job.description ?? "");
     const cappedScore = noModelMatch && noTextEvidence ? Math.min(clampedScore, 55) : clampedScore;
 
     return { score: cappedScore, modelVersion: GROQ_MODEL };
@@ -297,7 +297,7 @@ export class GroqAiClient implements AiClient {
     throw new Error("suggestFollowUp: not implemented — Phase 2.");
   }
 
-  async recommendCv(_engineerId: string, _job: JobListing): Promise<{ cvId: string; reasoning: string }> {
+  async recommendCv(_profileId: string, _job: JobListing): Promise<{ cvId: string; reasoning: string }> {
     throw new Error("recommendCv: not implemented — Phase 2.");
   }
 

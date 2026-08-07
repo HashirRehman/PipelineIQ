@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   graphql_public: {
     Tables: {
@@ -39,27 +39,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      app_settings: {
-        Row: {
-          description: string | null
-          key: string
-          updated_at: string
-          value: Json
-        }
-        Insert: {
-          description?: string | null
-          key: string
-          updated_at?: string
-          value: Json
-        }
-        Update: {
-          description?: string | null
-          key?: string
-          updated_at?: string
-          value?: Json
-        }
-        Relationships: []
-      }
       cron_run_locks: {
         Row: {
           id: string
@@ -69,7 +48,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          id: string
+          id?: string
           is_running?: boolean
           last_completed_at?: string | null
           started_at?: string | null
@@ -84,449 +63,217 @@ export type Database = {
         }
         Relationships: []
       }
-      engineer_bd_assignments: {
-        Row: {
-          assigned_at: string
-          assigned_by: string
-          bd_user_id: string
-          engineer_id: string
-          id: string
-          unassigned_at: string | null
-        }
-        Insert: {
-          assigned_at?: string
-          assigned_by: string
-          bd_user_id: string
-          engineer_id: string
-          id?: string
-          unassigned_at?: string | null
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by?: string
-          bd_user_id?: string
-          engineer_id?: string
-          id?: string
-          unassigned_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "engineer_bd_assignments_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engineer_bd_assignments_bd_user_id_fkey"
-            columns: ["bd_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engineer_bd_assignments_engineer_id_fkey"
-            columns: ["engineer_id"]
-            isOneToOne: false
-            referencedRelation: "engineers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      engineer_cvs: {
-        Row: {
-          created_at: string
-          engineer_id: string
-          file_name: string
-          file_size_bytes: number
-          id: string
-          is_current: boolean
-          label: string
-          mime_type: string
-          storage_path: string
-          uploaded_by: string
-        }
-        Insert: {
-          created_at?: string
-          engineer_id: string
-          file_name: string
-          file_size_bytes: number
-          id?: string
-          is_current?: boolean
-          label: string
-          mime_type: string
-          storage_path: string
-          uploaded_by: string
-        }
-        Update: {
-          created_at?: string
-          engineer_id?: string
-          file_name?: string
-          file_size_bytes?: number
-          id?: string
-          is_current?: boolean
-          label?: string
-          mime_type?: string
-          storage_path?: string
-          uploaded_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "engineer_cvs_engineer_id_fkey"
-            columns: ["engineer_id"]
-            isOneToOne: false
-            referencedRelation: "engineers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engineer_cvs_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      engineer_skills: {
-        Row: {
-          engineer_id: string
-          proficiency: number | null
-          skill_id: string
-        }
-        Insert: {
-          engineer_id: string
-          proficiency?: number | null
-          skill_id: string
-        }
-        Update: {
-          engineer_id?: string
-          proficiency?: number | null
-          skill_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "engineer_skills_engineer_id_fkey"
-            columns: ["engineer_id"]
-            isOneToOne: false
-            referencedRelation: "engineers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engineer_skills_skill_id_fkey"
-            columns: ["skill_id"]
-            isOneToOne: false
-            referencedRelation: "skills"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      engineers: {
-        Row: {
-          created_at: string
-          created_by: string
-          email: string
-          full_name: string
-          id: string
-          is_active: boolean
-          location: string | null
-          phone: string | null
-          rate_currency: string
-          rate_expectation: number | null
-          seniority_level_id: string
-          summary: string | null
-          updated_at: string
-          years_experience: number | null
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          email: string
-          full_name: string
-          id?: string
-          is_active?: boolean
-          location?: string | null
-          phone?: string | null
-          rate_currency?: string
-          rate_expectation?: number | null
-          seniority_level_id: string
-          summary?: string | null
-          updated_at?: string
-          years_experience?: number | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          email?: string
-          full_name?: string
-          id?: string
-          is_active?: boolean
-          location?: string | null
-          phone?: string | null
-          rate_currency?: string
-          rate_expectation?: number | null
-          seniority_level_id?: string
-          summary?: string | null
-          updated_at?: string
-          years_experience?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "engineers_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engineers_seniority_level_id_fkey"
-            columns: ["seniority_level_id"]
-            isOneToOne: false
-            referencedRelation: "seniority_levels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      job_engineer_matches: {
+      job_profile_matches: {
         Row: {
           ai_model_version: string
           created_at: string
-          dismissed_reason: string | null
-          engineer_id: string
+          cv_id: string
           id: string
           job_id: string
-          recommended_cv_id: string | null
+          organization_id: string
+          profile_id: string
           relevance_score: number
-          status: Database["public"]["Enums"]["match_status"]
           updated_at: string
         }
         Insert: {
           ai_model_version: string
           created_at?: string
-          dismissed_reason?: string | null
-          engineer_id: string
+          cv_id: string
           id?: string
           job_id: string
-          recommended_cv_id?: string | null
+          organization_id: string
+          profile_id: string
           relevance_score: number
-          status?: Database["public"]["Enums"]["match_status"]
           updated_at?: string
         }
         Update: {
           ai_model_version?: string
           created_at?: string
-          dismissed_reason?: string | null
-          engineer_id?: string
+          cv_id?: string
           id?: string
           job_id?: string
-          recommended_cv_id?: string | null
+          organization_id?: string
+          profile_id?: string
           relevance_score?: number
-          status?: Database["public"]["Enums"]["match_status"]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "job_engineer_matches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            foreignKeyName: "job_profile_matches_cv_id_fkey"
+            columns: ["cv_id"]
             isOneToOne: false
-            referencedRelation: "engineers"
+            referencedRelation: "profile_cvs"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "job_engineer_matches_job_id_fkey"
+            foreignKeyName: "job_profile_matches_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "job_engineer_matches_recommended_cv_id_fkey"
-            columns: ["recommended_cv_id"]
+            foreignKeyName: "job_profile_matches_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "engineer_cvs"
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_profile_matches_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      job_sources: {
+      job_profile_states: {
         Row: {
-          base_url: string | null
-          config: Json
           created_at: string
+          cv_id: string | null
+          deleted_at: string | null
+          dismissed_reason: string | null
           id: string
-          is_active: boolean
-          name: string
-          slug: string
+          job_id: string
+          organization_id: string
+          profile_id: string
+          status: Database["public"]["Enums"]["application_status"]
+          updated_at: string
+          user_id: string | null
         }
         Insert: {
-          base_url?: string | null
-          config?: Json
           created_at?: string
+          cv_id?: string | null
+          deleted_at?: string | null
+          dismissed_reason?: string | null
           id?: string
-          is_active?: boolean
-          name: string
-          slug: string
+          job_id: string
+          organization_id: string
+          profile_id: string
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+          user_id?: string | null
         }
         Update: {
-          base_url?: string | null
-          config?: Json
           created_at?: string
+          cv_id?: string | null
+          deleted_at?: string | null
+          dismissed_reason?: string | null
           id?: string
-          is_active?: boolean
-          name?: string
-          slug?: string
-        }
-        Relationships: []
-      }
-      jobs: {
-        Row: {
-          apply_url: string
-          company_name: string
-          created_at: string
-          dedup_hash: string | null
-          description: string | null
-          discovered_at: string
-          external_job_id: string
-          id: string
-          is_globally_open: boolean | null
-          is_remote: boolean | null
-          job_source_id: string
-          location: string | null
-          possibly_closed: boolean | null
-          possibly_closed_reason: string | null
-          posted_at: string | null
-          remote_region: string | null
-          title: string
-        }
-        Insert: {
-          apply_url: string
-          company_name: string
-          created_at?: string
-          dedup_hash?: string | null
-          description?: string | null
-          discovered_at?: string
-          external_job_id: string
-          id?: string
-          is_globally_open?: boolean | null
-          is_remote?: boolean | null
-          job_source_id: string
-          location?: string | null
-          possibly_closed?: boolean | null
-          possibly_closed_reason?: string | null
-          posted_at?: string | null
-          remote_region?: string | null
-          title: string
-        }
-        Update: {
-          apply_url?: string
-          company_name?: string
-          created_at?: string
-          dedup_hash?: string | null
-          description?: string | null
-          discovered_at?: string
-          external_job_id?: string
-          id?: string
-          is_globally_open?: boolean | null
-          is_remote?: boolean | null
-          job_source_id?: string
-          location?: string | null
-          possibly_closed?: boolean | null
-          possibly_closed_reason?: string | null
-          posted_at?: string | null
-          remote_region?: string | null
-          title?: string
+          job_id?: string
+          organization_id?: string
+          profile_id?: string
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "jobs_job_source_id_fkey"
-            columns: ["job_source_id"]
+            foreignKeyName: "job_profile_states_cv_id_fkey"
+            columns: ["cv_id"]
             isOneToOne: false
-            referencedRelation: "job_sources"
+            referencedRelation: "profile_cvs"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      lead_event_types: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          label: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          label: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          label?: string
-        }
-        Relationships: []
-      }
-      lead_events: {
-        Row: {
-          ai_summary: string | null
-          created_at: string
-          created_by: string
-          event_type_id: string
-          id: string
-          lead_id: string
-          note: string | null
-          occurred_at: string
-          stage_id: string | null
-        }
-        Insert: {
-          ai_summary?: string | null
-          created_at?: string
-          created_by: string
-          event_type_id: string
-          id?: string
-          lead_id: string
-          note?: string | null
-          occurred_at?: string
-          stage_id?: string | null
-        }
-        Update: {
-          ai_summary?: string | null
-          created_at?: string
-          created_by?: string
-          event_type_id?: string
-          id?: string
-          lead_id?: string
-          note?: string | null
-          occurred_at?: string
-          stage_id?: string | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "lead_events_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "job_profile_states_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_profile_states_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_profile_states_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "lead_events_event_type_id_fkey"
-            columns: ["event_type_id"]
+            foreignKeyName: "job_profile_states_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "lead_event_types"
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          apply_url: string
+          company_location: string | null
+          company_name: string
+          created_at: string
+          description: string | null
+          external_job_id: string
+          id: string
+          is_globally_open: boolean | null
+          is_remote: boolean | null
+          job_posted_at: string | null
+          organization_id: string
+          possibly_closed: boolean
+          possibly_closed_reason: string | null
+          remote_allowed_region: string | null
+          scraper_id: string
+          title: string
+        }
+        Insert: {
+          apply_url: string
+          company_location?: string | null
+          company_name: string
+          created_at?: string
+          description?: string | null
+          external_job_id: string
+          id?: string
+          is_globally_open?: boolean | null
+          is_remote?: boolean | null
+          job_posted_at?: string | null
+          organization_id: string
+          possibly_closed?: boolean
+          possibly_closed_reason?: string | null
+          remote_allowed_region?: string | null
+          scraper_id: string
+          title: string
+        }
+        Update: {
+          apply_url?: string
+          company_location?: string | null
+          company_name?: string
+          created_at?: string
+          description?: string | null
+          external_job_id?: string
+          id?: string
+          is_globally_open?: boolean | null
+          is_remote?: boolean | null
+          job_posted_at?: string | null
+          organization_id?: string
+          possibly_closed?: boolean
+          possibly_closed_reason?: string | null
+          remote_allowed_region?: string | null
+          scraper_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "lead_events_lead_id_fkey"
-            columns: ["lead_id"]
+            foreignKeyName: "jobs_scraper_id_fkey"
+            columns: ["scraper_id"]
             isOneToOne: false
-            referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lead_events_stage_id_fkey"
-            columns: ["stage_id"]
-            isOneToOne: false
-            referencedRelation: "pipeline_stages"
+            referencedRelation: "scrapers"
             referencedColumns: ["id"]
           },
         ]
@@ -534,72 +281,47 @@ export type Database = {
       leads: {
         Row: {
           applied_at: string
-          bd_user_id: string
           created_at: string
-          current_stage_id: string
-          engineer_id: string
+          deleted_at: string | null
           id: string
-          job_engineer_match_id: string
           job_id: string
+          job_profile_state_id: string | null
           last_activity_at: string
-          status: Database["public"]["Enums"]["lead_status"]
+          organization_id: string
+          pipeline_stage_id: string
+          profile_id: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           applied_at?: string
-          bd_user_id: string
           created_at?: string
-          current_stage_id: string
-          engineer_id: string
+          deleted_at?: string | null
           id?: string
-          job_engineer_match_id: string
           job_id: string
+          job_profile_state_id?: string | null
           last_activity_at?: string
-          status?: Database["public"]["Enums"]["lead_status"]
+          organization_id: string
+          pipeline_stage_id: string
+          profile_id: string
           updated_at?: string
+          user_id: string
         }
         Update: {
           applied_at?: string
-          bd_user_id?: string
           created_at?: string
-          current_stage_id?: string
-          engineer_id?: string
+          deleted_at?: string | null
           id?: string
-          job_engineer_match_id?: string
           job_id?: string
+          job_profile_state_id?: string | null
           last_activity_at?: string
-          status?: Database["public"]["Enums"]["lead_status"]
+          organization_id?: string
+          pipeline_stage_id?: string
+          profile_id?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "leads_bd_user_id_fkey"
-            columns: ["bd_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_current_stage_id_fkey"
-            columns: ["current_stage_id"]
-            isOneToOne: false
-            referencedRelation: "pipeline_stages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_engineer_id_fkey"
-            columns: ["engineer_id"]
-            isOneToOne: false
-            referencedRelation: "engineers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leads_job_engineer_match_id_fkey"
-            columns: ["job_engineer_match_id"]
-            isOneToOne: false
-            referencedRelation: "job_engineer_matches"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "leads_job_id_fkey"
             columns: ["job_id"]
@@ -607,93 +329,216 @@ export type Database = {
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leads_job_profile_state_id_fkey"
+            columns: ["job_profile_state_id"]
+            isOneToOne: false
+            referencedRelation: "job_profile_states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_pipeline_stage_id_fkey"
+            columns: ["pipeline_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
-      login_history: {
+      organizations: {
         Row: {
+          created_at: string
+          deleted_at: string | null
           id: string
-          ip_address: unknown
-          logged_in_at: string
-          user_agent: string | null
-          user_id: string
+          is_active: boolean
+          name: string
+          updated_at: string
         }
         Insert: {
+          created_at?: string
+          deleted_at?: string | null
           id?: string
-          ip_address?: unknown
-          logged_in_at?: string
-          user_agent?: string | null
-          user_id: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
         }
         Update: {
+          created_at?: string
+          deleted_at?: string | null
           id?: string
-          ip_address?: unknown
-          logged_in_at?: string
-          user_agent?: string | null
-          user_id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pipeline_stages: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          order_index: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+        }
+        Relationships: []
+      }
+      profile_cvs: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          file_name: string
+          file_size_bytes: number
+          file_type: string
+          id: string
+          profile_id: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          file_name: string
+          file_size_bytes: number
+          file_type: string
+          id?: string
+          profile_id: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          file_name?: string
+          file_size_bytes?: number
+          file_type?: string
+          id?: string
+          profile_id?: string
+          storage_path?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "login_history_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "profile_cvs_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      pipeline_stages: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          is_terminal: boolean
-          name: string
-          order_index: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_terminal?: boolean
-          name: string
-          order_index: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_terminal?: boolean
-          name?: string
-          order_index?: number
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
           email: string
           full_name: string
           id: string
           is_active: boolean
+          location: string | null
+          organization_id: string
+          phone: string | null
+          rate_currency: string
+          rate_expectation: number | null
+          rate_unit: string | null
+          seniority_level_id: string | null
+          summary: string | null
           updated_at: string
+          user_id: string | null
+          years_of_experience: number | null
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           email: string
           full_name: string
-          id: string
+          id?: string
           is_active?: boolean
+          location?: string | null
+          organization_id: string
+          phone?: string | null
+          rate_currency?: string
+          rate_expectation?: number | null
+          rate_unit?: string | null
+          seniority_level_id?: string | null
+          summary?: string | null
           updated_at?: string
+          user_id?: string | null
+          years_of_experience?: number | null
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           email?: string
           full_name?: string
           id?: string
           is_active?: boolean
+          location?: string | null
+          organization_id?: string
+          phone?: string | null
+          rate_currency?: string
+          rate_expectation?: number | null
+          rate_unit?: string | null
+          seniority_level_id?: string | null
+          summary?: string | null
           updated_at?: string
+          user_id?: string | null
+          years_of_experience?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_seniority_level_id_fkey"
+            columns: ["seniority_level_id"]
+            isOneToOne: false
+            referencedRelation: "seniority_level"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roles: {
         Row: {
@@ -716,93 +561,98 @@ export type Database = {
         }
         Relationships: []
       }
-      seniority_levels: {
+      scrapers: {
         Row: {
+          base_url: string
           created_at: string
+          deleted_at: string | null
           id: string
-          is_active: boolean
           name: string
-          rank: number
+          updated_at: string
         }
         Insert: {
+          base_url: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
-          is_active?: boolean
           name: string
-          rank: number
+          updated_at?: string
         }
         Update: {
+          base_url?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
-          is_active?: boolean
           name?: string
-          rank?: number
+          updated_at?: string
         }
         Relationships: []
       }
-      skills: {
+      seniority_level: {
         Row: {
           created_at: string
           id: string
-          is_active: boolean
           name: string
         }
         Insert: {
           created_at?: string
           id?: string
-          is_active?: boolean
           name: string
         }
         Update: {
           created_at?: string
           id?: string
-          is_active?: boolean
           name?: string
         }
         Relationships: []
       }
-      user_roles: {
+      users: {
         Row: {
-          assigned_at: string
-          assigned_by: string | null
+          created_at: string
+          deleted_at: string | null
+          email: string
+          full_name: string
           id: string
-          role_id: string
-          user_id: string
+          is_active: boolean
+          organization_id: string
+          role_id: string | null
+          updated_at: string
         }
         Insert: {
-          assigned_at?: string
-          assigned_by?: string | null
-          id?: string
-          role_id: string
-          user_id: string
+          created_at?: string
+          deleted_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active?: boolean
+          organization_id: string
+          role_id?: string | null
+          updated_at?: string
         }
         Update: {
-          assigned_at?: string
-          assigned_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string
+          full_name?: string
           id?: string
-          role_id?: string
-          user_id?: string
+          is_active?: boolean
+          organization_id?: string
+          role_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_assigned_by_fkey"
-            columns: ["assigned_by"]
+            foreignKeyName: "users_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_roles_role_id_fkey"
+            foreignKeyName: "users_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -812,39 +662,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      assigned_engineer_ids: { Args: never; Returns: string[] }
-      create_lead_from_match: {
-        Args: { p_bd_user_id: string; p_match_id: string }
+      apply_job_profile: {
+        Args: { p_job_id: string; p_profile_id: string; p_user_id: string }
         Returns: string
       }
-      is_admin: { Args: never; Returns: boolean }
-      owned_lead_engineer_ids: { Args: never; Returns: string[] }
-      owned_lead_job_ids: { Args: never; Returns: string[] }
-      reassign_engineer_bd: {
-        Args: {
-          p_engineer_id: string
-          p_new_bd_user_id: string
-          p_old_bd_user_id: string
-        }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      dismiss_job_profile: {
+        Args: { p_job_id: string; p_profile_id: string; p_reason: string }
         Returns: undefined
       }
-      upsert_job_engineer_match: {
+      is_admin: { Args: never; Returns: boolean }
+      upsert_job_profile_match: {
         Args: {
           p_ai_model_version: string
-          p_engineer_id: string
+          p_cv_id: string
           p_job_id: string
+          p_profile_id: string
           p_relevance_score: number
         }
-        Returns: undefined
-      }
-      withdraw_lead: {
-        Args: { p_lead_id: string; p_reason: string }
-        Returns: undefined
+        Returns: string
       }
     }
     Enums: {
-      lead_status: "active" | "withdrawn" | "closed"
-      match_status: "suggested" | "dismissed" | "applied"
+      application_status: "suggested" | "dismissed" | "applied"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -975,8 +815,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      lead_status: ["active", "withdrawn", "closed"],
-      match_status: ["suggested", "dismissed", "applied"],
+      application_status: ["suggested", "dismissed", "applied"],
     },
   },
 } as const

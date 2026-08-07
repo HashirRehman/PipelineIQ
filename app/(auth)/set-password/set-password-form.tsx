@@ -1,21 +1,35 @@
 "use client";
 
-import { useActionState } from "react";
-import { setPassword, type SetPasswordState } from "@/lib/actions/auth";
+import { useState } from "react";
+import { apiPost } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: SetPasswordState = {};
-
 export function SetPasswordForm() {
-  const [state, formAction, isPending] = useActionState(
-    setPassword,
-    initialState,
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setIsPending(true);
+    try {
+      const formData = new FormData(event.currentTarget);
+      await apiPost<{ success: boolean }>("/api/auth/set-password", {
+        password: formData.get("password"),
+        confirmPassword: formData.get("confirmPassword"),
+      });
+      window.location.href = "/login";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">New password</Label>
         <Input
@@ -38,9 +52,9 @@ export function SetPasswordForm() {
         />
       </div>
 
-      {state.error && (
+      {error && (
         <p role="alert" className="text-sm text-destructive dark:text-red-400">
-          {state.error}
+          {error}
         </p>
       )}
 

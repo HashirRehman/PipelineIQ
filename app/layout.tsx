@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "PipelineIQ",
-  description: "Internal engineer placement and BD tracking platform",
+  description: "Internal profile placement and BD tracking platform",
 };
 
 export default function RootLayout({

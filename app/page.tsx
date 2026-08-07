@@ -1,21 +1,45 @@
-import { redirect } from "next/navigation";
-import { UnauthenticatedHomeRedirect } from "@/components/unauthenticated-home-redirect";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+import { useState } from "react";
+import Sidebar from "@/components/page-components/Sidebar";
+import ProfilesTab from "@/components/page-components/ProfilesTab";
+import DiscoveryTab from "@/components/page-components/DiscoveryTab";
+import LeadsTab from "@/components/page-components/LeadsTab";
+import UsersTab from "@/components/page-components/UsersTab";
+import StatisticsTab from "@/components/page-components/StatisticsTab";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const supabase = await createClient();
+export type TabId = "profiles" | "discovery" | "leads" | "users" | "statistics";
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function App() {
+  const [activeTab, setActiveTab] = useState<TabId>("profiles");
 
-  if (!user) {
-    return <UnauthenticatedHomeRedirect />;
-  }
-  const { error } = await searchParams;
-  redirect(error ? `/engineers?error=${error}` : "/engineers");
+  return (
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        overflow: "hidden",
+        background: "var(--bg)",
+        color: "var(--fg)",
+      }}
+    >
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <main
+        style={{
+          flex: 1,
+          overflow: "auto",
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+        }}
+      >
+        {activeTab === "profiles" && (
+          <ProfilesTab />
+        )}
+        {activeTab === "discovery" && <DiscoveryTab />}
+        {activeTab === "leads" && <LeadsTab />}
+        {activeTab === "users" && <UsersTab />}
+        {activeTab === "statistics" && <StatisticsTab />}
+      </main>
+    </div>
+  );
 }

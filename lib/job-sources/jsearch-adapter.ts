@@ -31,7 +31,7 @@ type JsearchConfig = {
 
 // JSearch's date_posted only supports coarse buckets, not an arbitrary
 // since-timestamp — any overlap this causes across runs is harmless given
-// the (job_source_id, external_job_id) upsert's idempotency.
+// the (scraper_id, external_job_id) upsert's idempotency.
 function datePostedBucket(since?: Date): "today" | "3days" | "week" | "month" {
   if (!since) {
     return "3days";
@@ -48,8 +48,12 @@ function datePostedBucket(since?: Date): "today" | "3days" | "week" | "month" {
 
 export class JsearchAdapter implements JobSourceAdapter {
   sourceSlug = "jsearch";
+  sourceName = "JSearch";
+  sourceId: string;
 
-  constructor(private readonly config: JsearchConfig) {}
+  constructor(sourceId: string, private readonly config: JsearchConfig) {
+    this.sourceId = sourceId;
+  }
 
   async fetchListings({ since }: { since?: Date }): Promise<RawJobListing[]> {
     const apiKey = process.env.JSEARCH_API_KEY;
