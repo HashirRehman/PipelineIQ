@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import DiscoveryTab from "./discovery-tab";
 
 export const metadata: Metadata = {
-  title: "Discovery",
+  title: "Discovery — PipelineIQ",
 };
 
 export default function DiscoveryPage() {

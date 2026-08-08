@@ -1,16 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Pencil, X } from "lucide-react";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { ProfileCoreFieldsForm } from "./profile-core-fields-form";
+import { NewEditProfileDialog } from "./new-edit-profile-dialog";
 import { ProfileActiveToggle } from "./profile-active-toggle";
 import { ProfileCvList } from "./profile-cv-list";
 import { ProfileCvUploadForm } from "./profile-cv-upload-form";
@@ -34,26 +29,13 @@ type ProfileDetail = {
   assignedUserName: string | null;
 };
 
-type SeniorityLevel = {
-  id: string;
-  name: string;
-};
-
+type SeniorityLevel = { id: string; name: string };
 type CvEntry = {
   id: string;
   fileName: string;
   createdAt: string;
   downloadUrl: string | null;
 };
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
 
 function formatRate(profile: ProfileDetail) {
   if (profile.rateExpectation === null) {
@@ -63,47 +45,46 @@ function formatRate(profile: ProfileDetail) {
   return `${profile.rateCurrency} ${profile.rateExpectation}/hr`;
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-meta font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
+}
+
 function ReadOnlyDetails({ profile }: { profile: ProfileDetail }) {
-  const fields = [
+  const fields: [string, string][] = [
     ["Full Name", profile.fullName],
     ["Email", profile.email],
     ["Phone", profile.phone || "Not provided"],
     ["Location", profile.location || "Not provided"],
-    ["Seniority Level", profile.seniority || "Not provided"],
+    ["Seniority", profile.seniority || "Not provided"],
     [
-      "Years of Experience",
-      profile.yearsExperience === null
-        ? "Not provided"
-        : String(profile.yearsExperience),
+      "Years Experience",
+      profile.yearsExperience !== null
+        ? String(profile.yearsExperience)
+        : "Not provided",
     ],
     ["Rate", formatRate(profile)],
-    ["Status", profile.isActive ? "Active" : "Inactive"],
   ];
 
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {fields.map(([label, value]) => (
-          <div key={label}>
-            <p className="text-xs font-medium text-muted-foreground">
-              {label}
-            </p>
-            <p className="mt-1 text-sm text-foreground">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5">
-        <p className="text-xs font-medium text-muted-foreground">Summary</p>
-        <p className="mt-1 text-sm leading-6 text-foreground">
-          {profile.summary || "No summary provided."}
-        </p>
-      </div>
-    </>
+    <dl className="flex flex-col gap-4">
+      {fields.map(([label, value]) => (
+        <div key={label} className="flex items-center justify-between gap-3">
+          <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">
+            {label}
+          </dt>
+          <dd className="text-xs text-foreground text-right">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
 export function ProfileDetailSheet({
+  open,
   profile,
   seniorityLevels,
   assignableUsers,
@@ -112,169 +93,144 @@ export function ProfileDetailSheet({
   onClose,
   onChanged,
 }: {
-  profile: ProfileDetail;
+  open: boolean;
+  profile: ProfileDetail | null;
   seniorityLevels: SeniorityLevel[];
   assignableUsers: AssignableUser[];
   cvs: CvEntry[];
   isAdmin: boolean;
-  onClose?: () => void;
+  onClose: () => void;
   onChanged?: () => void;
 }) {
-  const router = useRouter();
-  const [isEditing, setIsEditing] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const [lastProfile, setLastProfile] = useState<ProfileDetail | null>(profile);
+  const [lastCvs, setLastCvs] = useState(cvs);
+  const [prevProfile, setPrevProfile] = useState<ProfileDetail | null>(profile);
+  const [prevCvs, setPrevCvs] = useState(cvs);
+
+  if (profile !== prevProfile) {
+    setPrevProfile(profile);
+    if (profile) setLastProfile(profile);
+  }
+  if (cvs !== prevCvs) {
+    setPrevCvs(cvs);
+    setLastCvs(cvs);
+  }
+
+  const displayProfile = profile ?? lastProfile;
+  const displayCvs = cvs ?? lastCvs;
+
+  if (!displayProfile) return null;
 
   return (
-    <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) {
-          if (onClose) {
-            onClose();
-          } else {
-            router.replace("/profiles", { scroll: false });
-          }
-        }
-      }}
-    >
-      <SheetContent
-        side="right"
-        className="!w-full !max-w-none gap-0 sm:!w-[560px] sm:!max-w-[560px]"
+    <>
+      <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DrawerContent
+        className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground"
       >
-        <SheetHeader className="border-b border-border px-5 py-4">
-          <div className="flex items-center gap-3 pr-10">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-info-foreground text-sm font-semibold text-primary-foreground">
-              {getInitials(profile.fullName)}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate text-lg font-semibold">
-                {profile.fullName}
-              </SheetTitle>
-
-              <SheetDescription className="truncate">
-                {profile.email}
-              </SheetDescription>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className={
-                    profile.isActive
-                      ? "rounded-md bg-success px-2 py-0.5 text-[11px] font-medium text-success-foreground"
-                      : "rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                  }
-                >
-                  {profile.isActive ? "Active" : "Inactive"}
-                </span>
-
-                {profile.seniority && (
-                  <span className="rounded-md bg-info px-2 py-0.5 text-[11px] font-medium text-info-foreground">
-                    {profile.seniority}
-                  </span>
-                )}
-
-                <span className="font-mono text-xs text-muted-foreground">
-                  {formatRate(profile)}
-                </span>
-              </div>
-            </div>
+        {/* Top bar — avatar + name left, active toggle + dismiss right */}
+        <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-border bg-card shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Avatar name={displayProfile.fullName} size={24} />
+            <span className="truncate text-xs font-semibold text-foreground">
+              {displayProfile.fullName}
+            </span>
           </div>
-          {isAdmin && (
-            <div className="flex items-center justify-end gap-2 pr-10">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground">
+              {displayProfile.isActive ? "Active" : "Inactive"}
+            </span>
+            {isAdmin && (
               <ProfileActiveToggle
-                profileId={profile.id}
-                isActive={profile.isActive}
+                profileId={displayProfile.id}
+                isActive={displayProfile.isActive}
                 onChanged={onChanged}
               />
-
-              <Button
-                type="button"
-                variant={isEditing ? "outline" : "secondary"}
-                size="sm"
-                onClick={() => setIsEditing((current) => !current)}
-              >
-                {isEditing ? "Cancel editing" : "Edit"}
-              </Button>
-            </div>
-          )}
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          <section>
-            <h2 className="mb-4 text-sm font-semibold">Core details</h2>
-
-
-            {isAdmin && isEditing ? (
-              <ProfileCoreFieldsForm
-                mode="update"
-                profileId={profile.id}
-                initialValues={{
-                  fullName: profile.fullName,
-                  email: profile.email,
-                  phone: profile.phone ?? "",
-                  location: profile.location ?? "",
-                  seniorityLevelId: profile.seniorityLevelId,
-                  yearsExperience:
-                    profile.yearsExperience?.toString() ?? "",
-                  rateExpectation:
-                    profile.rateExpectation?.toString() ?? "",
-                  rateCurrency: profile.rateCurrency,
-                  summary: profile.summary ?? "",
-                }}
-                seniorityLevels={seniorityLevels}
-                submitLabel="Save changes"
-                onSuccess={onChanged ? () => onChanged() : undefined}
-              />
-            ) : (
-              <ReadOnlyDetails profile={profile} />
             )}
-          </section>
+            <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
 
-          <section className="mt-7 border-t border-border pt-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Assigned user</h2>
+        <div className="flex flex-1 min-h-0">
+          {/* Left column — everything else */}
+          <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6 space-y-7">
+            {isAdmin && (
+              <section>
+                <SectionTitle>Assignment</SectionTitle>
+                <ProfileAssignment
+                  profileId={displayProfile.id}
+                  assignedUserId={displayProfile.assignedUserId}
+                  assignedUserName={displayProfile.assignedUserName}
+                  users={assignableUsers}
+                  isAdmin={isAdmin}
+                  onChanged={onChanged}
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  One user can be assigned to one profile at a time.
+                </p>
+              </section>
+            )}
 
-              {isAdmin && !profile.assignedUserId && (
-                <span className="text-xs text-muted-foreground">
-                  No user assigned
-                </span>
-              )}
-            </div>
+            <section>
+              <SectionTitle>Summary</SectionTitle>
+              <p className="text-sm text-foreground leading-relaxed">
+                {displayProfile.summary || "No summary provided."}
+              </p>
+            </section>
 
-            <ProfileAssignment
-              profileId={profile.id}
-              assignedUserId={profile.assignedUserId}
-              assignedUserName={profile.assignedUserName}
-              users={assignableUsers}
-              isAdmin={isAdmin}
-              onChanged={onChanged}
-            />
-
-            <p className="mt-2 text-xs text-muted-foreground">
-              One user can be assigned to one profile at a time.
-            </p>
-          </section>
-
-          <section className="mt-7 border-t border-border pt-6">
-            <h2 className="mb-4 text-sm font-semibold">CVs</h2>
-
-            <div className="flex flex-col gap-4">
+            <section>
+              <SectionTitle>CVs</SectionTitle>
               <ProfileCvList
-                cvs={cvs}
-                profileId={profile.id}
+                cvs={displayCvs}
+                profileId={displayProfile.id}
                 isAdmin={isAdmin}
                 onChanged={onChanged}
               />
-
               {isAdmin && (
-                <ProfileCvUploadForm
-                  profileId={profile.id}
-                  onChanged={onChanged}
-                />
+                <div className="mt-3">
+                  <ProfileCvUploadForm profileId={displayProfile.id} onChanged={onChanged} />
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Right column — Details */}
+          <aside className="w-[280px] shrink-0 border-l border-border bg-page-bg overflow-y-auto px-6 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs font-semibold text-foreground">Details</div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Close the drawer first so the edit dialog opens on a clean
+                    // page — otherwise the drawer's body-level pointer-events
+                    // block clicks inside the dialog.
+                    onClose();
+                    setEditOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer"
+                >
+                  <Pencil className="size-3" /> Edit
+                </button>
               )}
             </div>
-          </section>
+
+            <ReadOnlyDetails profile={displayProfile} />
+          </aside>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
+
+    <NewEditProfileDialog
+      profile={displayProfile}
+      seniorityLevels={seniorityLevels}
+      open={editOpen}
+      onOpenChange={setEditOpen}
+      onSaved={() => onChanged?.()}
+    />
+    </>
   );
 }

@@ -24,16 +24,16 @@ export function LeadNotesPanel({
   const isDirty = draft.trim() !== notes.trim()
 
   return (
-    <div className="mb-5">
-      <div className="mb-2.5 text-xs font-semibold text-[var(--fg)]">BD Notes</div>
+    <div className="flex flex-col gap-2">
+      <div className="text-xs font-semibold text-foreground">BD Notes</div>
       <Textarea
         rows={4}
         value={draft}
         onChange={event => setDraft(event.target.value)}
         placeholder="Add a note about this lead…"
-        className="w-full resize-none rounded-md border border-[var(--border-strong)] bg-[var(--secondary)] p-2 text-xs text-[var(--fg)] outline-none focus:border-[var(--primary)]"
+        className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-ring transition-shadow"
       />
-      <div className="mt-2 flex gap-2">
+      <div className="flex gap-2">
         <Button
           onClick={() => onSave(draft.trim())}
           disabled={!isDirty}
@@ -45,7 +45,7 @@ export function LeadNotesPanel({
           <Button
             variant="ghost"
             onClick={() => setDraft(notes)}
-            className="h-8 text-xs text-[var(--muted-fg)] shadow-none hover:text-[var(--fg)]"
+            className="h-8 text-xs text-muted-foreground shadow-none hover:text-foreground"
           >
             Cancel
           </Button>

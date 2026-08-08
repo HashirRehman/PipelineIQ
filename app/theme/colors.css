@@ -1,0 +1,264 @@
+/* ════════════════════════════════════════════════════════════════════════
+   🎨 THEME COLORS — single source of truth for the whole app
+   ────────────────────────────────────────────────────────────────────────
+   Imported by `app/globals.css`. EVERY color used anywhere in the app is
+   defined below as a CSS variable, in this file and nowhere else. Tailwind
+   utilities (bg-background, text-foreground, bg-primary, …) are generated
+   from them via the `@theme inline` block, and components that need inline
+   styles reference them directly with var(--…).
+
+   ▶ To re-theme the whole app: edit only the variables in this file.
+   ▶ To add a color: define its raw value below, then (if you want a
+     Tailwind utility like `bg-<name>`) register it in `@theme inline`.
+
+   Palette at a glance:
+     Surfaces   – background / card / sidebar / page-bg / popover
+     Text       – foreground / page-fg / muted-foreground / …
+     Brand      – brand-navy → brand-blue → brand-sky (Recurso Labs)
+     Status     – status-green / emerald / amber / red / slate
+     Feedback   – success / warning / info / destructive (soft bg + fg)
+     Neutrals   – border / input / ring / accent / secondary / muted
+     Extras     – avatar-1..5, scrim
+   ════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Raw brand palette (Dracula-inspired — blue instead of purple) ──── */
+  --brand-navy: #44475a;            /* dracula comment grey — brand base     */
+  --brand-blue: #3b82f6;            /* blue — primary action/brand           */
+  --brand-sky: #7dd3fc;             /* sky blue — final interview / charts   */
+  --source-greenhouse: #24a148;     /* Greenhouse job-board green            */
+
+  /* ── Semantic status colors (same in light & dark — readable on both) ── */
+  --status-green: #059669;          /* positive outcome / high score         */
+  --status-emerald: #10b981;        /* alt positive (charts, remote)         */
+  --status-amber: #d97706;          /* pending / warning / mid score         */
+  --status-amber-500: #f59e0b;      /* lighter amber (score text, amber-500)  */
+  --status-red: #ef4444;            /* danger / low score / dismissed        */
+  --status-slate: #64748b;          /* neutral / terminal                    */
+
+  /* ── Avatar initials — muted neutrals that don't compete w/ status ───── */
+  --avatar-1: #475569;              /* slate                                 */
+  --avatar-2: #4b5563;              /* cool grey                             */
+  --avatar-3: #6b7280;              /* grey                                  */
+  --avatar-4: #374151;              /* dark grey                             */
+  --avatar-5: #1e3a5f;              /* brand dark blue                       */
+
+  /* ── Scrim behind modals / sheets / drawers ──────────────────────────── */
+  --scrim: oklch(0 0 0);
+
+  /* ── Light theme ─────────────────────────────────────────────────────── */
+  color-scheme: light;
+
+  /* Surfaces */
+  --page-bg: #f6f7fb;               /* app shell / auth pages (light blue-grey) */
+  --background: #ffffff;            /* white — cards, panels                 */
+  --card: #ffffff;
+  --sidebar: #f6f7fb;
+  --popover: #ffffff;
+
+  /* Text */
+  --page-fg: #282a36;
+  --foreground: #282a36;
+  --card-foreground: #282a36;
+  --popover-foreground: #282a36;
+  --sidebar-fg: #282a36;
+  --secondary-fg: #44475a;
+
+  /* Brand / interactive */
+  --primary: #3b82f6;               /* ≈ brand-blue                          */
+  --primary-foreground: #ffffff;
+  --ring: #3b82f6;
+  --accent: #dbeafe;                /* hover / active fill — soft blue       */
+  --accent-foreground: #1d4ed8;
+
+  /* Neutral fills */
+  --secondary: #f1f2f8;
+  --secondary-foreground: #44475a;
+  --muted: #f1f2f8;
+  --muted-foreground: #6a6f84;
+
+  /* Lines */
+  --border: #e2e4f0;
+  --border-strong: #c7cbe0;
+  --input: #e2e4f0;
+
+  /* Feedback (soft tint bg + readable foreground) */
+  --success: #ecfdf5;
+  --success-foreground: #047857;
+  --warning: #fffbeb;
+  --warning-foreground: #b45309;
+  --info: #ecfeff;
+  --info-foreground: #0e7490;
+  --destructive: oklch(0.577 0.245 27);  /* ≈ status-red, darker in light  */
+  --destructive-foreground: oklch(1 0 0);
+
+  --sidebar-foreground: #282a36;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dbeafe;
+  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-border: #e2e4f0;
+  --sidebar-ring: #3b82f6;
+}
+
+/* ── Dark theme ─────────────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --page-bg: #1f2029;
+  --background: #282a36;
+  --card: #343746;
+  --sidebar: #2c2e3a;
+  --popover: #343746;
+
+  /* Text */
+  --page-fg: #f8f8f2;
+  --foreground: #f8f8f2;
+  --card-foreground: #f8f8f2;
+  --popover-foreground: #f8f8f2;
+  --sidebar-fg: #f8f8f2;
+  --secondary-fg: #f8f8f2;
+
+  /* Brand / interactive */
+  --primary: #60a5fa;               /* lighter dracula blue                 */
+  --primary-foreground: #282a36;
+  --ring: #60a5fa;
+  --accent: #44475a;
+  --accent-foreground: #93c5fd;
+
+  /* Neutral fills */
+  --secondary: #343746;
+  --secondary-foreground: #f8f8f2;
+  --muted: #343746;
+  --muted-foreground: #a3a6bd;
+
+  /* Lines */
+  --border: #44475a;
+  --border-strong: #565b71;
+  --input: #44475a;
+
+  /* Feedback */
+  --success: #022c22;
+  --success-foreground: #6ee7b7;
+  --warning: #451a03;
+  --warning-foreground: #fcd34d;
+  --info: #083344;
+  --info-foreground: #67e8f9;
+  --destructive: oklch(0.704 0.191 22);  /* lighter red for dark bg        */
+  --destructive-foreground: oklch(1 0 0);  --sidebar-foreground: #f8f8f2;
+  --sidebar-primary: #60a5fa;
+  --sidebar-primary-foreground: #282a36;
+  --sidebar-accent: #44475a;
+  --sidebar-accent-foreground: #93c5fd;
+  --sidebar-border: #44475a;
+  --sidebar-ring: #60a5fa;
+  }
+
+/* System dark preference (pre-hydration / no explicit class) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+
+    --page-bg: #1f2029;
+    --background: #282a36;
+    --card: #343746;
+    --sidebar: #2c2e3a;
+    --popover: #343746;
+    --page-fg: #f8f8f2;
+    --foreground: #f8f8f2;
+    --card-foreground: #f8f8f2;
+    --popover-foreground: #f8f8f2;
+    --sidebar-fg: #f8f8f2;
+    --secondary-fg: #f8f8f2;
+    --primary: #60a5fa;
+    --primary-foreground: #282a36;
+    --ring: #60a5fa;
+    --accent: #44475a;
+    --accent-foreground: #93c5fd;
+    --secondary: #343746;
+    --secondary-foreground: #f8f8f2;
+    --muted: #343746;
+    --muted-foreground: #a3a6bd;
+    --border: #44475a;
+    --border-strong: #565b71;
+    --input: #44475a;
+    --success: #022c22;
+    --success-foreground: #6ee7b7;
+    --warning: #451a03;
+    --warning-foreground: #fcd34d;
+    --info: #083344;
+    --info-foreground: #67e8f9;
+    --destructive: oklch(0.704 0.191 22);
+    --destructive-foreground: oklch(1 0 0);
+    --sidebar-foreground: #f8f8f2;
+    --sidebar-primary: #60a5fa;
+    --sidebar-primary-foreground: #282a36;
+    --sidebar-accent: #44475a;
+    --sidebar-accent-foreground: #93c5fd;
+    --sidebar-border: #44475a;
+    --sidebar-ring: #60a5fa;
+  }
+}
+
+/* ── Expose theme vars as Tailwind color utilities ─────────────────────
+   Every `--color-*` below becomes a class (bg-<name>, text-<name>,
+   border-<name>, from-<name>…). Add new tokens here when needed. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  /* Page surface (app shell / auth pages / drawer side panels) */
+  --color-page-bg: var(--page-bg);
+  --color-page-fg: var(--page-fg);
+  --color-border-strong: var(--border-strong);
+
+  /* Brand + status + avatar tokens (raw values at the top) */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-sky: var(--brand-sky);
+  --color-source-greenhouse: var(--source-greenhouse);
+  --color-status-green: var(--status-green);
+  --color-status-emerald: var(--status-emerald);
+  --color-status-amber: var(--status-amber);
+  --color-status-amber-500: var(--status-amber-500);
+  --color-status-red: var(--status-red);
+  --color-status-slate: var(--status-slate);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-scrim: var(--scrim);
+}

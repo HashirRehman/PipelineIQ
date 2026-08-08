@@ -1,32 +1,32 @@
 import type { ReactNode } from "react"
 
-import { cn } from "@/lib/utils"
-
-export function PageHeader({
-  title,
-  subtitle,
-  actions,
-  className,
-}: {
+interface PageHeaderProps {
   title: string
-  subtitle: string
+  description?: string
+  subtitle?: string
   actions?: ReactNode
+  breadcrumb?: string
   className?: string
-}) {
+}
+
+export function PageHeader({ title, description, subtitle, actions, breadcrumb, className }: PageHeaderProps) {
+  const sub = subtitle ?? description
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between mb-6 shrink-0",
-        className
-      )}
-    >
-      <div>
-        <h1 className="text-[22px] font-bold text-[var(--fg)] m-0">{title}</h1>
-        <p className="text-xs text-[var(--muted-fg)] mt-0.5 mb-0">{subtitle}</p>
+    <div className={`flex items-center justify-between gap-4 border-b border-border bg-background px-6 py-4 shrink-0 ${className ?? ""}`}>
+      <div className="min-w-0">
+        {breadcrumb && (
+          <p className="text-caption text-muted-foreground mb-1 font-medium uppercase tracking-wide">
+            {breadcrumb}
+          </p>
+        )}
+        <h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">
+          {title}
+        </h1>
+        {sub && (
+          <p className="text-sm text-muted-foreground mt-0.5">{sub}</p>
+        )}
       </div>
-      {actions && (
-        <div className="flex gap-2.5 flex-wrap items-center">{actions}</div>
-      )}
+      {actions && <div className="flex items-center gap-2 shrink-0 ml-4">{actions}</div>}
     </div>
   )
 }

@@ -1,49 +1,31 @@
-import type { ReactNode } from "react"
-
-import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-export function StatCard({
-  label,
-  value,
-  sub,
-  color,
-  valueClassName,
-  labelClassName,
-  className,
-}: {
+interface StatCardProps {
   label: string
-  value: ReactNode
+  value: React.ReactNode
   sub?: string
   color?: string
+  className?: string
   valueClassName?: string
   labelClassName?: string
-  className?: string
-}) {
+}
+
+export function StatCard({ label, value, sub, color, className, valueClassName, labelClassName }: StatCardProps) {
   return (
-    <Card
+    <div
       className={cn(
-        "py-4.5 px-5 gap-0 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-none ring-0",
-        className
+        "group flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        className,
       )}
     >
-      <CardContent className="p-0">
-        <div
-          className={cn(
-            "font-mono text-[26px] font-bold mb-0.5",
-            valueClassName
-          )}
-          style={{ color }}
-        >
-          {value}
-        </div>
-        <div className={cn("text-xs font-medium text-[var(--fg)] mb-0.5", labelClassName)}>
-          {label}
-        </div>
-        {sub && (
-          <div className="text-[11px] text-[var(--muted-fg)]">{sub}</div>
+      <div className="flex items-center gap-2">
+        {color && (
+          <span className="size-2 rounded-full shrink-0 transition-transform duration-200 group-hover:scale-110" style={{ background: color }} />
         )}
-      </CardContent>
-    </Card>
+        <span className={cn("text-caption font-medium uppercase tracking-wide text-muted-foreground", labelClassName)}>{label}</span>
+      </div>
+      <div className={cn("text-2xl font-bold text-foreground tabular-nums tracking-tight leading-none", valueClassName)}>{value}</div>
+      {sub && <div className="text-meta text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
   )
 }

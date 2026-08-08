@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Download, FileText, Trash2 } from "lucide-react";
 import { deleteProfileCvRequest } from "@/lib/api/profiles-client";
 import type { ProfileMutationResponse } from "@/lib/api/profiles-client";
-import { Button } from "@/components/ui/button";
 
 type CvEntry = {
   id: string;
@@ -92,33 +91,36 @@ function DeleteCvButton({
   return (
     <div className="flex shrink-0 items-center gap-2">
       {error && (
-        <p className="max-w-48 text-right text-xs leading-snug text-destructive">
+        <p className="max-w-40 text-right text-xs leading-snug text-destructive">
           {error}
         </p>
       )}
 
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
         onClick={handleDelete}
         disabled={isPending}
         aria-label={
-          isConfirming ? `Confirm deletion of ${cv.fileName}` : `Delete ${cv.fileName}`
-        }
-        className={
           isConfirming
-            ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
-            : "text-muted-foreground hover:text-destructive"
+            ? `Confirm deletion of ${cv.fileName}`
+            : `Delete ${cv.fileName}`
         }
+        className={[
+          "flex size-7 items-center justify-center rounded transition-colors disabled:opacity-50 cursor-pointer",
+          isConfirming
+            ? "bg-destructive/10 text-destructive"
+            : "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+        ].join(" ")}
       >
         {isPending ? (
           <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
         ) : (
           <Trash2 className="size-3.5" />
         )}
-        {isConfirming && !isPending ? "Confirm?" : null}
-      </Button>
+      </button>
+      {isConfirming && !isPending && (
+        <span className="text-xs font-medium text-destructive">Confirm?</span>
+      )}
     </div>
   );
 }
@@ -146,60 +148,44 @@ export function ProfileCvList({
 
   if (cvs.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center">
-        <FileText className="mx-auto size-8 text-muted-foreground" />
-        <p className="mt-2 text-sm text-muted-foreground">
-          No CVs uploaded yet.
-        </p>
-      </div>
+      <p className="py-3 text-center text-xs text-muted-foreground">
+        No CVs uploaded yet.
+      </p>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col divide-y divide-border">
       {cvs.map((cv) => (
-        <li
-          key={cv.id}
-          className="overflow-hidden rounded-lg border border-border bg-muted/30"
-        >
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-                <FileText className="size-4" />
-              </div>
-
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {cv.fileName}
-                </p>
-
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Uploaded {formatUploadDate(cv.createdAt)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              {cv.downloadUrl && (
-                <a
-                  href={cv.downloadUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
-                >
-                  <Download className="size-3.5" />
-                  Download
-                </a>
-              )}
-
-              {isAdmin && (
-                <DeleteCvButton
-                  profileId={profileId}
-                  cv={cv}
-                  onDeleted={handleDeleted}
-                />
-              )}
-            </div>
+        <li key={cv.id} className="flex items-center gap-3 py-2.5">
+          <FileText className="size-4 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">
+              {cv.fileName}
+            </p>
+            <p className="text-meta text-muted-foreground">
+              {formatUploadDate(cv.createdAt)}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {cv.downloadUrl && (
+              <a
+                href={cv.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-7 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Download"
+              >
+                <Download className="size-3.5" />
+              </a>
+            )}
+            {isAdmin && (
+              <DeleteCvButton
+                profileId={profileId}
+                cv={cv}
+                onDeleted={handleDeleted}
+              />
+            )}
           </div>
         </li>
       ))}

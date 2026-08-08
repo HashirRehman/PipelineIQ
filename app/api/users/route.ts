@@ -116,10 +116,14 @@ export async function GET() {
     joinedAt: new Date().toISOString().split("T")[0],
   };
 
+  // GET is already admin-gated above (403 for non-admins), so a successful
+  // response means the caller is an admin — surface that so the UI can show
+  // the admin-only controls (invite, edit, deactivate/activate).
   return NextResponse.json({
     users,
     roles,
     currentUser: currentUserObj,
+    isAdmin: true,
   });
 }
 

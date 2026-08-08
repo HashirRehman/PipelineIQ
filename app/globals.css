@@ -1,118 +1,78 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./theme/colors.css";
+@import "./theme/typography.css";
+@import "./theme/patterns.css";
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --font-heading: var(--font-sans);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
+/* ════════════════════════════════════════════════════════════════════════
+   GLOBAL STYLES & REMAINING TOKENS
+   ────────────────────────────────────────────────────────────────────────
+   The theme is split across app/theme/:
+     colors.css     — every color token + Tailwind color utilities
+     typography.css — fonts, sizes, weights, spacing
+     patterns.css   — page-background textures
+   This file keeps the non-color tokens (radius, elevation shadows) and the
+   app-wide element styles (base layer, scrollbars, hover rings, scrim).
+   ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg: #f8fafc;
-  --fg: #0f172a;
-  --card: #ffffff;
-  --sidebar: #ffffff;
-  --sidebar-fg: #0f172a;
-  --primary: #06b6d4;
-  --secondary: #f1f5f9;
-  --secondary-fg: #475569;
-  --muted: #f1f5f9;
-  --muted-fg: #94a3b8;
-  --border: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.14);
-  --ring: #06b6d4;
-  --radius: 8px;
+  --radius: 0.5rem;
 
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary-foreground: #ffffff;
-  --secondary-foreground: #0f172a;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --success: #ecfdf5;
-  --success-foreground: #047857;
-  --warning: #fffbeb;
-  --warning-foreground: #b45309;
-  --info: #ecfeff;
-  --info-foreground: #0e7490;
-  --input: rgba(15, 23, 42, 0.14);
+  /* ── Elevation — soft, layered shadows (Tailwind v4 `shadow-*` utilities) ──
+     Defined as raw tokens here so dark mode can tune them, and exposed
+     through `@theme inline` below. Prefer elevation over borders for depth. */
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.06), 0 1px 3px -1px oklch(0 0 0 / 0.06);
+  --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.06), 0 4px 8px -2px oklch(0 0 0 / 0.07);
+  --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.08), 0 12px 20px -6px oklch(0 0 0 / 0.12);
+  --shadow-xl: 0 8px 16px -4px oklch(0 0 0 / 0.1), 0 20px 32px -8px oklch(0 0 0 / 0.14);
+  --shadow-2xl: 0 12px 24px -6px oklch(0 0 0 / 0.12), 0 28px 48px -12px oklch(0 0 0 / 0.18);
 }
 
+/* ── Dark theme elevation — deeper shadows so elevation reads on dark ── */
 .dark {
-  --bg: #060d1a;
-  --fg: #e2e8f0;
-  --card: #0c1628;
-  --sidebar: #040a14;
-  --sidebar-fg: #94a3b8;
-  --primary: #06b6d4;
-  --secondary: #0f1e33;
-  --secondary-fg: #94a3b8;
-  --muted: #0a1525;
-  --muted-fg: #64748b;
-  --border: rgba(255, 255, 255, 0.055);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --ring: #06b6d4;
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.32), 0 1px 3px -1px oklch(0 0 0 / 0.35);
+  --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.38), 0 4px 8px -2px oklch(0 0 0 / 0.42);
+  --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.45), 0 12px 20px -6px oklch(0 0 0 / 0.5);
+  --shadow-xl: 0 8px 16px -4px oklch(0 0 0 / 0.5), 0 20px 32px -8px oklch(0 0 0 / 0.55);
+  --shadow-2xl: 0 12px 24px -6px oklch(0 0 0 / 0.55), 0 28px 48px -12px oklch(0 0 0 / 0.6);
+}
 
-  --background: #060d1a;
-  --foreground: #e2e8f0;
-  --card-foreground: #e2e8f0;
-  --popover: #0c1628;
-  --popover-foreground: #e2e8f0;
-  --primary-foreground: #ffffff;
-  --secondary-foreground: #e2e8f0;
-  --muted-foreground: #64748b;
-  --accent: #0f1e33;
-  --accent-foreground: #e2e8f0;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --success: #022c22;
-  --success-foreground: #6ee7b7;
-  --warning: #451a03;
-  --warning-foreground: #fcd34d;
-  --info: #083344;
-  --info-foreground: #67e8f9;
-  --input: rgba(255, 255, 255, 0.1);
+/* System dark preference (pre-hydration / no explicit class) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.3);
+    --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.32), 0 1px 3px -1px oklch(0 0 0 / 0.35);
+    --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.38), 0 4px 8px -2px oklch(0 0 0 / 0.42);
+    --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.45), 0 12px 20px -6px oklch(0 0 0 / 0.5);
+    --shadow-xl: 0 8px 16px -4px oklch(0 0 0 / 0.5), 0 20px 32px -8px oklch(0 0 0 / 0.55);
+    --shadow-2xl: 0 12px 24px -6px oklch(0 0 0 / 0.55), 0 28px 48px -12px oklch(0 0 0 / 0.6);
+  }
+}
+
+/* ── Expose radius + elevation as Tailwind utilities ──────────────────── */
+@theme inline {
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Elevation — wire shadow utilities to the runtime tokens above so the
+     `.dark` overrides (and future palette overrides) take effect. Without
+     this, Tailwind bakes the default shadow values into the utilities. */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
 }
 
 @layer base {
@@ -129,19 +89,36 @@
 
 .mono { font-family: var(--font-mono) !important; }
 
+/* Scrollbars — theme slate, tinted via the status-slate token */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.25); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.5); }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--status-slate) 25%, transparent); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--status-slate) 50%, transparent); }
 
 input, textarea, select, button { font-family: var(--font-sans); }
 
-.card-hover:hover { border-color: rgba(6, 182, 212, 0.3) !important; transform: translateY(-1px); }
-.job-card:hover { border-color: rgba(6, 182, 212, 0.25) !important; }
+/* Gooey input clear button — drawn in the pill's text color (white on the
+   dark pill in light mode, black on the light pill in dark mode) */
+.gooey-input input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+  cursor: pointer;
+}
+
+/* Hover rings — brand blue, theme-driven */
+.card-hover:hover { border-color: color-mix(in srgb, var(--brand-blue) 30%, transparent) !important; transform: translateY(-1px); }
+.job-card:hover { border-color: color-mix(in srgb, var(--brand-blue) 25%, transparent) !important; }
 
 body { position: relative; }
 
+/* Modal / drawer scrim — uses the --scrim token */
 [data-slot="drawer-overlay"] {
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: color-mix(in srgb, var(--scrim) 60%, transparent);
   backdrop-filter: blur(2px);
 }

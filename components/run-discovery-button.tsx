@@ -53,7 +53,7 @@ export function RunDiscoveryButton() {
       )}
 
       {state.status === "error" && (
-        <p role="alert" className="text-sm text-destructive dark:text-red-400">
+        <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       )}

@@ -1,68 +1,49 @@
-import Image from "next/image";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { PipelineIQLogo } from "@/components/pipelineiq-logo";
-import { LoginForm } from "./login-form";
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { PipelineIQLogo } from "@/components/pipelineiq-logo"
+import { LoginForm } from "./login-form"
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string }>
 }) {
-  const supabase = await createClient();
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) redirect("/")
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    redirect("/");
-  }
-
-  const { error } = await searchParams;
+  const { error } = await searchParams
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg)] px-6 py-12 text-[var(--fg)]">
-      <div className="w-full max-w-4xl">
-        <div className="flex justify-center">
+    <div className="min-h-screen bg-page-bg flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
           <PipelineIQLogo size="lg" />
         </div>
 
-        <div className="mt-12 grid items-center gap-12 md:grid-cols-2 md:gap-16">
-          {/* Brand panel */}
-          <div className="flex flex-col items-center text-center">
-            <Image
-              src="/lead-gen.png"
-              alt=""
-              width={539}
-              height={428}
-              priority
-              className="h-auto w-full max-w-[280px]"
-            />
-            <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight uppercase">
-              Automate Lead Gen
-            </h1>
-            <p className="mt-3 max-w-xs text-sm text-[var(--muted-fg)]">
-              PipelineIQ helps you automate candidate profiles, job discovery,
-              and lead tracking — end to end.
+        {/* Card */}
+        <div className="bg-background rounded-xl border border-border shadow-sm px-8 py-8">
+          <div className="mb-6">
+            <h1 className="text-base font-semibold text-foreground">Sign in to your account</h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter your email and password to continue.
             </p>
           </div>
 
-          {/* Login panel */}
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl sm:p-8">
-            {error === "auth_link_invalid" && (
-              <Alert variant="destructive" className="mb-6">
-                <AlertDescription>
-                  Your link has expired or already been used. Request a new
-                  invite or password reset.
-                </AlertDescription>
-              </Alert>
-            )}
-            <LoginForm />
-          </div>
+          {error && (
+            <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
+              <p className="text-xs text-destructive">{decodeURIComponent(error)}</p>
+            </div>
+          )}
+
+          <LoginForm />
         </div>
+
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          PipelineIQ &mdash; Recurso Labs
+        </p>
       </div>
     </div>
-  );
+  )
 }
