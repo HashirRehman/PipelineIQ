@@ -43,14 +43,14 @@ export default function ConfirmAuthPage() {
   if (error) {
     return (
       <div className="mx-auto max-w-sm p-8">
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-sm p-8">
-      <p className="text-sm text-gray-600">Confirming your link…</p>
+      <p className="text-sm text-muted-foreground">Confirming your link…</p>
     </div>
   );
 }

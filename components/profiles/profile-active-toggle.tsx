@@ -69,7 +69,7 @@ export function ProfileActiveToggle({
       >
         <span
           className={cn(
-            "pointer-events-none block size-4 rounded-full bg-white shadow-sm transition-transform",
+            "pointer-events-none block size-4 rounded-full bg-primary-foreground shadow-sm transition-transform",
             displayActive ? "translate-x-4" : "translate-x-0",
           )}
         />

@@ -24,7 +24,7 @@ export function PipelineIQLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
         <div className={`${titleClass} font-bold tracking-tight text-foreground leading-none`}>
           Pipeline<span className="text-primary">IQ</span>
         </div>
-        <div className="text-[10px] text-muted-foreground tracking-widest uppercase font-medium mt-0.5">
+        <div className="text-caption text-muted-foreground tracking-widest uppercase font-medium mt-0.5">
           Recurso Labs
         </div>
       </div>

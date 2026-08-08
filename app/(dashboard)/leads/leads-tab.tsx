@@ -91,10 +91,10 @@ export default function LeadsTab() {
 
       {/* Toolbar — compact row */}
       <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-background shrink-0">
-        <span className="text-[14px] font-semibold text-foreground mr-1">
+        <span className="text-sm font-semibold text-foreground mr-1">
           Leads
         </span>
-        <span className="flex size-5 items-center justify-center rounded bg-accent text-[11px] font-semibold text-muted-foreground tabular-nums">
+        <span className="flex size-5 items-center justify-center rounded bg-accent text-meta font-semibold text-muted-foreground tabular-nums">
           {filtered.length}
         </span>
 
@@ -108,7 +108,7 @@ export default function LeadsTab() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search leads..."
-            className="h-7 w-full rounded border border-border bg-transparent pl-7 pr-2 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition"
+            className="h-7 w-full rounded border border-border bg-transparent pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition"
           />
         </div>
 
@@ -117,7 +117,7 @@ export default function LeadsTab() {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as LeadStatus | "all")}
-            className="h-7 appearance-none rounded border border-border bg-transparent pl-2.5 pr-6 text-[12px] text-muted-foreground outline-none hover:border-border/80 focus:border-primary/50 cursor-pointer transition"
+            className="h-7 appearance-none rounded border border-border bg-transparent pl-2.5 pr-6 text-xs text-muted-foreground outline-none hover:border-border/80 focus:border-primary/50 cursor-pointer transition"
           >
             <option value="all">Status: any</option>
             {LEAD_STATUSES.map(s => (
@@ -130,7 +130,7 @@ export default function LeadsTab() {
         {/* Overdue chip */}
         <button
           type="button"
-          className="h-7 px-2.5 rounded border border-border text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground transition cursor-pointer"
+          className="h-7 px-2.5 rounded border border-border text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition cursor-pointer"
         >
           Overdue
         </button>
@@ -142,7 +142,7 @@ export default function LeadsTab() {
               type="button"
               onClick={() => setView("list")}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 h-7 text-[12px] transition cursor-pointer",
+                "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer",
                 view === "list"
                   ? "bg-accent text-foreground font-medium"
                   : "text-muted-foreground hover:bg-accent/50",
@@ -156,7 +156,7 @@ export default function LeadsTab() {
               type="button"
               onClick={() => setView("board")}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 h-7 text-[12px] transition cursor-pointer",
+                "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer",
                 view === "board"
                   ? "bg-accent text-foreground font-medium"
                   : "text-muted-foreground hover:bg-accent/50",
@@ -169,7 +169,7 @@ export default function LeadsTab() {
 
           <button
             type="button"
-            className="flex items-center gap-1.5 h-7 rounded bg-primary px-3 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
+            className="flex items-center gap-1.5 h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
           >
             <Plus className="size-3.5" />
             New lead
@@ -207,16 +207,15 @@ export default function LeadsTab() {
         )}
       </div>
 
-      {selectedLead && (
-        <JobDrawer
-          job={jobForLead(selectedLead)}
-          onClose={() => setSelectedLead(null)}
-          activeProfile={profiles[0]}
-          showActions={false}
-          notes={selectedLead.bdNotes}
-          onNotesSave={value => saveNote(selectedLead.id, value)}
-        />
-      )}
+      <JobDrawer
+        open={selectedLead !== null}
+        job={selectedLead ? jobForLead(selectedLead) : null}
+        onClose={() => setSelectedLead(null)}
+        activeProfile={profiles[0]}
+        showActions={false}
+        notes={selectedLead?.bdNotes}
+        onNotesSave={value => { if (selectedLead) saveNote(selectedLead.id, value) }}
+      />
     </div>
   )
 }

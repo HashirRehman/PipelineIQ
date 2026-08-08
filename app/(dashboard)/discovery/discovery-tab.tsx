@@ -1,20 +1,12 @@
 "use client"
 import { useEffect, useState } from "react"
-import { Loader2, Briefcase, MapPin, Clock, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react"
+import { Loader2, Briefcase, MapPin, Clock, ChevronLeft, ChevronRight, SlidersHorizontal, Bookmark } from "lucide-react"
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { PageHeader } from "@/components/page-header"
 import { SearchInput } from "@/components/search-input"
 import { RunDiscoveryButton } from "@/components/run-discovery-button"
 import { TintedBadge } from "@/components/tinted-badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { JOB_STATUS_BG, JOB_STATUS_BORDER, PARSER_COLOR, WORK_TYPE_COLOR } from "@/lib/constants"
+import { JOB_STATUS_BG, JOB_STATUS_BORDER, PARSER_COLOR, WORK_TYPE_COLOR, scoreColor } from "@/lib/constants"
 import { timeAgo } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import JobDrawer, { type Job } from "@/components/job-drawer"
@@ -61,7 +53,7 @@ export default function DiscoveryTab() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
-  const [pendingDismissId, setPendingDismissId] = useState<string | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(true)
 
   const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, region: regionFilter })
   const loading = appliedKey !== loadingKey
@@ -122,95 +114,13 @@ export default function DiscoveryTab() {
     }
     setJobs(js => js.filter(j => j.id !== id))
     if (selectedJob?.id === id) setSelectedJob(null)
-    setPendingDismissId(null)
     setDismissReason("")
-  }
-
-  const startDismiss = (id: string) => {
-    setPendingDismissId(id)
-    setDismissOpen(true)
-    setDismissReason("")
-  }
-
-  const confirmDismiss = () => {
-    if (pendingDismissId && dismissReason.trim()) {
-      handleDismiss(pendingDismissId, dismissReason)
-      setDismissOpen(false)
-    }
   }
 
   const isActiveFilter = parserFilter !== "All Sources" || workTypeFilter !== "All Types" || regionFilter !== "Global"
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
-      {/* Left filter sidebar */}
-      <aside className="w-[220px] shrink-0 border-r border-border bg-muted/30 overflow-y-auto flex flex-col">
-        <div className="flex items-center justify-between px-4 pt-4 pb-3">
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <SlidersHorizontal className="size-3.5" /> Filters
-          </span>
-          {isActiveFilter && (
-            <button
-              type="button"
-              onClick={() => { setParserFilter("All Sources"); setWorkTypeFilter("All Types"); setRegionFilter("Global"); setPage(1) }}
-              className="text-[11px] text-primary hover:underline cursor-pointer"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-        {/* Work Type */}
-        <div className="px-4 pb-4">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Work Type</p>
-          <div className="flex flex-col gap-0.5">
-            {WORK_TYPES.map(wt => (
-              <FilterOption
-                key={wt}
-                active={workTypeFilter === wt}
-                onClick={() => changeWorkType(wt)}
-                dot={wt !== "All Types" ? WORK_TYPE_COLOR[wt] : undefined}
-              >
-                {wt === "All Types" ? "All Types" : wt.charAt(0).toUpperCase() + wt.slice(1)}
-              </FilterOption>
-            ))}
-          </div>
-        </div>
-
-        {/* Source */}
-        <div className="px-4 pb-4">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Source</p>
-          <div className="flex flex-col gap-0.5">
-            {PARSERS.map(p => (
-              <FilterOption
-                key={p}
-                active={parserFilter === p}
-                onClick={() => changeParser(p)}
-                dot={p !== "All Sources" ? PARSER_COLOR[p] : undefined}
-              >
-                {p}
-              </FilterOption>
-            ))}
-          </div>
-        </div>
-
-        {/* Region */}
-        <div className="px-4 pb-4">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Region</p>
-          <div className="flex flex-col gap-0.5">
-            {REGIONS.map(r => (
-              <FilterOption
-                key={r}
-                active={regionFilter === r}
-                onClick={() => changeRegion(r)}
-              >
-                {r}
-              </FilterOption>
-            ))}
-          </div>
-        </div>
-      </aside>
-
       {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
         {/* Header */}
@@ -225,18 +135,31 @@ export default function DiscoveryTab() {
           }
         />
 
-        {/* Search bar */}
-        <div className="px-5 py-3 border-b border-border bg-background shrink-0">
+        {/* Search bar + filters toggle */}
+        <div className="flex justify-between items-center gap-2 px-5 py-3 border-b border-border bg-background shrink-0">
           <SearchInput
             value={search}
             onChange={changeSearch}
             placeholder="Search jobs by title, company, or location..."
-            className="max-w-xl"
+            className="flex-1 max-w-xl"
             inputClassName="rounded-[7px]"
           />
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(open => !open)}
+            className={cn(
+              "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer",
+              filtersOpen
+                ? "border-border bg-accent text-foreground"
+                : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+          >
+            <SlidersHorizontal className="size-3.5" />
+            Filters
+          </button>
         </div>
 
-        {/* Jobs list */}
+        {/* Jobs grid + pagination */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {error ? (
             <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -256,110 +179,121 @@ export default function DiscoveryTab() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {jobs.map(job => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onClick={() => setSelectedJob(job)}
-                  onApply={() => handleApply(job.id)}
-                  onMarkApplied={() => handleMarkApplied(job.id)}
-                  onDismiss={() => startDismiss(job.id)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {jobs.map(job => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    onClick={() => setSelectedJob(job)}
+                  />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <Pagination page={page} totalPages={totalPages} onChange={setPage} className="mt-6" />
+              )}
+            </>
           )}
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-background shrink-0">
-            <span className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Job detail drawer */}
-      {selectedJob && (
-        <JobDrawer
-          job={selectedJob}
-          activeProfile={profile}
-          onClose={() => setSelectedJob(null)}
-          onApply={handleApply}
-          onMarkApplied={handleMarkApplied}
-          onDismiss={handleDismiss}
-          showActions={true}
-          dismissOpen={dismissOpen}
-          setDismissOpen={setDismissOpen}
-          dismissReason={dismissReason}
-          setDismissReason={setDismissReason}
-        />
-      )}
-
-      {/* Inline dismiss dialog (shown when no drawer is open) */}
-      <Dialog open={dismissOpen && !selectedJob} onOpenChange={setDismissOpen}>
-        <DialogContent
-          overlayClassName="bg-black/50"
-          showCloseButton={false}
-          className="w-[380px] max-w-[380px] sm:max-w-[380px] bg-card text-foreground border border-border rounded-lg p-5 shadow-2xl gap-0 ring-0"
+      {/* Right filter sidebar */}
+      <aside
+        className={cn(
+          "shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+          filtersOpen ? "w-[240px]" : "w-0",
+        )}
+      >
+        <div
+          className={cn(
+            "flex h-full w-[240px] flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-200",
+            filtersOpen ? "opacity-100" : "opacity-0",
+          )}
         >
-          <DialogHeader className="p-0 mb-3">
-            <DialogTitle className="text-[15px] font-semibold text-foreground">Dismiss Job</DialogTitle>
-          </DialogHeader>
-          <DialogDescription className="hidden" />
-          <Textarea
-            rows={3}
-            placeholder="Reason for dismissal (required)…"
-            value={dismissReason}
-            onChange={e => setDismissReason(e.target.value)}
-            className="w-full p-2.5 bg-muted/40 border-border rounded-md text-foreground text-xs resize-none mb-3 focus:border-primary"
-          />
-          <div className="flex gap-2.5">
-            <button
-              type="button"
-              onClick={confirmDismiss}
-              disabled={!dismissReason.trim()}
-              className={`flex-1 h-auto py-2.25 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                dismissReason.trim()
-                  ? "bg-red-500 text-white hover:bg-red-600"
-                  : "bg-secondary text-muted-foreground cursor-default"
-              }`}
-            >
-              Confirm Dismiss
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDismissOpen(false)
-                setPendingDismissId(null)
-              }}
-              className="flex-1 h-auto py-2.25 rounded-md border border-border text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center justify-between px-4 pt-4 pb-3">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <SlidersHorizontal className="size-3.5" /> Filters
+            </span>
+            {isActiveFilter && (
+              <button
+                type="button"
+                onClick={() => { setParserFilter("All Sources"); setWorkTypeFilter("All Types"); setRegionFilter("Global"); setPage(1) }}
+                className="text-meta text-primary hover:underline cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Work Type */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Work Type</p>
+            <div className="flex flex-col gap-0.5">
+              {WORK_TYPES.map(wt => (
+                <FilterOption
+                  key={wt}
+                  active={workTypeFilter === wt}
+                  onClick={() => changeWorkType(wt)}
+                  dot={wt !== "All Types" ? WORK_TYPE_COLOR[wt] : undefined}
+                >
+                  {wt === "All Types" ? "All Types" : wt.charAt(0).toUpperCase() + wt.slice(1)}
+                </FilterOption>
+              ))}
+            </div>
+          </div>
+
+          {/* Source (disabled — not implemented yet) */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Source</p>
+            <div className="flex flex-col gap-0.5">
+              {PARSERS.map(p => (
+                <FilterOption
+                  key={p}
+                  active={parserFilter === p}
+                  onClick={() => changeParser(p)}
+                  disabled={p !== "All Sources"}
+                  dot={p !== "All Sources" ? PARSER_COLOR[p] : undefined}
+                >
+                  {p}
+                </FilterOption>
+              ))}
+            </div>
+          </div>
+
+          {/* Region */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Region</p>
+            <div className="flex flex-col gap-0.5">
+              {REGIONS.map(r => (
+                <FilterOption
+                  key={r}
+                  active={regionFilter === r}
+                  onClick={() => changeRegion(r)}
+                >
+                  {r}
+                </FilterOption>
+              ))}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Job detail drawer */}
+      <JobDrawer
+        open={selectedJob !== null}
+        job={selectedJob}
+        activeProfile={profile}
+        onClose={() => setSelectedJob(null)}
+        onApply={handleApply}
+        onMarkApplied={handleMarkApplied}
+        onDismiss={handleDismiss}
+        showActions={true}
+        dismissOpen={dismissOpen}
+        setDismissOpen={setDismissOpen}
+        dismissReason={dismissReason}
+        setDismissReason={setDismissReason}
+      />
     </div>
   )
 }
@@ -371,21 +305,26 @@ function FilterOption({
   onClick,
   children,
   dot,
+  disabled = false,
 }: {
   active: boolean
   onClick: () => void
   children: React.ReactNode
   dot?: string
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "flex items-center gap-2 w-full rounded px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer",
+        disabled && "opacity-40 cursor-not-allowed",
         active
           ? "bg-primary/10 font-semibold text-primary"
-          : "text-foreground hover:bg-accent"
+          : "text-foreground",
+        !disabled && !active && "hover:bg-accent",
       )}
     >
       {dot && <span className="size-1.5 rounded-full shrink-0" style={{ background: dot }} />}
@@ -397,47 +336,38 @@ function FilterOption({
 function JobCard({
   job,
   onClick,
-  onApply,
-  onMarkApplied,
-  onDismiss,
 }: {
   job: Job
   onClick: () => void
-  onApply: () => void
-  onMarkApplied: () => void
-  onDismiss: () => void
 }) {
   const score = job.relevanceScore ?? 0
-  const scoreColor = score >= 70 ? "#059669" : score >= 40 ? "#d97706" : "#ef4444"
-  const parserColor = PARSER_COLOR[job.parser] ?? "#64748b"
-  const workColor = WORK_TYPE_COLOR[job.workType] ?? "#64748b"
+  const scoreRingColor = scoreColor(score)
+  const parserColor = PARSER_COLOR[job.parser] ?? "var(--status-slate)"
+  const workColor = WORK_TYPE_COLOR[job.workType] ?? "var(--status-slate)"
 
   return (
     <div
       onClick={onClick}
-      className="group rounded-lg border bg-card p-4 cursor-pointer transition-all hover:border-primary/30 hover:shadow-sm"
+      className="group flex flex-col rounded-lg border bg-card p-4 cursor-pointer transition-all hover:border-primary/30 hover:shadow-sm"
       style={{
         borderColor: JOB_STATUS_BORDER[job.status] ?? "var(--border)",
-        background: JOB_STATUS_BG[job.status] || "var(--card)",
+        background: JOB_STATUS_BG[job.status] === "transparent" ? "var(--card)" : JOB_STATUS_BG[job.status],
       }}
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
             <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
               {job.title}
             </h3>
-            {job.status === "applied" && <TintedBadge color="#059669">Applied</TintedBadge>}
-            {job.status === "dismissed" && <TintedBadge color="#ef4444">Dismissed</TintedBadge>}
-            {job.possiblyClosed && <TintedBadge color="#d97706">Possibly Closed</TintedBadge>}
+            {job.status === "applied" && <TintedBadge color="var(--status-green)">Applied</TintedBadge>}
+            {job.status === "dismissed" && <TintedBadge color="var(--status-red)">Dismissed</TintedBadge>}
+            {job.possiblyClosed && <TintedBadge color="var(--status-amber)">Possibly Closed</TintedBadge>}
           </div>
           <p className="text-xs text-muted-foreground mb-2">{job.company}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="size-3" />{job.location}
-            </span>
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="size-3" />{timeAgo(job.postedAt)}
             </span>
             <TintedBadge color={workColor}>{job.workType}</TintedBadge>
             <TintedBadge color={parserColor}>{job.parser}</TintedBadge>
@@ -450,49 +380,106 @@ function JobCard({
             <svg width="40" height="40" viewBox="0 0 40 40">
               <circle cx="20" cy="20" r="16" fill="none" stroke="var(--border)" strokeWidth="3" />
               <circle
-                cx="20" cy="20" r="16" fill="none" stroke={scoreColor} strokeWidth="3"
+                cx="20" cy="20" r="16" fill="none" stroke={scoreRingColor} strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 16}
                 strokeDashoffset={2 * Math.PI * 16 * (1 - score / 100)}
                 transform="rotate(-90 20 20)"
               />
-              <text x="20" y="24" textAnchor="middle" fill="currentColor" fontSize="9" fontWeight="700">{score}</text>
+              <text x="20" y="24" textAnchor="middle" fill="currentColor" style={{ fontSize: "var(--text-micro)", fontWeight: 700 }}>{score}</text>
             </svg>
           </div>
         )}
       </div>
 
-      {/* Inline actions */}
-      {job.status === "new" && (
-        <div
-          className="flex items-center gap-2 mt-3 pt-3 border-t border-border"
-          onClick={e => e.stopPropagation()}
+      {/* Footer: save (disabled) + time */}
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+        <button
+          type="button"
+          disabled
+          title="Save (coming soon)"
+          aria-label="Save job (coming soon)"
+          className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
         >
-          <a
-            href={job.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onApply}
-            className="inline-flex items-center justify-center h-7 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-          >
-            Apply
-          </a>
+          <Bookmark className="size-3.5" />
+        </button>
+        <span className="flex items-center gap-1 text-meta text-muted-foreground">
+          <Clock className="size-3" />{timeAgo(job.postedAt)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function getPageItems(current: number, total: number): (number | "…")[] {
+  const items: (number | "…")[] = []
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || Math.abs(i - current) <= 1) {
+      items.push(i)
+    } else if (items[items.length - 1] !== "…") {
+      items.push("…")
+    }
+  }
+  return items
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onChange,
+  className,
+}: {
+  page: number
+  totalPages: number
+  onChange: (p: number) => void
+  className?: string
+}) {
+  const items = getPageItems(page, totalPages)
+
+  return (
+    <div className={cn("flex items-center justify-center gap-1", className)}>
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(1, page - 1))}
+        disabled={page <= 1}
+        className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
+        aria-label="Previous page"
+      >
+        <ChevronLeft className="size-4" />
+      </button>
+
+      {items.map((item, i) =>
+        item === "…" ? (
+          <span key={`ellipsis-${i}`} className="flex size-8 items-center justify-center text-xs text-muted-foreground">
+            …
+          </span>
+        ) : (
           <button
+            key={item}
             type="button"
-            onClick={onMarkApplied}
-            className="h-7 rounded-md border border-border px-3 text-xs text-foreground hover:bg-accent transition-colors cursor-pointer"
+            onClick={() => onChange(item)}
+            aria-current={item === page ? "page" : undefined}
+            className={cn(
+              "flex size-8 items-center justify-center rounded border text-xs font-medium transition-colors cursor-pointer",
+              item === page
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+            )}
           >
-            Mark Applied
+            {item}
           </button>
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="h-7 rounded-md border border-border px-3 text-xs text-muted-foreground hover:bg-accent transition-colors cursor-pointer"
-          >
-            Dismiss
-          </button>
-        </div>
+        ),
       )}
+
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(totalPages, page + 1))}
+        disabled={page >= totalPages}
+        className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
+        aria-label="Next page"
+      >
+        <ChevronRight className="size-4" />
+      </button>
     </div>
   )
 }

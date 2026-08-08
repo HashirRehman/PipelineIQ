@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   description: "Internal profile placement and BD tracking platform",
 };
 
+// Browser-chrome colors (static meta tags — cannot use CSS variables).
+// These mirror the theme surfaces in `app/globals.css`: light `--background`
+// (white) and dark `--background` (#212121). Keep in sync when re-theming.
 export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [

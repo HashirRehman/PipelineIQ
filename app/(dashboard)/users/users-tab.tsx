@@ -21,7 +21,7 @@ function mapRoleName(name: string): "admin" | "lead" | "bd" {
   return "bd"
 }
 
-const labelClass = "block text-[11px] font-medium text-muted-foreground mb-1"
+const labelClass = "block text-meta font-medium text-muted-foreground mb-1"
 const inputClass = "h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
 
 /* ─── Invite Modal ─── */
@@ -56,8 +56,8 @@ function InviteModal({ roles, onClose, onInvite }: { roles: RoleOption[]; onClos
 
         {sent ? (
           <div className="p-8 text-center">
-            <div className="size-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-              <Check className="size-5 text-green-600" />
+            <div className="size-12 rounded-full bg-status-green/10 flex items-center justify-center mx-auto mb-4">
+              <Check className="size-5 text-status-green" />
             </div>
             <p className="text-sm font-semibold text-foreground mb-1">Invitation sent!</p>
             <p className="text-xs text-muted-foreground mb-5">An invite email has been sent to {email}</p>
@@ -77,7 +77,12 @@ function InviteModal({ roles, onClose, onInvite }: { roles: RoleOption[]; onClos
                   return (
                     <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
                       className="flex-1 h-9 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
-                      style={{ background: sel ? color + "18" : "var(--muted)", border: `1px solid ${sel ? color + "40" : "var(--border)"}`, color: sel ? color : "var(--foreground)", fontWeight: sel ? 700 : 400 }}>
+                      style={{
+                        background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
+                        border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
+                        color: sel ? color : "var(--foreground)",
+                        fontWeight: sel ? 700 : 400,
+                      }}>
                       {r.name}
                     </button>
                   )
@@ -141,7 +146,12 @@ function EditUserModal({ user, roles, isSelf, onClose, onSave }: { user: ApiAppU
                   return (
                     <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
                       className="flex-1 h-9 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
-                      style={{ background: sel ? color + "18" : "var(--muted)", border: `1px solid ${sel ? color + "40" : "var(--border)"}`, color: sel ? color : "var(--foreground)", fontWeight: sel ? 700 : 400 }}>
+                      style={{
+                        background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
+                        border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
+                        color: sel ? color : "var(--foreground)",
+                        fontWeight: sel ? 700 : 400,
+                      }}>
                       {r.name}
                     </button>
                   )
@@ -149,7 +159,7 @@ function EditUserModal({ user, roles, isSelf, onClose, onSave }: { user: ApiAppU
               </div>
             </div>
           )}
-          {isSelf && <p className="text-[10px] text-muted-foreground">You cannot change your own role.</p>}
+          {isSelf && <p className="text-caption text-muted-foreground">You cannot change your own role.</p>}
           <div className="flex gap-2.5 pt-1">
             <button type="button" onClick={onClose} className="flex-1 h-9 rounded-md border border-border text-sm text-foreground hover:bg-accent transition-colors cursor-pointer">Cancel</button>
             <button type="button" onClick={handleSave} disabled={!name.trim() || loading}
@@ -326,9 +336,9 @@ export default function UsersTab() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-3 px-6 py-4 border-b border-border bg-background shrink-0">
-        <StatCard label="Total Members" value={users.length} color="#0078d4" />
-        <StatCard label="Active" value={activeCount} color="#059669" />
-        <StatCard label="Admins" value={adminCount} color="#ef4444" />
+        <StatCard label="Total Members" value={users.length} color="var(--brand-blue)" />
+        <StatCard label="Active" value={activeCount} color="var(--status-green)" />
+        <StatCard label="Admins" value={adminCount} color="var(--status-red)" />
       </div>
 
       {/* Filters */}
@@ -389,21 +399,21 @@ export default function UsersTab() {
                           <div className="min-w-0">
                             <p className="font-medium text-foreground truncate">
                               {user.name}
-                              {isSelf && <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>}
+                              {isSelf && <span className="ml-1.5 text-caption text-muted-foreground">(you)</span>}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                          style={{ background: roleColor + "15", color: roleColor }}>
+                        <span className="rounded-md px-2 py-0.5 text-meta font-medium capitalize"
+                          style={{ background: `color-mix(in srgb, ${roleColor} 9%, transparent)`, color: roleColor }}>
                           {roles.find(r => r.id === user.roleId)?.name ?? user.role ?? "—"}
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                          style={{ background: statusColor + "15", color: statusColor }}>
+                        <span className="rounded-md px-2 py-0.5 text-meta font-medium capitalize"
+                          style={{ background: `color-mix(in srgb, ${statusColor} 9%, transparent)`, color: statusColor }}>
                           {user.status ?? "unknown"}
                         </span>
                       </td>
@@ -429,10 +439,10 @@ export default function UsersTab() {
                                 onClick={() => toggleStatus(user.id)}
                                 disabled={updatingId === user.id}
                                 className={[
-                                  "flex h-7 items-center rounded px-2 text-[11px] font-medium transition-colors disabled:opacity-50 cursor-pointer",
+                                  "flex h-7 items-center rounded px-2 text-meta font-medium transition-colors disabled:opacity-50 cursor-pointer",
                                   user.status === "active"
-                                    ? "text-red-500 hover:bg-red-500/10"
-                                    : "text-emerald-500 hover:bg-emerald-500/10",
+                                    ? "text-status-red hover:bg-status-red/10"
+                                    : "text-status-emerald hover:bg-status-emerald/10",
                                 ].join(" ")}
                               >
                                 {updatingId === user.id ? (

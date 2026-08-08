@@ -40,7 +40,7 @@ export function LeadRow({
         className={cn(
           "flex size-[17px] shrink-0 items-center justify-center rounded-full border-2 transition-all cursor-pointer",
           isDone
-            ? "border-transparent bg-emerald-600 text-white"
+            ? "border-transparent bg-status-green text-white"
             : "border-border/70 hover:border-primary text-transparent",
         )}
       >
@@ -57,23 +57,23 @@ export function LeadRow({
         <div className="min-w-0 flex-1">
           <span
             className={cn(
-              "block truncate text-[13px] font-medium",
+              "block truncate text-item font-medium",
               isDone ? "text-muted-foreground line-through" : "text-foreground",
             )}
           >
             {lead.jobTitle}
           </span>
           <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[12px] text-muted-foreground font-medium truncate">
+            <span className="text-xs text-muted-foreground font-medium truncate">
               {lead.company}
             </span>
             <span className="text-muted-foreground/30 mx-0.5">·</span>
-            <span className="text-[12px] text-muted-foreground/80 truncate">
+            <span className="text-xs text-muted-foreground/80 truncate">
               {lead.profileName}
             </span>
             <span className="text-muted-foreground/30 mx-0.5 hidden sm:inline">·</span>
             <MapPin className="size-2.5 text-muted-foreground/40 shrink-0 hidden sm:block" />
-            <span className="text-[11px] text-muted-foreground/70 truncate hidden sm:block">
+            <span className="text-meta text-muted-foreground/70 truncate hidden sm:block">
               {lead.jobLocation}
             </span>
           </div>
@@ -84,12 +84,12 @@ export function LeadRow({
       <div className="hidden lg:flex items-center gap-4 shrink-0">
         {/* Notes indicator */}
         {lead.bdNotes ? (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+          <span className="flex items-center gap-1 text-meta text-muted-foreground/60">
             <MessageSquare className="size-3 shrink-0" />
             <span>1</span>
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground/25">
+          <span className="flex items-center gap-1 text-meta text-muted-foreground/25">
             <MessageSquare className="size-3 shrink-0" />
           </span>
         )}
@@ -101,13 +101,13 @@ export function LeadRow({
 
         {/* Salary */}
         {lead.salary && (
-          <span className="hidden xl:block text-[12px] font-medium text-muted-foreground/80 min-w-[100px]">
+          <span className="hidden xl:block text-xs font-medium text-muted-foreground/80 min-w-[100px]">
             {lead.salary}
           </span>
         )}
 
         {/* Applied date */}
-        <div className="flex items-center gap-1 text-[12px] text-muted-foreground/70 min-w-[70px]">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground/70 min-w-[70px]">
           <Calendar className="size-3 shrink-0" />
           <span>{formatDate(lead.appliedAt)}</span>
         </div>

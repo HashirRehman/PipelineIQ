@@ -163,7 +163,7 @@ export function ProfileCvList({
             <p className="truncate text-sm font-medium text-foreground">
               {cv.fileName}
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-meta text-muted-foreground">
               {formatUploadDate(cv.createdAt)}
             </p>
           </div>

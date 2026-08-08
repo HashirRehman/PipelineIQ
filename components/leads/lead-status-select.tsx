@@ -29,7 +29,7 @@ export function LeadStatusSelect({
     >
       <SelectTrigger
         size="sm"
-        className="h-7 w-auto gap-1.5 px-2.5 rounded-md text-[12px] font-medium cursor-pointer border shadow-none bg-card whitespace-nowrap focus:ring-0"
+        className="h-7 w-auto gap-1.5 px-2.5 rounded-md text-xs font-medium cursor-pointer border shadow-none bg-card whitespace-nowrap focus:ring-0"
         style={{
           borderColor: `${color}30`,
           color,
@@ -42,7 +42,7 @@ export function LeadStatusSelect({
         />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="text-[13px]">
+      <SelectContent className="text-item">
         {LEAD_STATUSES.map(s => (
           <SelectItem key={s} value={s}>
             <span className="flex items-center gap-2">

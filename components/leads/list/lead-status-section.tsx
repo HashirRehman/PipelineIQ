@@ -46,15 +46,15 @@ export function LeadStatusSection({
           />
           {/* Status label */}
           <span
-            className="text-[13px] font-semibold"
+            className="text-item font-semibold"
             style={{ color }}
           >
             {status}
           </span>
           {/* Count pill */}
           <span
-            className="min-w-[18px] rounded-sm px-1 text-center text-[11px] font-semibold tabular-nums"
-            style={{ background: color + "18", color }}
+            className="min-w-[18px] rounded-sm px-1 text-center text-meta font-semibold tabular-nums"
+            style={{ background: `color-mix(in srgb, ${color} 10%, transparent)`, color }}
           >
             {count}
           </span>

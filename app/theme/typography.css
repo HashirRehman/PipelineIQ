@@ -1,0 +1,101 @@
+/* ════════════════════════════════════════════════════════════════════════
+   🔤 TYPOGRAPHY — single source of truth for fonts, sizes & styles
+   ────────────────────────────────────────────────────────────────────────
+   Imported by `app/globals.css`. Every font family, font size, font
+   weight, line-height and letter-spacing used across the app resolves
+   to a token defined in THIS file.
+
+   ▶ To change a typeface: update `--font-*` (the actual family strings
+     are injected at runtime by next/font in `app/layout.tsx`).
+   ▶ To resize any type level app-wide: edit its `--text-*` token below
+     (this includes the standard scale — text-xs, text-sm, …).
+   ▶ To change weight, line-height or spacing globally: edit
+     `--font-weight-*`, `--leading-*` or `--tracking-*`.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Font families ───────────────────────────────────────────────────────
+   `--font-sans` / `--font-mono` are set as CSS variables by next/font
+   (Inter / JetBrains Mono) in app/layout.tsx. These tokens wire them into
+   Tailwind utilities: font-sans, font-mono, font-heading. */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+}
+
+/* ── Font weights ────────────────────────────────────────────────────────
+   Map to Tailwind utilities font-normal / font-medium / font-semibold /
+   font-bold. Values match Tailwind's defaults; edit here to re-theme
+   weights app-wide. */
+@theme {
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+/* ── Font sizes — standard scale ─────────────────────────────────────────
+   These power text-xs / text-sm / text-base / text-lg / text-2xl across
+   the whole app (buttons, inputs, cards, tables, titles, stat values…).
+   Values + line-heights match Tailwind v4 defaults, so nothing changes
+   visually — but every size is now editable in one place. */
+@theme {
+  /* 12px — default small text (badges, meta, buttons) */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  /* 14px — body / default text (tables, cards, forms) */
+  --text-sm: 0.83rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  /* 16px — inputs, dialog titles, auth headings */
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  /* 18px — drawer / logo titles */
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.5 / 1.125);
+  /* 20px — (unused for now; kept for scale completeness) */
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.5 / 1.25);
+  /* 24px — stat-card values */
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+}
+
+/* ── Font sizes — custom steps (below 12px / in-between) ─────────────────
+   The app's finer sizes, so no component needs a raw `text-[Npx]`. */
+@theme {
+  /* 8px  — chart micro-captions (donut TOTAL) */
+  --text-nano: 0.5rem;
+  /* 9px  — chart labels, tiny initials */
+  --text-micro: 0.5625rem;
+  /* 10px — uppercase section labels, small badges, counts */
+  --text-caption: 0.625rem;
+  /* 11px — meta / sub-text, timestamps, small badges */
+  --text-meta: 0.6875rem;
+  /* 12.8px — small button labels (Button size="sm") */
+  --text-btn-sm: 0.8rem;
+  /* 13px — list / board item titles, lead rows, status labels */
+  --text-item: 0.8125rem;
+  /* 15px — compact page titles (top bar) */
+  --text-title-sm: 0.9375rem;
+}
+
+/* ── Line-height (leading-*) ────────────────────────────────────────────
+   Powers leading-none / leading-snug / leading-relaxed used across the
+   app (drawers, sidebar, cards, descriptions). Values match Tailwind v4
+   defaults. */
+@theme {
+  --leading-none: 1;
+  --leading-snug: 1.375;
+  --leading-relaxed: 1.625;
+}
+
+/* ── Letter-spacing ──────────────────────────────────────────────────────
+   tracking-tight / tracking-wide / tracking-widest are the app's standard
+   steps; --tracking-label is the sidebar nav's custom value. */
+@theme {
+  --tracking-tight: -0.025em;
+  --tracking-wide: 0.025em;
+  --tracking-widest: 0.1em;
+  /* 0.08em — sidebar nav section labels */
+  --tracking-label: 0.08em;
+}

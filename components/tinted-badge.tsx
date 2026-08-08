@@ -15,13 +15,15 @@ export function TintedBadge({
     <Badge
       variant="outline"
       className={cn(
-        "px-2 py-0.5 rounded text-[11px] font-medium h-auto whitespace-nowrap",
+        "px-2 py-0.5 rounded text-meta font-medium h-auto whitespace-nowrap",
         className,
       )}
       style={{
-        background: color + "14",
+        // color may be a raw hex or a var(--…) token; color-mix keeps the
+        // tint theme-driven either way
+        background: `color-mix(in srgb, ${color} 8%, transparent)`,
         color,
-        borderColor: color + "30",
+        borderColor: `color-mix(in srgb, ${color} 19%, transparent)`,
       }}
     >
       {children}

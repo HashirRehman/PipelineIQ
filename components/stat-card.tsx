@@ -20,7 +20,7 @@ export function StatCard({ label, value, sub, color, className, valueClassName, 
         <span className={cn("text-xs text-muted-foreground font-medium", labelClassName)}>{label}</span>
       </div>
       <div className={cn("text-2xl font-semibold text-foreground tabular-nums", valueClassName)}>{value}</div>
-      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
+      {sub && <div className="text-meta text-muted-foreground">{sub}</div>}
     </div>
   )
 }

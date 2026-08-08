@@ -67,10 +67,7 @@ export default function Sidebar({ counts, user }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
-        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/60">
-          Menu
-        </p>
-        <ul role="list" className="flex flex-col gap-px">
+        <ul role="list" className="flex flex-col gap-px gap-y-1">
           {NAV.map(item => {
             const isActive = activeTab === item.id
             const count = counts?.[item.id]
@@ -100,7 +97,7 @@ export default function Sidebar({ counts, user }: SidebarProps) {
                     <span
                       aria-hidden
                       className={cn(
-                        "pointer-events-none absolute right-2 flex min-w-0 h-4 items-center justify-center rounded-full px-1.5 font-mono text-[10px] tabular-nums select-none",
+                        "pointer-events-none absolute right-2 flex min-w-0 h-4 items-center justify-center rounded-full px-1.5 font-mono text-caption tabular-nums select-none",
                         isActive
                           ? "bg-primary text-primary-foreground font-bold"
                           : "bg-secondary text-muted-foreground"
@@ -140,11 +137,11 @@ export default function Sidebar({ counts, user }: SidebarProps) {
           <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 group">
             <Avatar name={user.name} size={26} />
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-sidebar-foreground truncate leading-none">
+              <p className="text-item font-medium text-sidebar-foreground truncate leading-none">
                 {user.name}
               </p>
               {user.role && (
-                <p className="text-[10px] text-primary/80 mt-0.5 font-medium capitalize">
+                <p className="text-caption text-primary/80 mt-0.5 font-medium capitalize">
                   {user.role}
                 </p>
               )}

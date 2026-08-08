@@ -27,7 +27,7 @@ export function LeadFilterBar({
   return (
     <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-background shrink-0 flex-wrap">
       <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? "all")}>
-        <SelectTrigger size="sm" className="h-7 w-auto min-w-[150px] rounded-md text-[12px] text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+        <SelectTrigger size="sm" className="h-7 w-auto min-w-[150px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -40,7 +40,7 @@ export function LeadFilterBar({
         </SelectContent>
       </Select>
       <Select value={bdFilter} onValueChange={v => setBdFilter(v ?? "all")}>
-        <SelectTrigger size="sm" className="h-7 w-auto min-w-[140px] rounded-md text-[12px] text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+        <SelectTrigger size="sm" className="h-7 w-auto min-w-[140px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

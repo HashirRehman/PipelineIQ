@@ -170,8 +170,8 @@ function BoardColumn({
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
         <span className="size-[7px] rounded-full shrink-0" style={{ background: dotColor }} />
-        <span className="text-[13px] font-semibold text-foreground">{col.label}</span>
-        <span className="text-[12px] text-muted-foreground tabular-nums">{col.leads.length}</span>
+        <span className="text-item font-semibold text-foreground">{col.label}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{col.leads.length}</span>
         <button
           type="button"
           aria-label={`Add to ${col.label}`}
@@ -250,25 +250,25 @@ function BoardCard({
       )}
     >
       <p className={cn(
-        "text-[13px] font-medium leading-snug",
+        "text-item font-medium leading-snug",
         isDone ? "line-through text-muted-foreground" : "text-foreground",
       )}>
         {lead.jobTitle}
       </p>
 
-      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{lead.company}</p>
+      <p className="mt-0.5 text-meta text-muted-foreground truncate">{lead.company}</p>
 
       <div className="mt-2">
         <span
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
-          style={{ background: statusColor + "18", color: statusColor }}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium"
+          style={{ background: `color-mix(in srgb, ${statusColor} 10%, transparent)`, color: statusColor }}
         >
           <span className="size-[5px] rounded-full shrink-0" style={{ background: statusColor }} />
           {lead.status}
         </span>
       </div>
 
-      <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground/60">
+      <div className="mt-2 flex items-center gap-2 text-meta text-muted-foreground/60">
         <Flag className="size-3 shrink-0" />
         {lead.appliedAt && (
           <span className="flex items-center gap-0.5">

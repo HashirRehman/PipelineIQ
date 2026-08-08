@@ -24,7 +24,7 @@ export function TopBar({ user }: TopBarProps) {
 
   return (
     <header className="flex h-[57px] shrink-0 items-center justify-between border-b border-border bg-background px-6">
-      <h1 className="text-[15px] font-semibold text-foreground">{pageName}</h1>
+      <h1 className="text-title-sm font-semibold text-foreground">{pageName}</h1>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -41,7 +41,7 @@ export function TopBar({ user }: TopBarProps) {
         <div className="flex items-center gap-2">
         
           <Avatar name={user.name} size={26} />
-          <span className="text-[13px] font-medium text-foreground hidden sm:block max-w-[90px] truncate">
+          <span className="text-item font-medium text-foreground hidden sm:block max-w-[90px] truncate">
             {user.name}
           </span>
         </div>

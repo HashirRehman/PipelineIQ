@@ -9,7 +9,7 @@ export default async function SetPasswordPage() {
   if (!user) redirect("/login")
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-page-bg flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <PipelineIQLogo size="lg" />

@@ -98,8 +98,8 @@ export default function AppliedJobsTab() {
         {/* Stat row */}
         <div className="grid grid-cols-3 gap-4 px-6 py-5 border-b border-border">
           <StatCard label="Total Applied" value={jobs.length} color="var(--primary)" />
-          <StatCard label="Remote" value={remoteCount} color="#10b981" />
-          <StatCard label="Onsite / Hybrid" value={onsiteCount} color="#0369a1" />
+          <StatCard label="Remote" value={remoteCount} color="var(--status-emerald)" />
+          <StatCard label="Onsite / Hybrid" value={onsiteCount} color="var(--brand-sky)" />
         </div>
 
         {/* Filters */}
@@ -154,8 +154,8 @@ export default function AppliedJobsTab() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-border">
             {filteredJobs.map((job) => {
               const score = job.relevanceScore ?? 0
-              const parserColor = PARSER_COLOR[job.parser ?? ""] ?? "#0078d4"
-              const workColor = WORK_TYPE_COLOR[job.workType ?? "remote"] ?? "#059669"
+              const parserColor = PARSER_COLOR[job.parser ?? ""] ?? "var(--brand-blue)"
+              const workColor = WORK_TYPE_COLOR[job.workType ?? "remote"] ?? "var(--status-green)"
               return (
                 <div
                   key={job.id}
@@ -168,7 +168,7 @@ export default function AppliedJobsTab() {
                         <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                           {job.title}
                         </span>
-                        <TintedBadge color="#059669" className="text-[10px] font-mono">APPLIED</TintedBadge>
+                        <TintedBadge color="var(--status-green)" className="text-caption font-mono">APPLIED</TintedBadge>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -185,24 +185,24 @@ export default function AppliedJobsTab() {
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       <span
-                        className={`font-mono text-[13px] font-bold ${
-                          score >= 70 ? "text-emerald-500" : score >= 40 ? "text-amber-500" : "text-red-500"
+                        className={`font-mono text-item font-bold ${
+                          score >= 70 ? "text-status-emerald" : score >= 40 ? "text-status-amber-500" : "text-status-red"
                         }`}
                       >
                         {score}%
                       </span>
-                      <TintedBadge color={workColor} className="text-[10px]">
+                      <TintedBadge color={workColor} className="text-caption">
                         {job.workType ?? "remote"}
                       </TintedBadge>
                       {job.parser && (
-                        <TintedBadge color={parserColor} className="text-[10px]">
+                        <TintedBadge color={parserColor} className="text-caption">
                           {job.parser}
                         </TintedBadge>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-2.5">
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-meta text-muted-foreground">
                       {job.postedAt ? timeAgo(job.postedAt) : ""}
                     </span>
                     {job.applyUrl && (
@@ -211,7 +211,7 @@ export default function AppliedJobsTab() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+                        className="flex items-center gap-1 text-meta text-primary hover:underline"
                       >
                         View posting <ExternalLink className="size-3" />
                       </a>
@@ -224,14 +224,13 @@ export default function AppliedJobsTab() {
         )}
       </div>
 
-      {selectedJob && (
-        <JobDrawer
-          job={selectedJob}
-          activeProfile={profile}
-          onClose={() => setSelectedJob(null)}
-          showActions={false}
-        />
-      )}
+      <JobDrawer
+        open={selectedJob !== null}
+        job={selectedJob}
+        activeProfile={profile}
+        onClose={() => setSelectedJob(null)}
+        showActions={false}
+      />
     </div>
   )
 }

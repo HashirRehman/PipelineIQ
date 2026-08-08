@@ -69,6 +69,8 @@ export function ProfileCoreFieldsForm({
   initialValues = BLANK_VALUES,
   seniorityLevels,
   submitLabel,
+  stacked = false,
+  onCancel,
   onSuccess,
 }: {
   mode: "create" | "update";
@@ -76,6 +78,8 @@ export function ProfileCoreFieldsForm({
   initialValues?: ProfileFieldValues;
   seniorityLevels: SeniorityLevel[];
   submitLabel: string;
+  stacked?: boolean;
+  onCancel?: () => void;
   onSuccess?: (profileId: string) => void;
 }) {
   const [state, setState] = useState<ProfileMutationResponse>({});
@@ -114,7 +118,7 @@ export function ProfileCoreFieldsForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={stacked ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
         <div className="flex flex-col gap-2">
           <Label htmlFor="fullName">Full name</Label>
           <Input id="fullName" name="fullName" defaultValue={seedValues.fullName} required />
@@ -196,7 +200,7 @@ export function ProfileCoreFieldsForm({
       </div>
 
       {state.error && (
-        <p role="alert" className="text-sm text-destructive dark:text-red-400">
+        <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       )}
@@ -206,9 +210,16 @@ export function ProfileCoreFieldsForm({
         </p>
       )}
 
-      <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-        {isPending ? "Saving…" : submitLabel}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+          {isPending ? "Saving…" : submitLabel}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+            Cancel
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

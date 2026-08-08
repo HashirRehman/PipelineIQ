@@ -25,7 +25,7 @@ export default async function DashboardLayout({
     "User";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f0f2f5] text-foreground">
+    <div className="flex h-screen overflow-hidden bg-page-bg text-foreground">
       <Sidebar
         user={{
           name,

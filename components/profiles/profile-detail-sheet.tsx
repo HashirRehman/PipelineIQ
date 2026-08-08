@@ -1,14 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Pencil, X } from "lucide-react";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Avatar } from "@/components/avatar";
+import { Button } from "@/components/ui/button";
 import { ProfileCoreFieldsForm } from "./profile-core-fields-form";
 import { ProfileActiveToggle } from "./profile-active-toggle";
 import { ProfileCvList } from "./profile-cv-list";
@@ -41,15 +37,6 @@ type CvEntry = {
   downloadUrl: string | null;
 };
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
 function formatRate(profile: ProfileDetail) {
   if (profile.rateExpectation === null) {
     return "Rate not set";
@@ -60,7 +47,7 @@ function formatRate(profile: ProfileDetail) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+    <p className="text-meta font-semibold text-muted-foreground uppercase tracking-wide mb-3">
       {children}
     </p>
   );
@@ -83,30 +70,21 @@ function ReadOnlyDetails({ profile }: { profile: ProfileDetail }) {
   ];
 
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {fields.map(([label, value]) => (
-          <div key={label}>
-            <p className="text-[11px] font-medium text-muted-foreground">
-              {label}
-            </p>
-            <p className="mt-0.5 text-sm text-foreground">{value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4">
-        <p className="text-[11px] font-medium text-muted-foreground">
-          Summary
-        </p>
-        <p className="mt-0.5 text-sm text-foreground leading-relaxed">
-          {profile.summary || "No summary provided."}
-        </p>
-      </div>
-    </>
+    <dl className="flex flex-col gap-4">
+      {fields.map(([label, value]) => (
+        <div key={label} className="flex items-center justify-between gap-3">
+          <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">
+            {label}
+          </dt>
+          <dd className="text-xs text-foreground text-right">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
 export function ProfileDetailSheet({
+  open,
   profile,
   seniorityLevels,
   assignableUsers,
@@ -115,66 +93,113 @@ export function ProfileDetailSheet({
   onClose,
   onChanged,
 }: {
-  profile: ProfileDetail;
+  open: boolean;
+  profile: ProfileDetail | null;
   seniorityLevels: SeniorityLevel[];
   assignableUsers: AssignableUser[];
   cvs: CvEntry[];
   isAdmin: boolean;
-  onClose?: () => void;
+  onClose: () => void;
   onChanged?: () => void;
 }) {
-  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
 
+  const [lastProfile, setLastProfile] = useState<ProfileDetail | null>(profile);
+  const [lastCvs, setLastCvs] = useState(cvs);
+  const [prevProfile, setPrevProfile] = useState<ProfileDetail | null>(profile);
+  const [prevCvs, setPrevCvs] = useState(cvs);
+
+  if (profile !== prevProfile) {
+    setPrevProfile(profile);
+    if (profile) setLastProfile(profile);
+  }
+  if (cvs !== prevCvs) {
+    setPrevCvs(cvs);
+    setLastCvs(cvs);
+  }
+
+  const displayProfile = profile ?? lastProfile;
+  const displayCvs = cvs ?? lastCvs;
+
+  if (!displayProfile) return null;
+
   return (
-    <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) {
-          if (onClose) {
-            onClose();
-          } else {
-            router.replace("/profiles", { scroll: false });
-          }
-        }
-      }}
-    >
-      <SheetContent
-        side="right"
-        className="!w-full !max-w-none sm:!w-[540px] sm:!max-w-[540px] flex flex-col p-0 gap-0"
+    <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DrawerContent
+        className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground"
       >
-        <SheetHeader className="border-b border-border px-5 py-4 shrink-0">
-          <div className="flex items-center gap-3 pr-8">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-info text-sm font-semibold text-primary-foreground select-none">
-              {getInitials(profile.fullName)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate text-base font-semibold">
-                {profile.fullName}
-              </SheetTitle>
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                {profile.email}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-muted-foreground">
-                {profile.isActive ? "Active" : "Inactive"}
-              </span>
-              {isAdmin && (
-                <ProfileActiveToggle
-                  profileId={profile.id}
-                  isActive={profile.isActive}
+        {/* Top bar — avatar + name left, active toggle + dismiss right */}
+        <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-border bg-card shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Avatar name={displayProfile.fullName} size={24} />
+            <span className="truncate text-xs font-semibold text-foreground">
+              {displayProfile.fullName}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground">
+              {displayProfile.isActive ? "Active" : "Inactive"}
+            </span>
+            {isAdmin && (
+              <ProfileActiveToggle
+                profileId={displayProfile.id}
+                isActive={displayProfile.isActive}
+                onChanged={onChanged}
+              />
+            )}
+            <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-1 min-h-0">
+          {/* Left column — everything else */}
+          <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6 space-y-7">
+            {isAdmin && (
+              <section>
+                <SectionTitle>Assignment</SectionTitle>
+                <ProfileAssignment
+                  profileId={displayProfile.id}
+                  assignedUserId={displayProfile.assignedUserId}
+                  assignedUserName={displayProfile.assignedUserName}
+                  users={assignableUsers}
+                  isAdmin={isAdmin}
                   onChanged={onChanged}
                 />
-              )}
-            </div>
-          </div>
-        </SheetHeader>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  One user can be assigned to one profile at a time.
+                </p>
+              </section>
+            )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-7">
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <SectionTitle>Details</SectionTitle>
+            <section>
+              <SectionTitle>Summary</SectionTitle>
+              <p className="text-sm text-foreground leading-relaxed">
+                {displayProfile.summary || "No summary provided."}
+              </p>
+            </section>
+
+            <section>
+              <SectionTitle>CVs</SectionTitle>
+              <ProfileCvList
+                cvs={displayCvs}
+                profileId={displayProfile.id}
+                isAdmin={isAdmin}
+                onChanged={onChanged}
+              />
+              {isAdmin && (
+                <div className="mt-3">
+                  <ProfileCvUploadForm profileId={displayProfile.id} onChanged={onChanged} />
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Right column — Details */}
+          <aside className="w-[280px] shrink-0 border-l border-border bg-page-bg overflow-y-auto px-6 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs font-semibold text-foreground">Details</div>
               {isAdmin && !isEditing && (
                 <button
                   type="button"
@@ -185,68 +210,39 @@ export function ProfileDetailSheet({
                 </button>
               )}
             </div>
+
             {isEditing ? (
               <ProfileCoreFieldsForm
                 mode="update"
-                profileId={profile.id}
+                profileId={displayProfile.id}
                 initialValues={{
-                  fullName: profile.fullName,
-                  email: profile.email,
-                  phone: profile.phone ?? "",
-                  location: profile.location ?? "",
-                  seniorityLevelId: profile.seniorityLevelId,
+                  fullName: displayProfile.fullName,
+                  email: displayProfile.email,
+                  phone: displayProfile.phone ?? "",
+                  location: displayProfile.location ?? "",
+                  seniorityLevelId: displayProfile.seniorityLevelId,
                   yearsExperience:
-                    profile.yearsExperience?.toString() ?? "",
+                    displayProfile.yearsExperience?.toString() ?? "",
                   rateExpectation:
-                    profile.rateExpectation?.toString() ?? "",
-                  rateCurrency: profile.rateCurrency,
-                  summary: profile.summary ?? "",
+                    displayProfile.rateExpectation?.toString() ?? "",
+                  rateCurrency: displayProfile.rateCurrency,
+                  summary: displayProfile.summary ?? "",
                 }}
                 seniorityLevels={seniorityLevels}
                 submitLabel="Save changes"
+                stacked
+                onCancel={() => setIsEditing(false)}
                 onSuccess={() => {
                   setIsEditing(false);
                   onChanged?.();
                 }}
               />
             ) : (
-              <ReadOnlyDetails profile={profile} />
+              <ReadOnlyDetails profile={displayProfile} />
             )}
-          </section>
-
-          {isAdmin && (
-            <section>
-              <SectionTitle>Assignment</SectionTitle>
-              <ProfileAssignment
-                profileId={profile.id}
-                assignedUserId={profile.assignedUserId}
-                assignedUserName={profile.assignedUserName}
-                users={assignableUsers}
-                isAdmin={isAdmin}
-                onChanged={onChanged}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                One user can be assigned to one profile at a time.
-              </p>
-            </section>
-          )}
-
-          <section>
-            <SectionTitle>CVs</SectionTitle>
-            <ProfileCvList
-              cvs={cvs}
-              profileId={profile.id}
-              isAdmin={isAdmin}
-              onChanged={onChanged}
-            />
-            {isAdmin && (
-              <div className="mt-3">
-                <ProfileCvUploadForm profileId={profile.id} onChanged={onChanged} />
-              </div>
-            )}
-          </section>
+          </aside>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 }

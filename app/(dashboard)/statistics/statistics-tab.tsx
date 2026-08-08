@@ -60,25 +60,25 @@ const STATUS_DATA = [
   { label: 'Closed', value: 6, color: LEAD_STATUS_COLOR['Closed'] },
 ]
 
-function BarChart({ data, labels, color = '#0078d4' }: { data: number[]; labels: string[]; color?: string }) {
+function BarChart({ data, labels, color = 'var(--brand-blue)' }: { data: number[]; labels: string[]; color?: string }) {
   const max = Math.max(...data, 1)
 
   return (
     <div className="flex items-end gap-2 h-[152px]">
       {data.map((v, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className={`font-mono text-[9px] text-muted-foreground font-semibold ${v > 0 ? 'visible' : 'invisible'}`}>{v}</div>
+          <div className={`font-mono text-micro text-muted-foreground font-semibold ${v > 0 ? 'visible' : 'invisible'}`}>{v}</div>
           <div className="w-full relative h-[120px] flex items-end">
             <div
               className="w-full rounded-t transition-[height] duration-400 ease-in-out"
               style={{
-                background: `linear-gradient(180deg, ${color}, ${color}88)`,
+                background: `linear-gradient(180deg, ${color}, color-mix(in srgb, ${color} 53%, transparent))`,
                 height: `${(v / max) * 100}%`,
                 minHeight: v > 0 ? 4 : 0,
               }}
             />
           </div>
-          <div className="font-mono text-[9px] text-muted-foreground text-center">{labels[i]}</div>
+          <div className="font-mono text-micro text-muted-foreground text-center">{labels[i]}</div>
         </div>
       ))}
     </div>
@@ -109,16 +109,16 @@ function LineChart({ data, labels }: { data: number[]; labels: string[] }) {
           stroke="var(--border)" strokeWidth="0.5" />
       ))}
       {/* Fill */}
-      <path d={fill} fill="rgba(0,120,212,0.08)" />
+      <path d={fill} fill="color-mix(in srgb, var(--brand-blue) 8%, transparent)" />
       {/* Line */}
-      <path d={path} fill="none" stroke="#0078d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke="var(--brand-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {/* Dots */}
       {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#0078d4" />
+        <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--brand-blue)" />
       ))}
       {/* Labels */}
       {labels.map((l, i) => (
-        <text key={i} x={pts[i].x} y={h + 16} textAnchor="middle" fill="var(--muted-fg)" fontSize="9" fontFamily="JetBrains Mono, monospace">{l}</text>
+        <text key={i} x={pts[i].x} y={h + 16} textAnchor="middle" fill="var(--muted-foreground)" style={{ fontSize: "var(--text-micro)", fontFamily: "var(--font-mono)" }}>{l}</text>
       ))}
     </svg>
   )
@@ -155,15 +155,15 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
           )
         })}
         <circle cx={cx} cy={cy} r={r * 0.58} fill="var(--card)" />
-        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--fg)" fontSize="18" fontWeight="700" fontFamily="JetBrains Mono, monospace">{total}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--muted-fg)" fontSize="8" fontFamily="JetBrains Mono, monospace">TOTAL</text>
+        <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--page-fg)" style={{ fontSize: "var(--text-lg)", fontWeight: 700, fontFamily: "var(--font-mono)" }}>{total}</text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--muted-foreground)" style={{ fontSize: "var(--text-nano)", fontFamily: "var(--font-mono)" }}>TOTAL</text>
       </svg>
       <div className="flex flex-col gap-1.75">
         {segments.map(s => (
           <div key={s.label} className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
             <span className="text-xs text-foreground">{s.label}</span>
-            <span className="font-mono text-[11px] text-muted-foreground ml-auto">{s.value}</span>
+            <span className="font-mono text-meta text-muted-foreground ml-auto">{s.value}</span>
           </div>
         ))}
       </div>
@@ -197,10 +197,10 @@ export default function StatisticsTab() {
   const topMonth = MONTHS[chartData.indexOf(Math.max(...chartData))]
 
   const statsCards = [
-    { label: 'Total Leads', value: totalLeads, sub: `last ${chartData.length} months`, color: '#0078d4' },
-    { label: 'Avg / Month', value: avgPerMonth, sub: granularity, color: '#0369a1' },
-    { label: 'Best Month', value: topMonth, sub: `${Math.max(...chartData)} leads`, color: '#059669' },
-    { label: 'Active Profiles', value: profiles.filter(p => p.status === 'active').length, sub: `of ${profiles.length} total`, color: '#d97706' },
+    { label: 'Total Leads', value: totalLeads, sub: `last ${chartData.length} months`, color: 'var(--brand-blue)' },
+    { label: 'Avg / Month', value: avgPerMonth, sub: granularity, color: 'var(--brand-sky)' },
+    { label: 'Best Month', value: topMonth, sub: `${Math.max(...chartData)} leads`, color: 'var(--status-green)' },
+    { label: 'Active Profiles', value: profiles.filter(p => p.status === 'active').length, sub: `of ${profiles.length} total`, color: 'var(--status-amber)' },
   ]
 
   return (
@@ -273,7 +273,7 @@ export default function StatisticsTab() {
           <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
             <CardContent className="p-0">
               <div className="text-sm font-semibold text-foreground mb-1">Leads Over Time</div>
-              <div className="text-[11px] text-muted-foreground mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
+              <div className="text-meta text-muted-foreground mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
               <LineChart data={chartData} labels={MONTHS} />
             </CardContent>
           </Card>
@@ -282,7 +282,7 @@ export default function StatisticsTab() {
           <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
             <CardContent className="p-0">
               <div className="text-sm font-semibold text-foreground mb-1">Status Breakdown</div>
-              <div className="text-[11px] text-muted-foreground mb-4">Current lead distribution</div>
+              <div className="text-meta text-muted-foreground mb-4">Current lead distribution</div>
               <DonutChart segments={STATUS_DATA} />
             </CardContent>
           </Card>
@@ -293,20 +293,20 @@ export default function StatisticsTab() {
           <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
             <CardContent className="p-0">
               <div className="text-sm font-semibold text-foreground mb-1">Leads by Team Member</div>
-              <div className="text-[11px] text-muted-foreground mb-5">Monthly totals per BD</div>
+              <div className="text-meta text-muted-foreground mb-5">Monthly totals per BD</div>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6">
                 {bdUsers.map((u, i) => {
-                  const colors = ['#0078d4', '#0369a1', '#059669', '#d97706']
+                  const colors = ['var(--brand-blue)', 'var(--brand-sky)', 'var(--status-green)', 'var(--status-amber)']
                   const data = LEAD_DATA_BY_USER[u.id] ?? MONTHS.map(() => 0)
                   return (
                     <div key={u.id}>
                       <div className="flex items-center gap-1.75 mb-2.5">
-                        <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: colors[i % colors.length] }}>
+                        <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center text-micro font-bold text-white" style={{ background: colors[i % colors.length] }}>
                           {u.name.split(' ').map(n => n[0]).join('')}
                         </div>
                         <div>
                           <div className="text-xs font-medium text-foreground">{u.name.split(' ')[0]}</div>
-                          <div className="font-mono text-[10px]" style={{ color: colors[i % colors.length] }}>{data.reduce((s, v) => s + v, 0)} total</div>
+                          <div className="font-mono text-caption" style={{ color: colors[i % colors.length] }}>{data.reduce((s, v) => s + v, 0)} total</div>
                         </div>
                       </div>
                       <BarChart data={data.slice(-5)} labels={MONTHS.slice(-5)} color={colors[i % colors.length]} />
@@ -332,13 +332,13 @@ export default function StatisticsTab() {
                     <Avatar name={p.name} size={30} />
                     <div className="w-[140px] shrink-0">
                       <div className="text-xs font-medium text-foreground">{p.name}</div>
-                      <div className="font-mono text-[10px] text-muted-foreground">{p.seniority} · {p.status}</div>
+                      <div className="font-mono text-caption text-muted-foreground">{p.seniority} · {p.status}</div>
                     </div>
                     <Progress value={pct} className="flex-1 gap-0"
                       trackClassName="h-1.5 bg-muted"
-                      indicatorClassName="h-full bg-gradient-to-r from-[#0078d4] to-[#0369a1] rounded-full" />
+                      indicatorClassName="h-full bg-gradient-to-r from-brand-blue to-brand-sky rounded-full" />
                     <div className="font-mono w-[60px] text-right text-xs font-bold text-foreground shrink-0">
-                      {leads} <span className="font-normal text-muted-foreground text-[10px]">leads</span>
+                      {leads} <span className="font-normal text-muted-foreground text-caption">leads</span>
                     </div>
                   </div>
                 )

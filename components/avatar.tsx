@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils"
 
-// Neutral palette — 5 muted tones that don't compete with status colors
+// Neutral avatar palette — defined as --avatar-1..5 in app/globals.css
+// (the single theme source of truth), so avatar colors re-theme with it
 const COLORS = [
-  "#475569", // slate
-  "#4b5563", // cool grey
-  "#6b7280", // grey
-  "#374151", // dark grey
-  "#1e3a5f", // brand dark blue
+  "var(--avatar-1)",
+  "var(--avatar-2)",
+  "var(--avatar-3)",
+  "var(--avatar-4)",
+  "var(--avatar-5)",
 ]
 
 export function Avatar({

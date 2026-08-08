@@ -163,7 +163,7 @@ export function ProfilesList({
                                         </p>
                                         <div className="mt-2 flex flex-wrap gap-1.5">
                                             <span
-                                                className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                                                className={`rounded-md px-2 py-0.5 text-meta font-medium ${
                                                     profile.isActive
                                                         ? "bg-success text-success-foreground"
                                                         : "bg-muted text-muted-foreground"
@@ -174,12 +174,12 @@ export function ProfilesList({
                                                     : "Inactive"}
                                             </span>
                                             {profile.seniority && (
-                                                <span className="rounded-md bg-info px-2 py-0.5 text-[11px] font-medium text-info-foreground">
+                                                <span className="rounded-md bg-info px-2 py-0.5 text-meta font-medium text-info-foreground">
                                                     {profile.seniority}
                                                 </span>
                                             )}
                                             {profile.assignedUserName && (
-                                                <span className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning-foreground">
+                                                <span className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-meta font-medium text-warning-foreground">
                                                     <UserRound className="size-3" />
                                                     {profile.assignedUserName}
                                                 </span>

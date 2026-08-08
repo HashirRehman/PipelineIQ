@@ -124,7 +124,7 @@ export default function ProfilesTab() {
 
       {/* Loading overlay */}
       {detailLoading && selectedProfileId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/20">
           <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-lg">
             <Loader2 className="size-4 animate-spin text-primary" />
             Loading profile...
@@ -140,17 +140,16 @@ export default function ProfilesTab() {
       )}
 
       {/* Detail sheet */}
-      {detailData && (
-        <ProfileDetailSheet
-          profile={detailData.profile}
-          seniorityLevels={listData.seniorityLevels}
-          assignableUsers={listData.assignableUsers}
-          cvs={detailData.cvs}
-          isAdmin={listData.isAdmin}
-          onClose={closeDetail}
-          onChanged={refreshAfterMutation}
-        />
-      )}
+      <ProfileDetailSheet
+        open={detailData !== null}
+        profile={detailData?.profile ?? null}
+        seniorityLevels={listData?.seniorityLevels ?? []}
+        assignableUsers={listData?.assignableUsers ?? []}
+        cvs={detailData?.cvs ?? []}
+        isAdmin={listData?.isAdmin ?? false}
+        onClose={closeDetail}
+        onChanged={refreshAfterMutation}
+      />
     </>
   )
 }
