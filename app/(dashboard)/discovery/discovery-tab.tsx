@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { Loader2, Briefcase, MapPin, Clock, ChevronLeft, ChevronRight, SlidersHorizontal, Bookmark } from "lucide-react"
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { PageHeader } from "@/components/page-header"
-import { SearchInput } from "@/components/search-input"
+import { GooeyInput } from "@/components/ui/gooey-input"
 import { RunDiscoveryButton } from "@/components/run-discovery-button"
 import { TintedBadge } from "@/components/tinted-badge"
 import { JOB_STATUS_BG, JOB_STATUS_BORDER, PARSER_COLOR, WORK_TYPE_COLOR, scoreColor } from "@/lib/constants"
@@ -137,12 +137,11 @@ export default function DiscoveryTab() {
 
         {/* Search bar + filters toggle */}
         <div className="flex justify-between items-center gap-2 px-5 py-3 border-b border-border bg-background shrink-0">
-          <SearchInput
+          <GooeyInput
             value={search}
-            onChange={changeSearch}
+            onValueChange={changeSearch}
             placeholder="Search jobs by title, company, or location..."
-            className="flex-1 max-w-xl"
-            inputClassName="rounded-[7px]"
+            expandedWidth={576}
           />
           <button
             type="button"
@@ -348,7 +347,7 @@ function JobCard({
   return (
     <div
       onClick={onClick}
-      className="group flex flex-col rounded-lg border bg-card p-4 cursor-pointer transition-all hover:border-primary/30 hover:shadow-sm"
+      className="group flex flex-col rounded-xl border bg-card p-4 cursor-pointer shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
       style={{
         borderColor: JOB_STATUS_BORDER[job.status] ?? "var(--border)",
         background: JOB_STATUS_BG[job.status] === "transparent" ? "var(--card)" : JOB_STATUS_BG[job.status],

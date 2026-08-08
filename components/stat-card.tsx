@@ -12,15 +12,20 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, color, className, valueClassName, labelClassName }: StatCardProps) {
   return (
-    <div className={cn("rounded-lg border border-border bg-background p-4 flex flex-col gap-1", className)}>
+    <div
+      className={cn(
+        "group flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        className,
+      )}
+    >
       <div className="flex items-center gap-2">
         {color && (
-          <span className="size-2 rounded-full shrink-0" style={{ background: color }} />
+          <span className="size-2 rounded-full shrink-0 transition-transform duration-200 group-hover:scale-110" style={{ background: color }} />
         )}
-        <span className={cn("text-xs text-muted-foreground font-medium", labelClassName)}>{label}</span>
+        <span className={cn("text-caption font-medium uppercase tracking-wide text-muted-foreground", labelClassName)}>{label}</span>
       </div>
-      <div className={cn("text-2xl font-semibold text-foreground tabular-nums", valueClassName)}>{value}</div>
-      {sub && <div className="text-meta text-muted-foreground">{sub}</div>}
+      <div className={cn("text-2xl font-bold text-foreground tabular-nums tracking-tight leading-none", valueClassName)}>{value}</div>
+      {sub && <div className="text-meta text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   )
 }

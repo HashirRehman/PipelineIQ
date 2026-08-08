@@ -5,7 +5,7 @@ import { Pencil, X } from "lucide-react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
-import { ProfileCoreFieldsForm } from "./profile-core-fields-form";
+import { NewEditProfileDialog } from "./new-edit-profile-dialog";
 import { ProfileActiveToggle } from "./profile-active-toggle";
 import { ProfileCvList } from "./profile-cv-list";
 import { ProfileCvUploadForm } from "./profile-cv-upload-form";
@@ -102,7 +102,7 @@ export function ProfileDetailSheet({
   onClose: () => void;
   onChanged?: () => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const [lastProfile, setLastProfile] = useState<ProfileDetail | null>(profile);
   const [lastCvs, setLastCvs] = useState(cvs);
@@ -124,7 +124,8 @@ export function ProfileDetailSheet({
   if (!displayProfile) return null;
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+    <>
+      <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DrawerContent
         className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground"
       >
@@ -200,10 +201,16 @@ export function ProfileDetailSheet({
           <aside className="w-[280px] shrink-0 border-l border-border bg-page-bg overflow-y-auto px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <div className="text-xs font-semibold text-foreground">Details</div>
-              {isAdmin && !isEditing && (
+              {isAdmin && (
                 <button
                   type="button"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    // Close the drawer first so the edit dialog opens on a clean
+                    // page — otherwise the drawer's body-level pointer-events
+                    // block clicks inside the dialog.
+                    onClose();
+                    setEditOpen(true);
+                  }}
                   className="inline-flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer"
                 >
                   <Pencil className="size-3" /> Edit
@@ -211,38 +218,19 @@ export function ProfileDetailSheet({
               )}
             </div>
 
-            {isEditing ? (
-              <ProfileCoreFieldsForm
-                mode="update"
-                profileId={displayProfile.id}
-                initialValues={{
-                  fullName: displayProfile.fullName,
-                  email: displayProfile.email,
-                  phone: displayProfile.phone ?? "",
-                  location: displayProfile.location ?? "",
-                  seniorityLevelId: displayProfile.seniorityLevelId,
-                  yearsExperience:
-                    displayProfile.yearsExperience?.toString() ?? "",
-                  rateExpectation:
-                    displayProfile.rateExpectation?.toString() ?? "",
-                  rateCurrency: displayProfile.rateCurrency,
-                  summary: displayProfile.summary ?? "",
-                }}
-                seniorityLevels={seniorityLevels}
-                submitLabel="Save changes"
-                stacked
-                onCancel={() => setIsEditing(false)}
-                onSuccess={() => {
-                  setIsEditing(false);
-                  onChanged?.();
-                }}
-              />
-            ) : (
-              <ReadOnlyDetails profile={displayProfile} />
-            )}
+            <ReadOnlyDetails profile={displayProfile} />
           </aside>
         </div>
       </DrawerContent>
     </Drawer>
+
+    <NewEditProfileDialog
+      profile={displayProfile}
+      seniorityLevels={seniorityLevels}
+      open={editOpen}
+      onOpenChange={setEditOpen}
+      onSaved={() => onChanged?.()}
+    />
+    </>
   );
 }

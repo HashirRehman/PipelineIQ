@@ -1,278 +1,61 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./theme/colors.css";
 @import "./theme/typography.css";
+@import "./theme/patterns.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /* ════════════════════════════════════════════════════════════════════════
-   🎨 THEME COLORS — single source of truth for the whole app
+   GLOBAL STYLES & REMAINING TOKENS
    ────────────────────────────────────────────────────────────────────────
-   EVERY color used anywhere in the app is defined below as a CSS variable,
-   in this file and nowhere else. Tailwind utilities (bg-background,
-   text-foreground, bg-primary, …) are generated from them via the
-   `@theme inline` block, and components that need inline styles reference
-   them directly with var(--…).
-
-   ▶ To re-theme the whole app: edit only the variables in this file.
-   ▶ To add a color: define its raw value below, then (if you want a
-     Tailwind utility like `bg-<name>`) register it in `@theme inline`.
-
-   Palette at a glance:
-     Surfaces   – background / card / sidebar / page-bg / popover
-     Text       – foreground / page-fg / muted-foreground / …
-     Brand      – brand-navy → brand-blue → brand-sky (Recurso Labs)
-     Status     – status-green / emerald / amber / red / slate
-     Feedback   – success / warning / info / destructive (soft bg + fg)
-     Neutrals   – border / input / ring / accent / secondary / muted
-     Extras     – avatar-1..5, scrim, radius
+   The theme is split across app/theme/:
+     colors.css     — every color token + Tailwind color utilities
+     typography.css — fonts, sizes, weights, spacing
+     patterns.css   — page-background textures
+   This file keeps the non-color tokens (radius, elevation shadows) and the
+   app-wide element styles (base layer, scrollbars, hover rings, scrim).
    ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Raw brand palette (Recurso Labs logo gradient #1e3a6e → #0078d4) ── */
-  --brand-navy: #1e3a6e;            /* deep navy — earliest pipeline stages  */
-  --brand-blue: #0078d4;            /* bright blue — primary action/brand    */
-  --brand-sky: #0369a1;             /* deep sky — final interview / charts   */
-  --source-greenhouse: #24a148;     /* Greenhouse job-board green            */
+  --radius: 0.5rem;
 
-  /* ── Semantic status colors (same in light & dark — readable on both) ── */
-  --status-green: #059669;          /* positive outcome / high score         */
-  --status-emerald: #10b981;        /* alt positive (charts, remote)         */
-  --status-amber: #d97706;          /* pending / warning / mid score         */
-  --status-amber-500: #f59e0b;      /* lighter amber (score text, amber-500)  */
-  --status-red: #ef4444;            /* danger / low score / dismissed        */
-  --status-slate: #64748b;          /* neutral / terminal                    */
-
-  /* ── Avatar initials — muted neutrals that don't compete w/ status ───── */
-  --avatar-1: #475569;              /* slate                                 */
-  --avatar-2: #4b5563;              /* cool grey                             */
-  --avatar-3: #6b7280;              /* grey                                  */
-  --avatar-4: #374151;              /* dark grey                             */
-  --avatar-5: #1e3a5f;              /* brand dark blue                       */
-
-  /* ── Scrim behind modals / sheets / drawers ──────────────────────────── */
-  --scrim: oklch(0 0 0);
-
-  /* ── Light theme ─────────────────────────────────────────────────────── */
-  color-scheme: light;
-
-  /* Surfaces */
-  --page-bg: #f0f2f5;               /* app shell / auth pages (light gray)   */
-  --background: oklch(1 0 0);       /* white — cards, panels                 */
-  --card: oklch(1 0 0);
-  --sidebar: oklch(1 0 0);
-  --popover: oklch(1 0 0);
-
-  /* Text */
-  --page-fg: oklch(0.145 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --sidebar-fg: oklch(0.145 0 0);
-  --secondary-fg: oklch(0.35 0 0);
-
-  /* Brand / interactive */
-  --primary: oklch(0.52 0.178 243); /* ≈ brand-blue (#0078d4)               */
-  --primary-foreground: oklch(1 0 0);
-  --ring: oklch(0.52 0.178 243);
-  --accent: oklch(0.96 0.008 243);  /* hover / active fill                  */
-  --accent-foreground: oklch(0.52 0.178 243);
-
-  /* Neutral fills */
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.35 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.52 0 0);
-
-  /* Lines */
-  --border: oklch(0.912 0 0);
-  --border-strong: oklch(0.85 0 0);
-  --input: oklch(0.912 0 0);
-
-  /* Feedback (soft tint bg + readable foreground) */
-  --success: #ecfdf5;
-  --success-foreground: #047857;
-  --warning: #fffbeb;
-  --warning-foreground: #b45309;
-  --info: #ecfeff;
-  --info-foreground: #0e7490;
-  --destructive: oklch(0.577 0.245 27);  /* ≈ status-red, darker in light  */
-  --destructive-foreground: oklch(1 0 0);
-
-  --radius: 0.45rem;
-
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.52 0.178 243);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.96 0.008 243);
-  --sidebar-accent-foreground: oklch(0.52 0.178 243);
-  --sidebar-border: oklch(0.912 0 0);
-  --sidebar-ring: oklch(0.52 0.178 243);
+  /* ── Elevation — soft, layered shadows (Tailwind v4 `shadow-*` utilities) ──
+     Defined as raw tokens here so dark mode can tune them, and exposed
+     through `@theme inline` below. Prefer elevation over borders for depth. */
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.06), 0 1px 3px -1px oklch(0 0 0 / 0.06);
+  --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.06), 0 4px 8px -2px oklch(0 0 0 / 0.07);
+  --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.08), 0 12px 20px -6px oklch(0 0 0 / 0.12);
+  --shadow-xl: 0 8px 16px -4px oklch(0 0 0 / 0.1), 0 20px 32px -8px oklch(0 0 0 / 0.14);
+  --shadow-2xl: 0 12px 24px -6px oklch(0 0 0 / 0.12), 0 28px 48px -12px oklch(0 0 0 / 0.18);
 }
 
-/* ── Dark theme ─────────────────────────────────────────────────────── */
+/* ── Dark theme elevation — deeper shadows so elevation reads on dark ── */
 .dark {
-  color-scheme: dark;
-
-  /* Surfaces */
-  --page-bg: oklch(0.118 0 0);
-  --background: oklch(0.118 0 0);
-  --card: oklch(0.17 0 0);
-  --sidebar: oklch(0.155 0 0);
-  --popover: oklch(0.17 0 0);
-
-  /* Text */
-  --page-fg: oklch(0.955 0 0);
-  --foreground: oklch(0.955 0 0);
-  --card-foreground: oklch(0.955 0 0);
-  --popover-foreground: oklch(0.955 0 0);
-  --sidebar-fg: oklch(0.955 0 0);
-  --secondary-fg: oklch(0.955 0 0);
-
-  /* Brand / interactive */
-  --primary: oklch(0.64 0.165 243); /* lighter Recurso Labs blue            */
-  --primary-foreground: oklch(0.118 0 0);
-  --ring: oklch(0.64 0.165 243);
-  --accent: oklch(0.21 0.018 243);
-  --accent-foreground: oklch(0.64 0.165 243);
-
-  /* Neutral fills */
-  --secondary: oklch(0.22 0 0);
-  --secondary-foreground: oklch(0.955 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.58 0 0);
-
-  /* Lines */
-  --border: oklch(1 0 0 / 9%);
-  --border-strong: oklch(1 0 0 / 14%);
-  --input: oklch(1 0 0 / 11%);
-
-  /* Feedback */
-  --success: #022c22;
-  --success-foreground: #6ee7b7;
-  --warning: #451a03;
-  --warning-foreground: #fcd34d;
-  --info: #083344;
-  --info-foreground: #67e8f9;
-  --destructive: oklch(0.704 0.191 22);  /* lighter red for dark bg        */
-  --destructive-foreground: oklch(1 0 0);
-
-  --sidebar-foreground: oklch(0.955 0 0);
-  --sidebar-primary: oklch(0.64 0.165 243);
-  --sidebar-primary-foreground: oklch(0.118 0 0);
-  --sidebar-accent: oklch(0.21 0.018 243);
-  --sidebar-accent-foreground: oklch(0.64 0.165 243);
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.64 0.165 243);
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.32), 0 1px 3px -1px oklch(0 0 0 / 0.35);
+  --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.38), 0 4px 8px -2px oklch(0 0 0 / 0.42);
+  --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.45), 0 12px 20px -6px oklch(0 0 0 / 0.5);
+  --shadow-xl: 0 8px 16px -4px oklch(0 0 0 / 0.5), 0 20px 32px -8px oklch(0 0 0 / 0.55);
+  --shadow-2xl: 0 12px 24px -6px oklch(0 0 0 / 0.55), 0 28px 48px -12px oklch(0 0 0 / 0.6);
 }
 
 /* System dark preference (pre-hydration / no explicit class) */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    color-scheme: dark;
-
-    --page-bg: oklch(0.118 0 0);
-    --background: oklch(0.118 0 0);
-    --card: oklch(0.17 0 0);
-    --sidebar: oklch(0.155 0 0);
-    --popover: oklch(0.17 0 0);
-    --page-fg: oklch(0.955 0 0);
-    --foreground: oklch(0.955 0 0);
-    --card-foreground: oklch(0.955 0 0);
-    --popover-foreground: oklch(0.955 0 0);
-    --sidebar-fg: oklch(0.955 0 0);
-    --secondary-fg: oklch(0.955 0 0);
-    --primary: oklch(0.64 0.165 243);
-    --primary-foreground: oklch(0.118 0 0);
-    --ring: oklch(0.64 0.165 243);
-    --accent: oklch(0.21 0.018 243);
-    --accent-foreground: oklch(0.64 0.165 243);
-    --secondary: oklch(0.22 0 0);
-    --secondary-foreground: oklch(0.955 0 0);
-    --muted: oklch(0.22 0 0);
-    --muted-foreground: oklch(0.58 0 0);
-    --border: oklch(1 0 0 / 9%);
-    --border-strong: oklch(1 0 0 / 14%);
-    --input: oklch(1 0 0 / 11%);
-    --success: #022c22;
-    --success-foreground: #6ee7b7;
-    --warning: #451a03;
-    --warning-foreground: #fcd34d;
-    --info: #083344;
-    --info-foreground: #67e8f9;
-    --destructive: oklch(0.704 0.191 22);
-    --destructive-foreground: oklch(1 0 0);
-    --sidebar-foreground: oklch(0.955 0 0);
-    --sidebar-primary: oklch(0.64 0.165 243);
-    --sidebar-primary-foreground: oklch(0.118 0 0);
-    --sidebar-accent: oklch(0.21 0.018 243);
-    --sidebar-accent-foreground: oklch(0.64 0.165 243);
-    --sidebar-border: oklch(1 0 0 / 9%);
-    --sidebar-ring: oklch(0.64 0.165 243);
+    --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.3);
+    --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.32), 0 1px 3px -1px oklch(0 0 0 / 0.35);
+    --shadow-md: 0 2px 4px -1px oklch(0 0 0 / 0.38), 0 4px 8px -2px oklch(0 0 0 / 0.42);
+    --shadow-lg: 0 4px 8px -2px oklch(0 0 0 / 0.45), 0 12px 20px -6px oklch(0 0 0 / 0.5);
+    --shadow-xl: 0 8px 16px -4px oklch(0 0 0 / 0.5), 0 20px 32px -8px oklch(0 0 0 / 0.55);
+    --shadow-2xl: 0 12px 24px -6px oklch(0 0 0 / 0.55), 0 28px 48px -12px oklch(0 0 0 / 0.6);
   }
 }
 
-/* ── Expose theme vars as Tailwind color utilities ─────────────────────
-   Every `--color-*` below becomes a class (bg-<name>, text-<name>,
-   border-<name>, from-<name>…). Add new tokens here when needed. */
+/* ── Expose radius + elevation as Tailwind utilities ──────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-
-  /* Page surface (app shell / auth pages / drawer side panels) */
-  --color-page-bg: var(--page-bg);
-  --color-page-fg: var(--page-fg);
-  --color-border-strong: var(--border-strong);
-
-  /* Brand + status + avatar tokens (raw values at the top) */
-  --color-brand-navy: var(--brand-navy);
-  --color-brand-blue: var(--brand-blue);
-  --color-brand-sky: var(--brand-sky);
-  --color-source-greenhouse: var(--source-greenhouse);
-  --color-status-green: var(--status-green);
-  --color-status-emerald: var(--status-emerald);
-  --color-status-amber: var(--status-amber);
-  --color-status-amber-500: var(--status-amber-500);
-  --color-status-red: var(--status-red);
-  --color-status-slate: var(--status-slate);
-  --color-avatar-1: var(--avatar-1);
-  --color-avatar-2: var(--avatar-2);
-  --color-avatar-3: var(--avatar-3);
-  --color-avatar-4: var(--avatar-4);
-  --color-avatar-5: var(--avatar-5);
-  --color-scrim: var(--scrim);
-
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
@@ -280,6 +63,16 @@
   --radius-2xl: calc(var(--radius) * 2);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Elevation — wire shadow utilities to the runtime tokens above so the
+     `.dark` overrides (and future palette overrides) take effect. Without
+     this, Tailwind bakes the default shadow values into the utilities. */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
 }
 
 @layer base {
@@ -303,6 +96,20 @@
 ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--status-slate) 50%, transparent); }
 
 input, textarea, select, button { font-family: var(--font-sans); }
+
+/* Gooey input clear button — drawn in the pill's text color (white on the
+   dark pill in light mode, black on the light pill in dark mode) */
+.gooey-input input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+  cursor: pointer;
+}
 
 /* Hover rings — brand blue, theme-driven */
 .card-hover:hover { border-color: color-mix(in srgb, var(--brand-blue) 30%, transparent) !important; transform: translateY(-1px); }

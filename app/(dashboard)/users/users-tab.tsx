@@ -5,7 +5,7 @@ import type { ApiAppUser } from "@/app/api/users/route"
 import { apiPost, apiRequest } from "@/lib/api/client"
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
-import { SearchInput } from "@/components/search-input"
+import { GooeyInput } from "@/components/ui/gooey-input"
 import { PageHeader } from "@/components/page-header"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
@@ -21,24 +21,39 @@ function mapRoleName(name: string): "admin" | "lead" | "bd" {
   return "bd"
 }
 
-const labelClass = "block text-meta font-medium text-muted-foreground mb-1"
-const inputClass = "h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+const labelClass = "block text-meta font-medium text-muted-foreground mb-1.5"
+const inputClass = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/50"
 
-/* ─── Invite Modal ─── */
-function InviteModal({ roles, onClose, onInvite }: { roles: RoleOption[]; onClose: () => void; onInvite: (u: ApiAppUser) => void }) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [roleId, setRoleId] = useState<string | null>(roles[0]?.id ?? null)
+/* ─── User Modal (shared by Invite + Edit) ─── */
+type UserModalMode = "invite" | "edit"
+
+interface UserModalProps {
+  mode: UserModalMode
+  roles: RoleOption[]
+  user?: ApiAppUser // edit only
+  isSelf?: boolean // edit only
+  onClose: () => void
+  onSubmit: (values: { name: string; email: string; roleId: string | null }) => Promise<void>
+}
+
+function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: UserModalProps) {
+  const isInvite = mode === "invite"
+  const [name, setName] = useState(user?.name ?? "")
+  const [email, setEmail] = useState(user?.email ?? "")
+  const [roleId, setRoleId] = useState<string | null>(isInvite ? (roles[0]?.id ?? null) : (user?.roleId ?? null))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
 
+  const canSubmit = isInvite ? Boolean(name && email && roleId) : Boolean(name.trim())
+
   const handleSubmit = async () => {
-    if (!name || !email || loading) return
+    if (!canSubmit || loading) return
     setLoading(true); setError("")
     try {
-      const data = await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", { name, email, roleId })
-      onInvite(data.user); setSent(true)
+      await onSubmit({ name: name.trim(), email: email.trim(), roleId })
+      if (isInvite) setSent(true)
+      else onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.")
     } finally {
@@ -46,12 +61,34 @@ function InviteModal({ roles, onClose, onInvite }: { roles: RoleOption[]; onClos
     }
   }
 
+  const roleButtons = (
+    <div className="flex gap-2">
+      {roles.map(r => {
+        const color = ROLE_COLOR[mapRoleName(r.name)]
+        const sel = roleId === r.id
+        return (
+          <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
+            className="flex-1 h-9 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
+            style={{
+              background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
+              border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
+              color: sel ? color : "var(--foreground)",
+              fontWeight: sel ? 700 : 400,
+            }}>
+            {r.name}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose() }}>
       <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <DialogTitle className="text-base font-semibold">Invite Team Member</DialogTitle>
-          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"><X className="size-4" /></button>
+          <DialogTitle className="text-base font-semibold">
+            {isInvite ? "Invite Team Member" : isSelf ? "Edit Your Profile" : "Edit Team Member"}
+          </DialogTitle>
         </div>
 
         {sent ? (
@@ -66,109 +103,39 @@ function InviteModal({ roles, onClose, onInvite }: { roles: RoleOption[]; onClos
         ) : (
           <div className="p-5 flex flex-col gap-4">
             {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
-            <div><label className={labelClass}>Full Name *</label><input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="Jane Smith" /></div>
-            <div><label className={labelClass}>Email *</label><input type="email" className={inputClass} value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@company.com" /></div>
             <div>
-              <label className={labelClass}>Role</label>
-              <div className="flex gap-2">
-                {roles.map(r => {
-                  const color = ROLE_COLOR[mapRoleName(r.name)]
-                  const sel = roleId === r.id
-                  return (
-                    <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
-                      className="flex-1 h-9 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
-                      style={{
-                        background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
-                        border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
-                        color: sel ? color : "var(--foreground)",
-                        fontWeight: sel ? 700 : 400,
-                      }}>
-                      {r.name}
-                    </button>
-                  )
-                })}
-              </div>
+              <label className={labelClass}>Full Name *</label>
+              <input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder={isInvite ? "Jane Smith" : undefined} />
             </div>
+            <div>
+              <label className={labelClass}>{isInvite ? "Email *" : "Email"}</label>
+              <input
+                type="email"
+                className={isInvite ? inputClass : `${inputClass} opacity-60 cursor-not-allowed`}
+                value={email}
+                onChange={isInvite ? e => setEmail(e.target.value) : undefined}
+                placeholder={isInvite ? "jane@company.com" : undefined}
+                readOnly={!isInvite}
+              />
+            </div>
+            {isSelf && !isInvite ? (
+              <p className="text-caption text-muted-foreground">You cannot change your own role.</p>
+            ) : (
+              <div>
+                <label className={labelClass}>Role</label>
+                {roleButtons}
+              </div>
+            )}
             <div className="flex gap-2.5 pt-1">
               <button type="button" onClick={onClose} className="flex-1 h-9 rounded-md border border-border text-sm text-foreground hover:bg-accent transition-colors cursor-pointer">Cancel</button>
-              <button type="button" onClick={handleSubmit} disabled={!name || !email || !roleId || loading}
+              <button type="button" onClick={handleSubmit} disabled={!canSubmit || loading}
                 className="flex-[2] inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer">
                 {loading && <Loader2 className="size-3.5 animate-spin" />}
-                Send Invite
+                {isInvite ? "Send Invite" : "Save Changes"}
               </button>
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/* ─── Edit Modal ─── */
-function EditUserModal({ user, roles, isSelf, onClose, onSave }: { user: ApiAppUser; roles: RoleOption[]; isSelf: boolean; onClose: () => void; onSave: (userId: string, updates: { name?: string; roleId?: string }) => Promise<void> }) {
-  const [name, setName] = useState(user.name)
-  const [roleId, setRoleId] = useState<string | null>(user.roleId)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-
-  const handleSave = async () => {
-    if (!name.trim() || loading) return
-    setLoading(true); setError("")
-    try {
-      await onSave(user.id, { name: name.trim(), roleId: roleId !== user.roleId ? (roleId ?? undefined) : undefined })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.")
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <DialogTitle className="text-base font-semibold">Edit {isSelf ? "Your Profile" : "Team Member"}</DialogTitle>
-          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"><X className="size-4" /></button>
-        </div>
-        <div className="p-5 flex flex-col gap-4">
-          {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
-          <div><label className={labelClass}>Full Name *</label><input className={inputClass} value={name} onChange={e => setName(e.target.value)} /></div>
-          <div>
-            <label className={labelClass}>Email</label>
-            <input className={`${inputClass} opacity-60 cursor-not-allowed`} value={user.email} readOnly />
-          </div>
-          {!isSelf && (
-            <div>
-              <label className={labelClass}>Role</label>
-              <div className="flex gap-2">
-                {roles.map(r => {
-                  const color = ROLE_COLOR[mapRoleName(r.name)]
-                  const sel = roleId === r.id
-                  return (
-                    <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
-                      className="flex-1 h-9 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
-                      style={{
-                        background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
-                        border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
-                        color: sel ? color : "var(--foreground)",
-                        fontWeight: sel ? 700 : 400,
-                      }}>
-                      {r.name}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          {isSelf && <p className="text-caption text-muted-foreground">You cannot change your own role.</p>}
-          <div className="flex gap-2.5 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 h-9 rounded-md border border-border text-sm text-foreground hover:bg-accent transition-colors cursor-pointer">Cancel</button>
-            <button type="button" onClick={handleSave} disabled={!name.trim() || loading}
-              className="flex-[2] inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer">
-              {loading && <Loader2 className="size-3.5 animate-spin" />}
-              Save Changes
-            </button>
-          </div>
-        </div>
       </DialogContent>
     </Dialog>
   )
@@ -232,7 +199,7 @@ export default function UsersTab() {
         role: updates.roleId ? mapRoleName(roleName) : u.role,
       }
     }))
-    setEditingUser(null)
+    // Modal closes itself on success.
   }
 
   const toggleStatus = async (id: string) => {
@@ -343,11 +310,11 @@ export default function UsersTab() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-background shrink-0 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search by name or email..." className="max-w-sm" />
+        <GooeyInput value={search} onValueChange={setSearch} placeholder="Search by name or email..." expandedWidth={384} />
         <select
           value={roleFilter}
           onChange={e => setRoleFilter(e.target.value)}
-          className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+          className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
           aria-label="Filter by role"
         >
           <option value="all">All Roles</option>
@@ -358,7 +325,7 @@ export default function UsersTab() {
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+          className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
           aria-label="Filter by status"
         >
           <option value="all">All Statuses</option>
@@ -375,24 +342,24 @@ export default function UsersTab() {
             <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters.</p>
           </div>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Member</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground hidden md:table-cell">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground hidden lg:table-cell">Joined</th>
-                  {isAdmin && <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">Actions</th>}
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground">Member</th>
+                  <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground">Role</th>
+                  <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground hidden md:table-cell">Status</th>
+                  <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground hidden lg:table-cell">Joined</th>
+                  {isAdmin && <th className="px-4 py-3 text-right text-caption font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/70">
                 {filtered.map(user => {
                   const roleColor = ROLE_COLOR[user.role ?? "bd"]
                   const statusColor = USER_STATUS_COLOR[user.status ?? "inactive"]
                   const isSelf = user.id === activeUser?.id
                   return (
-                    <tr key={user.id} className="bg-background hover:bg-muted/20 transition-colors">
+                    <tr key={user.id} className="bg-background transition-colors hover:bg-accent/40">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Avatar name={user.name} size={32} />
@@ -467,20 +434,30 @@ export default function UsersTab() {
       </div>
 
       {showInvite && (
-        <InviteModal
+        <UserModal
+          mode="invite"
           roles={roles}
           onClose={() => setShowInvite(false)}
-          onInvite={u => { setUsers(us => [u, ...us]); setShowInvite(false) }}
+          onSubmit={async ({ name, email, roleId }) => {
+            const data = await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", { name, email, roleId })
+            setUsers(us => [data.user, ...us])
+          }}
         />
       )}
 
       {editingUser && (
-        <EditUserModal
-          user={editingUser}
+        <UserModal
+          mode="edit"
           roles={roles}
+          user={editingUser}
           isSelf={editingUser.id === activeUser?.id}
           onClose={() => setEditingUser(null)}
-          onSave={saveUserEdit}
+          onSubmit={async ({ name, roleId }) => {
+            await saveUserEdit(editingUser.id, {
+              name,
+              roleId: roleId !== editingUser.roleId ? (roleId ?? undefined) : undefined,
+            })
+          }}
         />
       )}
     </>

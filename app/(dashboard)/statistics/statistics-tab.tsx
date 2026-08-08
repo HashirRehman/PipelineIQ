@@ -270,7 +270,7 @@ export default function StatisticsTab() {
         {/* Charts row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Line chart */}
-          <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+          <Card className="gap-0 p-5">
             <CardContent className="p-0">
               <div className="text-sm font-semibold text-foreground mb-1">Leads Over Time</div>
               <div className="text-meta text-muted-foreground mb-4">{granularity} · {userFilter === 'all' ? 'All users' : users.find(u => u.id === userFilter)?.name}</div>
@@ -279,7 +279,7 @@ export default function StatisticsTab() {
           </Card>
 
           {/* Status donut */}
-          <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+          <Card className="gap-0 p-5">
             <CardContent className="p-0">
               <div className="text-sm font-semibold text-foreground mb-1">Status Breakdown</div>
               <div className="text-meta text-muted-foreground mb-4">Current lead distribution</div>
@@ -290,7 +290,7 @@ export default function StatisticsTab() {
 
         {/* Per-BD bar charts (admin only) */}
         {isAdmin && userFilter === 'all' && (
-          <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+          <Card className="gap-0 p-5">
             <CardContent className="p-0">
               <div className="text-sm font-semibold text-foreground mb-1">Leads by Team Member</div>
               <div className="text-meta text-muted-foreground mb-5">Monthly totals per BD</div>
@@ -319,7 +319,7 @@ export default function StatisticsTab() {
         )}
 
         {/* Profile performance */}
-        <Card className="py-5 px-5 gap-0 bg-card border border-border rounded-lg shadow-none ring-0">
+        <Card className="gap-0 p-5">
           <CardContent className="p-0">
             <div className="text-sm font-semibold text-foreground mb-4">Profile Activity</div>
             <div className="flex flex-col">

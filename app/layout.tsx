@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { PaletteApplier } from "@/components/theme/palette-applier";
+import { PatternApplier } from "@/components/theme/pattern-applier";
+import { ThemeBootstrapScript } from "@/components/theme/theme-bootstrap-script";
 import "./globals.css";
 
 const inter = Inter({
@@ -45,7 +48,13 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased bg-background`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        {/* Re-applies the saved palette/pattern before first paint, like
+            next-themes does for dark/light mode — prevents the default-theme
+            flash on refresh. */}
+        <ThemeBootstrapScript />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <PaletteApplier />
+          <PatternApplier />
           {children}
         </ThemeProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}

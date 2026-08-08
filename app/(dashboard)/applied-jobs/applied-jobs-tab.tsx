@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2, MapPin, Briefcase, ExternalLink } from "lucide-r
 
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { PageHeader } from "@/components/page-header"
-import { SearchInput } from "@/components/search-input"
+import { GooeyInput } from "@/components/ui/gooey-input"
 import { StatCard } from "@/components/stat-card"
 import { TintedBadge } from "@/components/tinted-badge"
 import {
@@ -104,11 +104,11 @@ export default function AppliedJobsTab() {
 
         {/* Filters */}
         <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-background">
-          <SearchInput
+          <GooeyInput
             placeholder="Search by title, company, location…"
             value={search}
-            onChange={setSearch}
-            className="flex-1 max-w-sm"
+            onValueChange={setSearch}
+            expandedWidth={384}
           />
           <Select value={parserFilter} onValueChange={(v) => setParserFilter(v ?? "All Sources")}>
             <SelectTrigger className="h-8 w-36 text-xs">

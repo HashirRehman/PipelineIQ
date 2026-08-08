@@ -6,7 +6,8 @@ export type TabId =
   | "applied-jobs"
   | "leads"
   | "users"
-  | "statistics";
+  | "statistics"
+  | "settings";
 
 export const LEAD_STATUSES = [
   "Applied",

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { List, LayoutDashboard, Plus, ChevronDown, Search } from "lucide-react"
+import { List, LayoutDashboard, Plus, ChevronDown } from "lucide-react"
 
 import { LeadsBoardView } from "@/components/leads/board/leads-board-view"
 import { LeadFilterBar } from "@/components/leads/lead-filter-bar"
@@ -9,6 +9,7 @@ import { LeadsListView } from "@/components/leads/list/leads-list-view"
 import { MOCK_LEADS } from "@/components/leads/mock-leads"
 import type { AppUser, Lead, Profile } from "@/components/leads/types"
 import { useLeadFilters } from "@/components/leads/use-lead-filters"
+import { GooeyInput } from "@/components/ui/gooey-input"
 import { cn } from "@/lib/utils"
 import { LEAD_STATUS_DONE, LEAD_STATUSES, type LeadStatus } from "@/lib/constants"
 import JobDrawer, { type Job } from "@/components/job-drawer"
@@ -101,16 +102,12 @@ export default function LeadsTab() {
         <div className="mx-2 h-4 w-px bg-border" />
 
         {/* Search */}
-        <div className="relative w-48">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground/50" />
-          <input
-            type="search"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search leads..."
-            className="h-7 w-full rounded border border-border bg-transparent pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition"
-          />
-        </div>
+        <GooeyInput
+          value={search}
+          onValueChange={setSearch}
+          placeholder="Search leads..."
+          expandedWidth={192}
+        />
 
         {/* Status dropdown */}
         <div className="relative">
