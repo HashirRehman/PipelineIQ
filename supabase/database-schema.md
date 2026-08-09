@@ -2,9 +2,9 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 10 · **Tables:** 13 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 10 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
-- **Last updated:** 2026-08-07
+- **Last updated:** 2026-08-09
 
 > Migrations are intentionally comment-free; this document is the single source of truth for schema reasoning, old-DB mappings, and open questions. Keep it in sync when migrations change.
 
@@ -29,14 +29,14 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 |---|---|---|
 | 1 | `20260806104621_init_core_tables.sql` | `organizations`, `pipeline_stages`, `roles`, `users` (incl. `role_id` FK), `seniority_level`, trigger function |
 | 2 | `20260806130000_profiles_cvs_scrapers_locks.sql` | `profiles`, `profile_cvs`, `scrapers`, `cron_run_locks` |
-| 3 | `20260806150000_jobs_leads.sql` | `jobs`, `leads` |
+| 3 | `20260806150000_jobs_leads.sql` | `jobs`, `leads` (incl. `notes`), `leads.applied_at` index |
 | 4 | `20260806160000_job_matches_and_states.sql` | `application_status` enum, `job_profile_matches`, `job_profile_states`, `leads.job_profile_state_id` FK |
 | 5 | `20260806190000_custom_access_token_hook.sql` | `custom_access_token_hook()` (JWT `is_admin` / `user_role` claims) |
-| 6 | `20260806200000_rls_policies_and_helpers.sql` | `is_admin()` + RLS policies for all 13 tables |
-| 7 | `20260806210000_discovery_functions.sql` | `job_profile_states.dismissed_reason`, `upsert_job_profile_match()`, `apply_job_profile()` |
-| 8 | `20260806220000_cron_lock_and_auth_triggers.sql` | seeds the `cron_run_locks` row; cron/auth trigger hardening |
-| 9 | `20260806230000_security_and_constraint_hardening.sql` | trigger helper `search_path`; `profiles.user_id` FK `ON DELETE SET NULL`; `profile_cvs` MIME/size/unique-storage-path constraints |
-| 10 | `20260806240000_discovery_actions_by_job_profile.sql` | discovery actions (mark-applied / dismiss) keyed on `(job_id, profile_id)` pairs |
+| 6 | `20260806200000_rls_policies_and_helpers.sql` | `is_admin()` + RLS policies for all 13 tables (leads: select/insert/update scoped to the owner snapshot `user_id`) |
+| 7 | `20260806210000_discovery_functions.sql` | `job_profile_states.dismissed_reason` (match scores are upserted straight from the cron — no SQL function) |
+| 8 | `20260806220000_cron_lock_and_auth_triggers.sql` | seeds the `cron_run_locks` row; `handle_new_user()` auth trigger (auth.users → users auto-create) |
+| 9 | `20260806230000_security_and_constraint_hardening.sql` | trigger helper `search_path`; `profiles.user_id` FK `ON DELETE SET NULL`; `profile_cvs` MIME/size/unique-storage-path constraints; `job_profile_states` update policy allows profile owners to set `applied` / `dismissed` |
+| 10 | `20260809120000_job_comments.sql` | `job_comments` (flat team discussion on jobs — additive, applied via `db push`, no reset) |
 
 ---
 
@@ -212,8 +212,11 @@ The `UNIQUE (scraper_id, external_job_id)` constraint prevents duplicate ingest 
 | last_activity_at | timestamptz | NOT NULL, default `now()` |
 | created_at / updated_at | timestamptz | NOT NULL, default `now()` |
 | deleted_at | timestamptz | |
+| notes | text | NOT NULL, default `''` — Applier's Notes |
 
 **Owner semantics:** `user_id` is a permanent snapshot taken at lead creation; it does not move if the profile is later reassigned to another BD.
+
+**Applier's Notes:** `notes` is writable only by the user whose assigned profile was used to apply — the permanent `user_id` snapshot (the API rejects notes edits from anyone else; RLS scopes the whole row to owner/admin). Status/stage changes are allowed for the owner or an admin.
 
 ### 3.12 `job_profile_matches` — old DB: `job_engineer_matches` (scoring half)
 
@@ -248,7 +251,23 @@ The current application state of a job against a profile, plus the metadata of e
 | created_at / updated_at | timestamptz | NOT NULL, default `now()` |
 | deleted_at | timestamptz | |
 
-**Key rule:** the live state per `(job, profile)` pair is the row with `deleted_at IS NULL`, enforced by a partial unique index (`job_id, profile_id WHERE deleted_at IS NULL`). Superseded attempts are soft-deleted, so the which-user-which-CV history stays queryable — no `is_current` column.
+**Key rule:** the live state per `(job, profile)` pair is the row with `deleted_at IS NULL`, enforced by a partial unique index (`job_id, profile_id WHERE deleted_at IS NULL`). Superseded attempts are soft-deleted, so the which-user-which-CV history stays queryable — no `is_current` column. **Rows are lazy:** created only on first user action (`applied` / `dismissed`); a pair with no row is `suggested` by default.
+
+### 3.14 `job_comments`
+
+Flat team discussion on a job — anyone in the org can comment, everyone in the org sees the thread. No replies, no `parent_id`.
+
+| Column | Type | Constraints |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | NOT NULL, FK → `organizations(id)` — the job's org (same as the commenter's org) |
+| job_id | uuid | NOT NULL, FK → `jobs(id)` ON DELETE CASCADE |
+| user_id | uuid | NOT NULL, FK → `users(id)` ON DELETE CASCADE — author |
+| body | text | NOT NULL, CHECK length 1–2000 |
+| created_at / updated_at | timestamptz | NOT NULL, default `now()` |
+| deleted_at | timestamptz | soft delete — history survives; the app hides deleted rows |
+
+**Permissions:** any authenticated user of the job's org can read and comment (RLS `job_comments_select`/`insert` in migration 10 + the app's org gate). Edits are author-only; deletes are author-or-admin (moderation). Comments are org-scoped end-to-end, matching every other business table.
 
 ---
 
@@ -276,6 +295,8 @@ job_profile_states N─1 profile_cvs           (CV chosen for the application)
 jobs N─1 leads, profiles N─1 leads, users N─1 leads,
 pipeline_stages 1─N leads,
 job_profile_states 1─N leads  (the replied application)
+
+jobs 1─N job_comments, users 1─N job_comments  (authors)
 ```
 
 ### Invariants
@@ -306,17 +327,19 @@ job_profile_states 1─N leads  (the replied application)
 
 8. **`application_status` enum has exactly `suggested`, `dismissed`, `applied`.** Post-reply outcomes are handled by `leads` + `pipeline_stages`, not by this enum. `dismissed_reason` records why a pair was dismissed (drives the dismiss UX).
 
-9. **A lead exists only for applied jobs that received an employer reply.** It pins the specific application attempt (`job_profile_state_id`) and tracks the pipeline stage. `user_id` is the permanent owner snapshot. Created atomically by `apply_job_profile()` (migration 7), which also supersedes any prior live lead for the same (job, profile) pair — duplicate-lead rule.
+9. **A lead is created by the user from the Applied Jobs page** (POST `/api/leads` with the `(job, profile)` pair), wrapping an applied application: it pins the state row (`job_profile_state_id`), takes `applied_at` from the state row, and records the permanent owner snapshot (`user_id` = the profile's assigned user). **Duplicate-lead rule is enforced in the API** — at most one live lead per `(job, profile)` pair; the POST is idempotent and returns the existing lead.
 
 10. **Soft delete everywhere.** History is preserved by rows marked `deleted_at`, never destroyed.
 
-11. **RLS enabled on every table** with policies written (migration 6): reference tables readable by any authenticated user; users/profiles/leads scoped through profile ownership (`profiles.user_id`) and `is_admin()`; writes are admin-only unless a SECURITY DEFINER function (discovery RPCs) handles them. API-role grants are applied via `supabase/seed.sql`.
+11. **RLS enabled on every table** with policies written (migration 6): reference tables readable by any authenticated user; users/profiles/leads scoped through profile ownership (`profiles.user_id`) and `is_admin()`; writes are admin-only except where a policy grants profile owners their own rows (profiles, `job_profile_states`). There are no SECURITY DEFINER write functions — the cron writes with the service-role key, which bypasses RLS. API-role grants are applied via `supabase/seed.sql`.
 
 12. **`organization_id` on every business table.** Enables multi-organization scoping from day one.
 
 13. **`rate_expection` (spec) is `rate_expectation`** and **`possibaly_closed` → `possibly_closed`** — spec typos corrected to the old codebase's spellings.
 
 14. **JWT carries `is_admin` / `user_role`.** `custom_access_token_hook()` (migration 5) reads `users.role_id` → `roles.name` and bakes the claims into issued tokens; `middleware.ts` / `getCachedIsAdmin()` read them locally. RLS still re-checks `is_admin()` live at query time — the claim is an app-layer convenience only.
+
+15. **Comments are an open org-wide thread, not an owner-scoped record.** Unlike leads (owner snapshot) or notes (applier-only), any org member can read and comment on any of the org's jobs (`job_comments` RLS scopes by `organization_id`, not by `user_id`). Comments are **flat** — deliberately no `parent_id`/replies. The drawer surfaces the same thread for a job everywhere (Discovery, Applied Jobs, and Leads via `commentsJobId`), since a lead wraps the same job.
 
 ---
 
@@ -361,8 +384,8 @@ job_profile_states 1─N leads  (the replied application)
 4. **`cron_run_locks` uses a uuid key with no seeded row.** The old table used text job-keys (`'discover-jobs'`) with a seeded lock row, so the mutex existed before the first run. With uuid + no seed, the app must select-or-insert the lock row. Consider reverting to text keys.
 5. **`profiles.user_id` is nullable.** A profile may exist without a user, and a user may have zero profiles. Confirm the intended direction — specifically whether external candidates (no login) should still be representable.
 6. **`users.organization_id` is NOT NULL.** An organization row must exist before any user/profile can be inserted. Addressed by the seed data (`seed.sql` creates the `Recurso Labs` organization).
-7. **Duplicate-lead rule.** `apply_job_profile()` soft-deletes any prior live lead for the (job, profile) pair before inserting the fresh snapshot — enforced in the function, not by a partial unique index. Confirm whether a DB-level constraint is also wanted.
-8. **Re-application atomicity.** `apply_job_profile()` updates/creates the `job_profile_states` row and the lead in one transaction — the old `reassign_engineer_bd` guarantee. Remaining gap: `reassign` has no fresh equivalent yet (Phase 3 — profile reassignment is a plain `profiles.user_id` update today).
+7. **Duplicate-lead rule.** Enforced in the API (POST `/api/leads` returns the existing live lead for the pair). A partial unique index could harden it at the DB level later.
+8. **Re-application atomicity.** When lead creation returns, updating/creating the `job_profile_states` row and the lead must be atomic — today mark-applied is a single table INSERT/UPDATE, so nothing spans tables yet. Remaining gap: `reassign` has no fresh equivalent yet (Phase 3 — profile reassignment is a plain `profiles.user_id` update today).
 9. **Soft-deleted state rows referenced by leads.** A lead can point to a state row that is later soft-deleted — lead queries must not filter the joined state by `deleted_at IS NULL`.
 10. **`rate_currency char(3)`** pads values with spaces in Postgres; comparisons need trimming. Inherited from the old schema — consider `text` + length check if it causes friction.
 11. **`cv_id` cross-table integrity.** Nothing enforces that a `job_profile_matches.cv_id` or `job_profile_states.cv_id` belongs to the same profile as the row's `profile_id` — needs app-level validation (a composite FK doesn't fit cleanly).
@@ -375,7 +398,7 @@ job_profile_states 1─N leads  (the replied application)
 
 | Source | What it seeds |
 |---|---|
-| `supabase/seed.sql` (runs automatically on `supabase db reset` via `[db.seed]` in `config.toml`) | Data-API grants (`anon` read, `authenticated`/`service_role` full + enum usage), `Recurso Labs` organization, `Admin`/`User` roles, seniority levels (`Lead`/`Senior`/`Mid`/`Junior`), pipeline stages (`New Lead` → `Rejected`), `Jsearch` scraper, 2 profiles (`Saad Mumtaz`, `Hashir Rehman`), 1 CV for each profile (dummy paths), 2 jobs (YO AI Labs, Mercor). Idempotent — fixed UUIDs + `ON CONFLICT DO NOTHING` |
+| `supabase/seed.sql` (runs automatically on `supabase db reset` via `[db.seed]` in `config.toml`) | Data-API grants (`anon` read, `authenticated`/`service_role` full + enum usage), `Recurso Labs` organization, `Admin`/`User` roles, seniority levels (`Lead`/`Senior`/`Mid`/`Junior`), pipeline stages (`Applied` → `Closed` — matches `LEAD_STATUSES` in `lib/constants.ts`), `Jsearch` scraper, 2 profiles (`Saad Mumtaz`, `Hashir Rehman`), 1 CV for each profile (dummy paths), 2 jobs (YO AI Labs, Mercor). Idempotent — fixed UUIDs + `ON CONFLICT DO NOTHING` |
 | `scripts/createUser.cjs` (`npm run seed:user`) | The admin auth user (Fareed Zafar) via the service-role admin API — auth identities cannot be created from SQL — plus the matching `users` row with a single `Admin` role via `users.role_id`, and links the `Saad Mumtaz` profile to the user (1:1 ownership). Idempotent; requires migrations + `seed.sql` applied first |
 
 **Not yet built:**

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { profileMutationResponse } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { uploadProfileCv } from "@/lib/services/profiles";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,18 @@ export async function POST(
   }
 
   const supabase = await createClient();
-  const result = await uploadProfileCv(supabase, profileId, formData);
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
+  const result = await uploadProfileCv(supabase, profileId, org.organizationId, formData);
 
   if (result.success) {
     revalidatePath("/");

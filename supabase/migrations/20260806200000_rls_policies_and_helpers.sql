@@ -6,8 +6,10 @@
 --   * Reference tables (organizations, roles, pipeline_stages, seniority_level,
 --     scrapers, jobs) are readable by any authenticated user.
 --   * Business tables scope reads through profile ownership (profiles.user_id)
---     and admin; writes are admin-only unless a SECURITY DEFINER function
---     (discovery RPCs) handles them.
+--     and admin; writes are admin-only except where a policy grants profile
+--     owners (profiles.user_id) their own rows (profiles, job_profile_states,
+--     leads via the owner snapshot user_id). There are no SECURITY DEFINER
+--     write functions — app writes go through RLS.
 --   * leads reads scope through the permanent user_id owner snapshot.
 -- The service_role key bypasses RLS entirely (cron/admin writes).
 
@@ -111,8 +113,19 @@ create policy job_profile_states_select on public.job_profile_states
     )
   );
 
--- A BD may dismiss their own profile's application state; applied/lead
--- transitions go through the SECURITY DEFINER apply_job_profile() instead.
+-- State rows are lazy: a (job, profile) row is created on first user action
+-- (mark-applied / dismiss). Profile owners (and admins) may insert their own
+-- profile's row; migration 9 narrows the update policy to applied/dismissed.
+create policy job_profile_states_insert on public.job_profile_states
+  for insert to authenticated
+  with check (
+    is_admin()
+    or exists (
+      select 1 from public.profiles p
+      where p.id = profile_id and p.user_id = auth.uid()
+    )
+  );
+
 create policy job_profile_states_update on public.job_profile_states
   for update to authenticated
   using (
@@ -131,5 +144,27 @@ create policy job_profile_states_update on public.job_profile_states
   );
 
 -- Leads ----------------------------------------------------------------
+-- user_id is the permanent owner snapshot: the user who applied with the
+-- profile. Reads and writes scope to that owner (or admin). Notes follow the
+-- same rule — only the applier can write them (the API rejects notes changes
+-- from anyone else; RLS scopes the row itself).
 create policy leads_select on public.leads
   for select to authenticated using (is_admin() or user_id = auth.uid());
+
+create policy leads_insert on public.leads
+  for insert to authenticated
+  with check (
+    is_admin()
+    or (
+      user_id = auth.uid()
+      and exists (
+        select 1 from public.profiles p
+        where p.id = profile_id and p.user_id = auth.uid()
+      )
+    )
+  );
+
+create policy leads_update on public.leads
+  for update to authenticated
+  using (is_admin() or user_id = auth.uid())
+  with check (is_admin() or user_id = auth.uid());

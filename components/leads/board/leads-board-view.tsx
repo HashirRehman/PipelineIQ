@@ -276,7 +276,7 @@ function BoardCard({
             {formatDate(lead.appliedAt)}
           </span>
         )}
-        {lead.bdNotes && (
+        {lead.notes && (
           <span className="flex items-center gap-0.5">
             <MessageSquare className="size-3 shrink-0" />
             1

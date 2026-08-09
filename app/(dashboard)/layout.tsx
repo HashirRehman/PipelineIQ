@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Sidebar from "./sidebar";
 import { TopBar } from "@/components/top-bar";
-import { getCachedUser, getCachedUserRole } from "@/lib/supabase/server";
+import { OrganizationProvider } from "@/components/organization-provider";
+import { getCachedOrganizationId, getCachedUser, getCachedUserRole } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -17,7 +18,11 @@ export const metadata: Metadata = {
 export default async function DashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [user, role] = await Promise.all([getCachedUser(), getCachedUserRole()]);
+  const [user, role, organizationId] = await Promise.all([
+    getCachedUser(),
+    getCachedUserRole(),
+    getCachedOrganizationId(),
+  ]);
 
   const name =
     (user?.user_metadata?.full_name as string | undefined) ||
@@ -25,26 +30,28 @@ export default async function DashboardLayout({
     "User";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-page-bg text-foreground">
-      <Sidebar
-        user={{
-          name,
-          email: user?.email ?? "",
-          role: role ? role.toLowerCase() : null,
-        }}
-      />
-      <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
-        <TopBar
+    <OrganizationProvider organizationId={organizationId}>
+      <div className="flex h-screen overflow-hidden bg-page-bg text-foreground">
+        <Sidebar
           user={{
             name,
             email: user?.email ?? "",
             role: role ? role.toLowerCase() : null,
           }}
         />
-        <main className="flex flex-1 min-w-0 flex-col overflow-hidden">
-          {children}
-        </main>
+        <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+          <TopBar
+            user={{
+              name,
+              email: user?.email ?? "",
+              role: role ? role.toLowerCase() : null,
+            }}
+          />
+          <main className="flex flex-1 min-w-0 flex-col overflow-hidden">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </OrganizationProvider>
   );
 }

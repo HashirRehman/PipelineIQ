@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react"
 import { Check, Plus, X, Loader2, Pencil } from "lucide-react"
 import type { ApiAppUser } from "@/app/api/users/route"
-import { apiPost, apiRequest } from "@/lib/api/client"
+import { apiPost, apiRequest, withOrgId } from "@/lib/api/client"
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
 import { GooeyInput } from "@/components/ui/gooey-input"
@@ -160,7 +160,7 @@ export default function UsersTab() {
 
   useEffect(() => {
     const ctrl = new AbortController()
-    fetch("/api/users", { signal: ctrl.signal })
+    fetch(withOrgId("/api/users"), { signal: ctrl.signal })
       .then(res => {
         if (res.status === 403) {
           setAccessDenied(true)

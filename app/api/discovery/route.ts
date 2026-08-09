@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dateRangeCutoff, parseDateRange, parseSort } from "@/lib/api/job-filters";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
+import type { SortOption } from "@/lib/constants";
+
+const DISCOVERY_SORT_OPTIONS: readonly SortOption[] = [
+  "relevance",
+  "newest",
+  "oldest",
+  "company_asc",
+  "company_desc",
+];
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +63,7 @@ export type DiscoveryJob = {
   cvMatches: CvMatch[];
   possiblyClosed: boolean | null;
   remoteRegion: string | null;
+  isLead: boolean;
 };
 
 type ProfileRow = {
@@ -106,6 +118,7 @@ function toDiscoveryJob(
   profileId: string | undefined,
   userCvIds: Set<string>,
   stateByPair: Map<string, "applied" | "dismissed">,
+  leadByPair: Set<string>,
   status: "new" | "applied" | "dismissed",
 ): DiscoveryJob | null {
   // The default feed ("new") shows only jobs with no applied/dismissed state
@@ -157,6 +170,7 @@ function toDiscoveryJob(
     cvMatches,
     possiblyClosed: job.possibly_closed ?? null,
     remoteRegion: job.remote_allowed_region ?? null,
+    isLead: profileId ? leadByPair.has(`${job.id}:${profileId}`) : false,
   };
 }
 
@@ -182,52 +196,63 @@ export async function GET(request: NextRequest) {
   const parser = searchParams.get("parser") ?? "";
   const search = (searchParams.get("search") ?? "").trim();
   const region = searchParams.get("region") ?? "";
+  const dateRange = parseDateRange(searchParams.get("dateRange"));
+  const sort = parseSort(searchParams.get("sort"), DISCOVERY_SORT_OPTIONS, "relevance");
 
   // Feed the jobs are returned as. Defaults to the discovery feed ("new").
   const statusParam = (searchParams.get("status") ?? "new").toLowerCase();
   const status: "new" | "applied" | "dismissed" =
     statusParam === "applied" || statusParam === "dismissed" ? statusParam : "new";
 
+  // Lead visibility in status feeds (Applied Jobs): "in_leads" shows only
+  // pairs already in the leads pipeline, "all" shows everything, and the
+  // default (absent / "") hides lead jobs. The discovery "new" feed is
+  // unaffected — lead pairs always carry an applied state, so they never
+  // appear there and isLead is always false for its jobs.
+  const leadFilter = (searchParams.get("leadFilter") ?? "").toLowerCase();
+
   // A status feed only makes sense against the acting user's assigned profile,
   // so derive it here and pass profileId through once.
   const isStatusFeed = status !== "new";
 
-  const { data: userRow } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-  let organizationId = userRow?.organization_id ?? null;
-  if (!organizationId) {
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("name", "Recurso Labs")
-      .maybeSingle();
-    organizationId = org?.id ?? null;
-  }
-  if (!organizationId) {
-    console.error("api/discovery: no organization resolved for user", user.id);
-    return NextResponse.json(
-      { error: "No organization found for this account." },
-      { status: 500 },
-    );
-  }
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+  const organizationId = org.organizationId;
 
-  const [{ data: profileRow }, { data: stateRows }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "id, full_name, email, phone, location, rate_expectation, rate_currency, years_of_experience, summary, is_active, created_at, seniority_level(name)",
-      )
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("job_profile_states")
-      .select("job_id, profile_id, status")
-      .eq("organization_id", organizationId)
-      .is("deleted_at", null),
-  ]);
+  const [{ data: profileRow }, { data: stateRows }, { data: scraperRows }, { data: leadRows }] =
+    await Promise.all([
+      // The acting user's assigned profile. Scoped by the verified org too —
+      // a profile can only ever belong to its owner's org, so a cross-org
+      // row here would indicate corruption (assignment is org-checked), and
+      // failing to find it is safer than leaking another org's profile.
+      supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, phone, location, rate_expectation, rate_currency, years_of_experience, summary, is_active, created_at, seniority_level(name)",
+        )
+        .eq("user_id", user.id)
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
+      supabase
+        .from("job_profile_states")
+        .select("job_id, profile_id, status")
+        .eq("organization_id", organizationId)
+        .is("deleted_at", null),
+      // Distinct source names for the filter sidebar (All Sources + scrapers).
+      // scrapers is a global reference table (single-tenant), so no org scope.
+      supabase
+        .from("scrapers")
+        .select("name")
+        .is("deleted_at", null)
+        .order("name"),
+      // Live leads per (job, profile) pair — marks jobs already added to the
+      // leads pipeline (duplicate-lead rule: one live lead per pair).
+      supabase
+        .from("leads")
+        .select("job_id, profile_id")
+        .eq("organization_id", organizationId)
+        .is("deleted_at", null),
+    ]);
 
   // Live CVs of the current user's assigned profile. Match rows for soft-
   // deleted CVs linger in job_profile_matches (FK rows are kept), so matches
@@ -259,6 +284,11 @@ export async function GET(request: NextRequest) {
     if (s.status === "applied" || s.status === "dismissed") {
       stateByPair.set(`${s.job_id}:${s.profile_id}`, s.status);
     }
+  }
+
+  const leadByPair = new Set<string>();
+  for (const l of leadRows ?? []) {
+    leadByPair.add(`${l.job_id}:${l.profile_id}`);
   }
 
   let query = supabase.from("jobs").select(
@@ -303,15 +333,52 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to load jobs." }, { status: 500 });
   }
 
-  const jobs = ((rows ?? []) as JobWithMatches[])
-    .map((job) => toDiscoveryJob(job, profileRow?.id, userCvIds, stateByPair, status))
-    .filter((job): job is DiscoveryJob => job !== null)
-    .sort((a, b) => (b.relevanceScore ?? -1) - (a.relevanceScore ?? -1));
+  const cutoff = dateRangeCutoff(dateRange);
+
+  let jobs = ((rows ?? []) as JobWithMatches[])
+    .map((job) => toDiscoveryJob(job, profileRow?.id, userCvIds, stateByPair, leadByPair, status))
+    .filter((job): job is DiscoveryJob => job !== null);
+
+  if (leadFilter === "in_leads") {
+    jobs = jobs.filter((job) => job.isLead);
+  } else if (leadFilter !== "all") {
+    // Default: a job already in the leads pipeline is hidden from the
+    // applied feed (it lives on in Leads).
+    jobs = jobs.filter((job) => !job.isLead);
+  }
+
+  if (cutoff) {
+    jobs = jobs.filter((job) => new Date(job.postedAt) >= new Date(cutoff));
+  }
+
+  const companyOf = (job: DiscoveryJob) => job.company.toLowerCase();
+  switch (sort) {
+    case "newest":
+      jobs = jobs.sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+      break;
+    case "oldest":
+      jobs = jobs.sort((a, b) => a.postedAt.localeCompare(b.postedAt));
+      break;
+    case "company_asc":
+      jobs = jobs.sort((a, b) => companyOf(a).localeCompare(companyOf(b)));
+      break;
+    case "company_desc":
+      jobs = jobs.sort((a, b) => companyOf(b).localeCompare(companyOf(a)));
+      break;
+    default:
+      // Relevance — the discovery feed's default ordering.
+      jobs = jobs.sort((a, b) => (b.relevanceScore ?? -1) - (a.relevanceScore ?? -1));
+  }
 
   const totalCount = jobs.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const offset = (page - 1) * pageSize;
   const pagedJobs = jobs.slice(offset, offset + pageSize);
+
+  const parsers = [
+    "All Sources",
+    ...Array.from(new Set((scraperRows ?? []).map((s) => s.name).filter(Boolean))),
+  ];
 
   return NextResponse.json({
     jobs: pagedJobs,
@@ -320,5 +387,6 @@ export async function GET(request: NextRequest) {
     page,
     pageSize,
     totalPages,
+    parsers,
   });
 }

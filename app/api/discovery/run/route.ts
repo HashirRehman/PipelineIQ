@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GroqAiClient } from "@/lib/ai/groq-client";
@@ -27,6 +28,11 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ status: "error", error: "Not authorized." }, { status: 401 });
   }
+
+  // Discovery itself is platform-wide (the run resolves the org internally),
+  // but the caller must still be acting from their own organization.
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
 
   const adminClient = createAdminClient();
 

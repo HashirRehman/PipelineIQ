@@ -198,7 +198,7 @@ export async function runJobDiscovery(
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, years_of_experience, summary, seniority_level(name)")
+    .select("id, organization_id, years_of_experience, summary, seniority_level(name)")
     .eq("is_active", true);
 
   const { data: allJobs } = await supabase
@@ -272,13 +272,19 @@ export async function runJobDiscovery(
         };
         const { score, modelVersion } = await aiClient.scoreRelevance(profileContext, jobListing);
         for (const cvId of uncoveredCvIds(job, profile.id)) {
-          const { error } = await supabase.rpc("upsert_job_profile_match", {
-            p_job_id: job.id,
-            p_profile_id: profile.id,
-            p_cv_id: cvId,
-            p_relevance_score: score,
-            p_ai_model_version: modelVersion,
-          });
+          // Inline upsert (was the upsert_job_profile_match RPC): the cron runs
+          // with the service-role client, so no SECURITY DEFINER wrapper needed.
+          const { error } = await supabase.from("job_profile_matches").upsert(
+            {
+              organization_id: profile.organization_id,
+              job_id: job.id,
+              profile_id: profile.id,
+              cv_id: cvId,
+              relevance_score: score,
+              ai_model_version: modelVersion,
+            },
+            { onConflict: "job_id,profile_id,cv_id" },
+          );
           if (error) throw error;
           summary.matchesWritten++;
         }

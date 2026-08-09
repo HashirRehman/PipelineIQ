@@ -5,6 +5,7 @@ import {
   readJsonBody,
 } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { updateProfile } from "@/lib/services/profiles";
 import {
   createClient,
@@ -39,7 +40,7 @@ export type ProfileDetailApiResponse = {
 };
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: {
     params: Promise<{
       profileId: string;
@@ -55,6 +56,11 @@ export async function GET(
     );
   }
 
+  const supabase = await createClient();
+
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
   const { profileId } = await context.params;
 
   if (!profileId) {
@@ -63,8 +69,6 @@ export async function GET(
       { status: 400 },
     );
   }
-
-  const supabase = await createClient();
 
   const [
     selectedProfileResult,
@@ -91,6 +95,7 @@ export async function GET(
         `,
       )
       .eq("id", profileId)
+      .eq("organization_id", org.organizationId)
       .maybeSingle(),
 
     supabase
@@ -195,7 +200,18 @@ export async function PATCH(
   }
 
   const supabase = await createClient();
-  const result = await updateProfile(supabase, profileId, body);
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
+  const result = await updateProfile(supabase, profileId, org.organizationId, body);
 
   if (result.success) {
     revalidatePath("/");

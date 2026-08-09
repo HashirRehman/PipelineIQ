@@ -83,7 +83,7 @@ export function LeadRow({
       {/* Right-side meta */}
       <div className="hidden lg:flex items-center gap-4 shrink-0">
         {/* Notes indicator */}
-        {lead.bdNotes ? (
+        {lead.notes ? (
           <span className="flex items-center gap-1 text-meta text-muted-foreground/60">
             <MessageSquare className="size-3 shrink-0" />
             <span>1</span>

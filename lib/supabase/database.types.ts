@@ -63,6 +63,61 @@ export type Database = {
         }
         Relationships: []
       }
+      job_comments: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          job_id: string
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          job_id: string
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          job_id?: string
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_comments_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_comments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_profile_matches: {
         Row: {
           ai_model_version: string
@@ -287,6 +342,7 @@ export type Database = {
           job_id: string
           job_profile_state_id: string | null
           last_activity_at: string
+          notes: string
           organization_id: string
           pipeline_stage_id: string
           profile_id: string
@@ -301,6 +357,7 @@ export type Database = {
           job_id: string
           job_profile_state_id?: string | null
           last_activity_at?: string
+          notes?: string
           organization_id: string
           pipeline_stage_id: string
           profile_id: string
@@ -315,6 +372,7 @@ export type Database = {
           job_id?: string
           job_profile_state_id?: string | null
           last_activity_at?: string
+          notes?: string
           organization_id?: string
           pipeline_stage_id?: string
           profile_id?: string

@@ -75,3 +75,28 @@ export const getCachedUserRole = cache(async () => {
   const role = data?.claims?.user_role;
   return typeof role === "string" && role.length > 0 ? role : null;
 });
+
+// The acting user's organization id, resolved once per server request (same
+// memoization as getCachedUser). Mirrors the fallback used by the API routes
+// before org ids were passed explicitly: the user's own row first, then the
+// seeded "Recurso Labs" org by name. The dashboard layout uses this to hand
+// the org id down to the client, which forwards it on every API call.
+export const getCachedOrganizationId = cache(async () => {
+  const supabase = await createClient();
+  const user = await getCachedUser();
+  if (!user) return null;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (userRow?.organization_id) return userRow.organization_id;
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("name", "Recurso Labs")
+    .maybeSingle();
+  return org?.id ?? null;
+});

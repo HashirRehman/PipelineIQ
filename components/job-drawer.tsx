@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Bookmark, X } from "lucide-react"
 
-import { Avatar } from "@/components/avatar"
+import { JobComments } from "@/components/job-comments"
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
 
 // Minimal shape — only profile.name is rendered; both the real discovery
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { scoreColor } from "@/lib/constants"
-import { createClient } from "@/lib/supabase/client"
 import { timeAgo } from "@/lib/format"
 
 export interface CvMatch {
@@ -41,6 +40,8 @@ export interface Job {
   cvMatches?: CvMatch[]
   possiblyClosed?: boolean | null
   remoteRegion?: string | null
+  /** True when this (job, profile) pair already has a live lead. */
+  isLead?: boolean
 }
 
 
@@ -230,11 +231,20 @@ interface Props {
   onApply?: (id: string) => void
   onMarkApplied?: (id: string) => void
   onDismiss?: (id: string, reason: string) => void
+  onAddToLead?: () => void
+  addToLeadPending?: boolean
   showActions?: boolean
+  /**
+   * Job id used to load comments. Defaults to the job's own id — the leads
+   * drawer renders a synthetic job (id = lead id), so it passes the real
+   * job id here to surface the same thread.
+   */
+  commentsJobId?: string
   // Lead-only: DiscoveryTab renders jobs that have no lead (and so no
   // note) behind them, so both stay optional.
   notes?: string
   onNotesSave?: (value: string) => void
+  canEditNotes?: boolean
   dismissReason?: string
   setDismissReason?: (r: string) => void
   dismissOpen?: boolean
@@ -243,30 +253,14 @@ interface Props {
 
 export default function JobDrawer({
   job, onClose, open, activeProfile,
-  onApply, onMarkApplied, onDismiss, showActions = true,
-  notes, onNotesSave,
+  onApply, onMarkApplied, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
+  commentsJobId, notes, onNotesSave, canEditNotes = true,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
 }: Props) {
   const [lastJob, setLastJob] = useState<Job | null>(job)
   const [lastNotes, setLastNotes] = useState(notes)
   const [prevJob, setPrevJob] = useState<Job | null>(job)
   const [prevNotes, setPrevNotes] = useState(notes)
-  const [userName, setUserName] = useState("")
-
-  useEffect(() => {
-    let cancelled = false
-    const client = createClient()
-    client.auth.getUser().then(({ data }) => {
-      if (cancelled) return
-      const meta = data?.user?.user_metadata as Record<string, unknown> | undefined
-      const name =
-        (typeof meta?.full_name === "string" ? meta.full_name : null) ??
-        data?.user?.email?.split("@")[0] ??
-        ""
-      setUserName(name)
-    })
-    return () => { cancelled = true }
-  }, [])
 
   if (job !== prevJob) {
     setPrevJob(job)
@@ -335,6 +329,34 @@ export default function JobDrawer({
               </div>
             )}
 
+            {/* Applied-job actions: shown in read-only drawers (Applied Jobs)
+                when the caller supplies handlers — the discovery drawer passes
+                no onAddToLead/onDismiss here. */}
+            {displayJob.status === "applied" && (onAddToLead || onDismiss) && (
+              <div className="flex gap-2 mb-4">
+                {onAddToLead && (
+                  <Button
+                    onClick={onAddToLead}
+                    disabled={addToLeadPending || displayJob.isLead}
+                    className="flex-1 bg-primary text-primary-foreground hover:opacity-90 text-xs font-semibold h-9 shadow-none disabled:opacity-60"
+                  >
+                    {displayJob.isLead ? "Added to Leads" : addToLeadPending ? "Adding…" : "Add to Leads"}
+                  </Button>
+                )}
+                {/* A job already in the leads pipeline can't be dismissed —
+                    the lead pins its applied state row. */}
+                {onDismiss && !displayJob.isLead && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setDismissOpen?.(!dismissOpen)}
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-9 shadow-none"
+                  >
+                    Dismiss
+                  </Button>
+                )}
+              </div>
+            )}
+
             {dismissOpen && setDismissReason && setDismissOpen && (
               <div className="mb-4 p-3 bg-destructive/5 border border-destructive/20 rounded-[7px]">
                 <Textarea rows={2} placeholder="Reason for dismissal (required)…" value={dismissReason} onChange={e => setDismissReason(e.target.value)}
@@ -359,25 +381,14 @@ export default function JobDrawer({
 
             {hasNotes && (
               <div className="mb-5">
-                <LeadNotesPanel key={displayJob.id} notes={displayNotes} onSave={onNotesSave!} />
+                <LeadNotesPanel key={displayJob.id} notes={displayNotes} onSave={onNotesSave!} canEdit={canEditNotes} />
               </div>
             )}
 
-            {/* Comments — disabled, not implemented yet */}
+            {/* Comments — any org member can comment (flat thread) */}
             <div className="pt-4 border-t border-border">
               <div className="text-xs font-semibold text-foreground mb-2.5">Comments</div>
-              <div className="flex items-center gap-2 mb-3">
-                <Avatar name={userName || "You"} size={26} />
-                <Textarea
-                  disabled
-                  rows={2}
-                  placeholder="Add a comment…"
-                  className="flex-1 w-full p-2 bg-muted/40 border-border rounded-md text-foreground text-xs resize-none outline-none disabled:opacity-50"
-                />
-              </div>
-              <p className="text-meta text-muted-foreground">
-                Comments are coming soon — team members will be able to discuss this job here.
-              </p>
+              <JobComments jobId={commentsJobId ?? displayJob.id} />
             </div>
           </div>
 

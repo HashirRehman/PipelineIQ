@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/api/guard";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createUserSchema, updateUserSchema } from "@/lib/validation/schemas";
@@ -52,7 +53,7 @@ async function findRoleById(
   return { ok: true, role: data };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
 
   const user = await getCachedUser();
@@ -65,10 +66,14 @@ export async function GET() {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
   const [usersRes, rolesRes] = await Promise.all([
     supabase
       .from("users")
       .select("id, email, full_name, is_active, created_at, role_id, roles(name, id)")
+      .eq("organization_id", org.organizationId)
       .order("created_at", { ascending: false }),
     supabase.from("roles").select("id, name").order("name"),
   ]);
@@ -144,6 +149,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -195,34 +203,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: callerRow } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  let organizationId = callerRow?.organization_id ?? null;
-  if (!organizationId) {
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("name", "Recurso Labs")
-      .maybeSingle();
-    organizationId = org?.id ?? null;
-  }
-
-  if (!organizationId) {
-    console.error("api/users: no organization resolved for invited user");
-    return NextResponse.json(
-      { error: "No organization found — apply supabase/seed.sql first." },
-      { status: 500 },
-    );
-  }
-
   const { error: usersError } = await supabase.from("users").upsert(
     {
       id: inviteData.user.id,
-      organization_id: organizationId,
+      organization_id: org.organizationId,
       full_name: name,
       email,
       role_id: role.id,
@@ -268,6 +252,9 @@ export async function PATCH(request: Request) {
   if (!isAdmin) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
+
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
 
   let body: unknown;
   try {
@@ -317,6 +304,7 @@ export async function PATCH(request: Request) {
     .from("users")
     .update(userUpdates)
     .eq("id", userId)
+    .eq("organization_id", org.organizationId)
     .select("id");
 
   if (error) {

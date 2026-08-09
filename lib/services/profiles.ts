@@ -61,31 +61,9 @@ async function requireAdminUser(): Promise<AdminGate> {
   return { user };
 }
 
-// profiles.organization_id is NOT NULL — resolve it from the acting user's
-// own row, falling back to the seeded org (matches app/api/discovery).
-async function resolveOrganizationId(
-  supabase: Client,
-  userId: string,
-): Promise<string | null> {
-  const { data: userRow } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (userRow?.organization_id) {
-    return userRow.organization_id;
-  }
-
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("id")
-    .eq("name", "Recurso Labs")
-    .maybeSingle();
-
-  return org?.id ?? null;
-}
-
+// The org id is verified up front by the route (verifyOrganizationAccess)
+// against the acting user's own users row; these services scope every write
+// by it so a cross-org id can never touch another org's rows.
 function toProfileRow(fields: {
   fullName: string;
   email: string;
@@ -112,6 +90,7 @@ function toProfileRow(fields: {
 
 export async function createProfile(
   supabase: Client,
+  organizationId: string,
   input: unknown,
 ): Promise<ProfileMutationResult> {
   const parsed = createProfileSchema.safeParse(input);
@@ -123,16 +102,6 @@ export async function createProfile(
   const gate = await requireAdminUser();
   if (gate.denied) {
     return gate.denied;
-  }
-
-  const organizationId = await resolveOrganizationId(supabase, gate.user.id);
-  if (!organizationId) {
-    console.error("createProfile: no organization resolved for user", gate.user.id);
-    return {
-      success: false,
-      status: 500,
-      error: "No organization found for this account.",
-    };
   }
 
   const { data, error } = await supabase
@@ -163,6 +132,7 @@ export async function createProfile(
 export async function updateProfile(
   supabase: Client,
   profileId: string,
+  organizationId: string,
   input: unknown,
 ): Promise<ProfileMutationResult> {
   const parsed = updateProfileSchema.safeParse({
@@ -183,6 +153,7 @@ export async function updateProfile(
     .from("profiles")
     .update(toProfileRow(parsed.data))
     .eq("id", profileId)
+    .eq("organization_id", organizationId)
     .select("id");
 
   if (error) {
@@ -211,6 +182,7 @@ export async function updateProfile(
 export async function setProfileActive(
   supabase: Client,
   profileId: string,
+  organizationId: string,
   input: unknown,
 ): Promise<ProfileMutationResult> {
   const parsed = setProfileActiveSchema.safeParse({
@@ -233,6 +205,7 @@ export async function setProfileActive(
     .from("profiles")
     .update({ is_active: isActive })
     .eq("id", profileId)
+    .eq("organization_id", organizationId)
     .select("id");
 
   if (error) {
@@ -257,6 +230,7 @@ export async function setProfileActive(
 export async function setProfileAssignment(
   supabase: Client,
   profileId: string,
+  organizationId: string,
   input: unknown,
 ): Promise<ProfileMutationResult> {
   const parsed = setProfileAssignmentSchema.safeParse({
@@ -273,10 +247,30 @@ export async function setProfileAssignment(
     return gate.denied;
   }
 
+  const { userId } = parsed.data;
+
+  // The assigned user must belong to the same org. profiles.user_id only FKs
+  // to users(id), so without this check an admin could attach a cross-org
+  // user to a profile — making that user the RLS owner of another tenant's
+  // profile (and its CVs), which their discovery feed would then surface.
+  if (userId) {
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", userId)
+      .eq("organization_id", organizationId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!userRow) {
+      return { success: false, status: 400, error: "Selected user not found." };
+    }
+  }
+
   const { data, error } = await supabase
     .from("profiles")
-    .update({ user_id: parsed.data.userId })
+    .update({ user_id: userId })
     .eq("id", profileId)
+    .eq("organization_id", organizationId)
     .select("id");
 
   if (error) {
@@ -323,6 +317,7 @@ const CV_HARD_ALLOWED_MIME_TYPES = [
 export async function uploadProfileCv(
   supabase: Client,
   profileId: string,
+  organizationId: string,
   formData: FormData,
 ): Promise<ProfileMutationResult> {
   const parsed = uploadProfileCvSchema.safeParse({
@@ -338,6 +333,19 @@ export async function uploadProfileCv(
   const gate = await requireAdminUser();
   if (gate.denied) {
     return gate.denied;
+  }
+
+  // profile_cvs has no org column — verify the profile itself belongs to
+  // the org so a cross-org profile id can't be used to attach a CV.
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", profileId)
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!profileRow) {
+    return { success: false, status: 404, error: "Profile not found." };
   }
 
   if (file.size > CV_HARD_MAX_BYTES) {
@@ -444,6 +452,7 @@ export async function deleteProfileCv(
   supabase: Client,
   profileId: string,
   cvId: string,
+  organizationId: string,
 ): Promise<ProfileMutationResult> {
   const parsed = deleteProfileCvSchema.safeParse({ profileId, cvId });
 
@@ -454,6 +463,19 @@ export async function deleteProfileCv(
   const gate = await requireAdminUser();
   if (gate.denied) {
     return gate.denied;
+  }
+
+  // Same org gate as uploadProfileCv: profile_cvs rows belong to a profile,
+  // so a cross-org profile id must not resolve its CVs.
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", profileId)
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!profileRow) {
+    return { success: false, status: 404, error: "Profile not found." };
   }
 
   const { data: cvRow, error: selectError } = await supabase

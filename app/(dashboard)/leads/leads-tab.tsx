@@ -1,59 +1,161 @@
 "use client"
 
-import { useState } from "react"
-import { List, LayoutDashboard, Plus, ChevronDown } from "lucide-react"
+import { useEffect, useState } from "react"
+import { List, LayoutDashboard, Plus, Loader2 } from "lucide-react"
 
+import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route"
 import { LeadsBoardView } from "@/components/leads/board/leads-board-view"
 import { LeadFilterBar } from "@/components/leads/lead-filter-bar"
 import { LeadsListView } from "@/components/leads/list/leads-list-view"
-import { MOCK_LEADS } from "@/components/leads/mock-leads"
 import type { AppUser, Lead, Profile } from "@/components/leads/types"
-import { useLeadFilters } from "@/components/leads/use-lead-filters"
+import { DateRangeFilter } from "@/components/jobs/date-range-filter"
+import { SortFilter } from "@/components/jobs/sort-filter"
 import { GooeyInput } from "@/components/ui/gooey-input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { LEAD_STATUS_DONE, LEAD_STATUSES, type LeadStatus } from "@/lib/constants"
+import {
+  LEAD_STATUS_DONE,
+  LEAD_STATUSES,
+  type DateRange,
+  type LeadStatus,
+  type SortOption,
+} from "@/lib/constants"
+import { apiPatch, withOrgId } from "@/lib/api/client"
 import JobDrawer, { type Job } from "@/components/job-drawer"
 
-// Minimal mock shapes used only while this tab renders static data (the
-// leads API doesn't exist yet). Kept local so the app shell stays clean.
-const MOCK_USERS: AppUser[] = [
-  { id: "u1", name: "Alex Rivera", role: "admin" },
-  { id: "u2", name: "Jamie Park", role: "bd" },
-  { id: "u3", name: "Morgan Lee", role: "bd" },
-  { id: "u4", name: "Casey Torres", role: "lead" },
-  { id: "u5", name: "Dana Shah", role: "bd" },
-]
+const PAGE_SIZE = 100
 
-const MOCK_PROFILES: Profile[] = [
-  { id: "p1", name: "Sarah Chen" },
-  { id: "p2", name: "Marcus Webb" },
-  { id: "p3", name: "Priya Nair" },
-  { id: "p4", name: "Jordan Kim" },
-  { id: "p5", name: "Nia Okonkwo" },
-]
+interface LeadsResponse {
+  leads: ApiLead[]
+  users: ApiLeadUser[]
+  profiles: { id: string; name: string }[]
+  pipelineStages: { id: string; name: string; orderIndex: number }[]
+  currentUser: { id: string; name: string }
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+const buildQueryKey = (opts: {
+  search: string
+  status: string
+  profileId: string
+  userId: string
+  dateRange: DateRange
+  sort: SortOption
+}) =>
+  new URLSearchParams({
+    search: opts.search,
+    status: opts.status === "all" ? "" : opts.status,
+    profileId: opts.profileId === "all" ? "" : opts.profileId,
+    userId: opts.userId === "all" ? "" : opts.userId,
+    dateRange: opts.dateRange,
+    sort: opts.sort,
+    pageSize: String(PAGE_SIZE),
+  }).toString()
+
+function toLead(a: ApiLead): Lead {
+  return {
+    id: a.id,
+    jobId: a.jobId,
+    profileId: a.profileId,
+    profileName: a.profileName,
+    jobTitle: a.jobTitle,
+    company: a.company,
+    jobLocation: a.jobLocation,
+    workType: a.workType,
+    appliedAt: a.appliedAt,
+    status: a.status as LeadStatus,
+    assignedTo: a.assignedTo,
+    notes: a.notes,
+    salary: null,
+    parser: a.parser,
+    applyUrl: a.applyUrl,
+  }
+}
 
 export default function LeadsTab() {
-  const users = MOCK_USERS
-  const profiles = MOCK_PROFILES
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS)
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [stages, setStages] = useState<LeadsResponse["pipelineStages"]>([])
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
+
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [profileFilter, setProfileFilter] = useState("all")
+  const [bdFilter, setBdFilter] = useState("all")
+  const [dateRange, setDateRange] = useState<DateRange>("all")
+  const [sort, setSort] = useState<SortOption>("newest")
+
   const [view, setView] = useState<"list" | "board">("list")
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [appliedKey, setAppliedKey] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   // Stage each lead sat in before its checkbox was ticked, so unticking
   // returns it there rather than dumping everything back into "Applied".
   const [stageBeforeDone, setStageBeforeDone] = useState<Record<string, LeadStatus>>({})
 
-  const { filtered, filterProps } = useLeadFilters(leads)
-  const bdUsers = users.filter(u => u.role === "bd" || u.role === "lead")
+  const queryKey = buildQueryKey({ search, status: statusFilter, profileId: profileFilter, userId: bdFilter, dateRange, sort })
+  const loading = appliedKey !== queryKey
 
-  const { search, setSearch, statusFilter, setStatusFilter } = filterProps
+  const loadLeads = (key: string) => {
+    fetch(withOrgId(`/api/leads?${key}`))
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to load leads")
+        return res.json() as Promise<LeadsResponse>
+      })
+      .then((json) => {
+        setLeads(json.leads.map(toLead))
+        setUsers(json.users)
+        setProfiles(json.profiles)
+        setStages(json.pipelineStages)
+        setCurrentUser(json.currentUser)
+        setError(null)
+      })
+      .catch((err) => {
+        console.error("Failed to load leads:", err)
+        setError("Failed to load leads")
+      })
+      .finally(() => setAppliedKey(key))
+  }
 
-  const updateStatus = (id: string, status: LeadStatus) =>
-    setLeads(current =>
-      current.map(lead => (lead.id === id ? { ...lead, status } : lead)),
-    )
+  useEffect(() => {
+    loadLeads(queryKey)
+  }, [queryKey])
+
+  const changeSearch = (v: string) => setSearch(v)
+  const changeStatus = (v: string | null) => setStatusFilter(v ?? "all")
+  const changeProfile = (v: string) => setProfileFilter(v ?? "all")
+  const changeBd = (v: string) => setBdFilter(v ?? "all")
+  const changeDateRange = (v: DateRange) => setDateRange(v)
+  const changeSort = (v: SortOption) => setSort(v)
+
+  const stageIdFor = (status: LeadStatus) => stages.find((s) => s.name === status)?.id ?? null
+
+  const updateStatus = async (id: string, status: LeadStatus) => {
+    const stageId = stageIdFor(status)
+    if (!stageId) return
+    // Optimistic update — the status select / board drag should feel instant.
+    setLeads((current) => current.map((lead) => (lead.id === id ? { ...lead, status } : lead)))
+    setSelectedLead((current) => (current?.id === id ? { ...current, status } : current))
+    try {
+      await apiPatch<{ success: boolean }>(`/api/leads/${id}`, { pipelineStageId: stageId })
+    } catch (err) {
+      console.error("Failed to update lead status:", err)
+      loadLeads(queryKey) // resync
+    }
+  }
 
   const toggleDone = (id: string) => {
-    const lead = leads.find(l => l.id === id)
+    const lead = leads.find((l) => l.id === id)
     if (!lead) return
 
     if (lead.status === LEAD_STATUS_DONE) {
@@ -61,15 +163,25 @@ export default function LeadsTab() {
       return
     }
 
-    setStageBeforeDone(current => ({ ...current, [id]: lead.status }))
+    setStageBeforeDone((current) => ({ ...current, [id]: lead.status }))
     updateStatus(id, LEAD_STATUS_DONE)
   }
 
-  const saveNote = (id: string, bdNotes: string) => {
-    setLeads(current =>
-      current.map(lead => (lead.id === id ? { ...lead, bdNotes } : lead)),
-    )
-    setSelectedLead(current => (current?.id === id ? { ...current, bdNotes } : current))
+  // Applier's Notes: only the user whose assigned profile applied (the
+  // permanent user_id owner snapshot) may write or edit them.
+  const canEditNotes = Boolean(currentUser && selectedLead && currentUser.id === selectedLead.assignedTo)
+
+  const saveNote = async (id: string, notes: string) => {
+    const lead = leads.find((l) => l.id === id)
+    if (!lead || !currentUser || currentUser.id !== lead.assignedTo) return
+    setLeads((current) => current.map((l) => (l.id === id ? { ...l, notes } : l)))
+    setSelectedLead((current) => (current?.id === id ? { ...current, notes } : current))
+    try {
+      await apiPatch<{ success: boolean }>(`/api/leads/${id}`, { notes })
+    } catch (err) {
+      console.error("Failed to save note:", err)
+      loadLeads(queryKey)
+    }
   }
 
   const jobForLead = (lead: Lead): Job => ({
@@ -77,26 +189,26 @@ export default function LeadsTab() {
     title: lead.jobTitle,
     company: lead.company,
     location: lead.jobLocation,
-    // Job.workType is the DB's remote/onsite split, which has no "hybrid" —
-    // mock hybrid leads show as onsite until this screen reads real data.
     workType: lead.workType === "remote" ? "remote" : "onsite",
     postedAt: lead.appliedAt,
     description: `${lead.company} is looking for a ${lead.jobTitle} to join their team.`,
     parser: lead.parser,
     status: "applied",
-    applyUrl: "#",
+    applyUrl: lead.applyUrl,
+    isLead: true,
   })
+
+  const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead")
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-
       {/* Toolbar — compact row */}
       <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-background shrink-0">
         <span className="text-sm font-semibold text-foreground mr-1">
           Leads
         </span>
         <span className="flex size-5 items-center justify-center rounded bg-accent text-meta font-semibold text-muted-foreground tabular-nums">
-          {filtered.length}
+          {leads.length}
         </span>
 
         <div className="mx-2 h-4 w-px bg-border" />
@@ -104,33 +216,36 @@ export default function LeadsTab() {
         {/* Search */}
         <GooeyInput
           value={search}
-          onValueChange={setSearch}
+          onValueChange={changeSearch}
           placeholder="Search leads..."
           expandedWidth={192}
         />
 
         {/* Status dropdown */}
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as LeadStatus | "all")}
-            className="h-7 appearance-none rounded border border-border bg-transparent pl-2.5 pr-6 text-xs text-muted-foreground outline-none hover:border-border/80 focus:border-primary/50 cursor-pointer transition"
-          >
-            <option value="all">Status: any</option>
-            {LEAD_STATUSES.map(s => (
-              <option key={s} value={s}>{s}</option>
+        <Select value={statusFilter} onValueChange={changeStatus}>
+          <SelectTrigger size="sm" className="h-7 w-auto min-w-[130px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">Status: any</SelectItem>
+            {LEAD_STATUSES.map((s) => (
+              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
             ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground/50" />
-        </div>
+          </SelectContent>
+        </Select>
 
-        {/* Overdue chip */}
-        <button
-          type="button"
-          className="h-7 px-2.5 rounded border border-border text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition cursor-pointer"
-        >
-          Overdue
-        </button>
+        {/* Date range + sort (shared with Discovery) */}
+        <DateRangeFilter value={dateRange} onValueChange={changeDateRange} />
+        <SortFilter
+          value={sort}
+          onValueChange={changeSort}
+          options={[
+            { value: "newest", label: "Newest" },
+            { value: "oldest", label: "Oldest" },
+            { value: "company_asc", label: "Company A–Z" },
+            { value: "company_desc", label: "Company Z–A" },
+          ]}
+        />
 
         {/* Right: List / Board toggle + New button */}
         <div className="ml-auto flex items-center gap-2">
@@ -166,6 +281,7 @@ export default function LeadsTab() {
 
           <button
             type="button"
+            title="Leads are created from applied jobs in the Applied Jobs page."
             className="flex items-center gap-1.5 h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
           >
             <Plus className="size-3.5" />
@@ -174,21 +290,27 @@ export default function LeadsTab() {
         </div>
       </div>
 
-      {/* Profile / BD filters (kept from the current app) */}
+      {/* Profile / BD filters */}
       <LeadFilterBar
         profiles={profiles}
         bdUsers={bdUsers}
-        profileFilter={filterProps.profileFilter}
-        setProfileFilter={filterProps.setProfileFilter}
-        bdFilter={filterProps.bdFilter}
-        setBdFilter={filterProps.setBdFilter}
+        profileFilter={profileFilter}
+        setProfileFilter={changeProfile}
+        bdFilter={bdFilter}
+        setBdFilter={changeBd}
       />
 
       {/* Content */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {view === "list" ? (
+        {loading ? (
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">
+            <Loader2 className="size-5 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <div className="flex-1 py-10 text-center text-sm text-destructive">{error}</div>
+        ) : view === "list" ? (
           <LeadsListView
-            leads={filtered}
+            leads={leads}
             users={users}
             onToggleDone={toggleDone}
             onStatusChange={updateStatus}
@@ -196,7 +318,7 @@ export default function LeadsTab() {
           />
         ) : (
           <LeadsBoardView
-            leads={filtered}
+            leads={leads}
             users={users}
             onStatusChange={updateStatus}
             onOpen={setSelectedLead}
@@ -208,10 +330,12 @@ export default function LeadsTab() {
         open={selectedLead !== null}
         job={selectedLead ? jobForLead(selectedLead) : null}
         onClose={() => setSelectedLead(null)}
-        activeProfile={profiles[0]}
+        activeProfile={profiles.find((p) => p.id === selectedLead?.profileId) ?? null}
         showActions={false}
-        notes={selectedLead?.bdNotes}
-        onNotesSave={value => { if (selectedLead) saveNote(selectedLead.id, value) }}
+        commentsJobId={selectedLead?.jobId}
+        notes={selectedLead?.notes}
+        onNotesSave={(value) => { if (selectedLead) saveNote(selectedLead.id, value) }}
+        canEditNotes={canEditNotes}
       />
     </div>
   )

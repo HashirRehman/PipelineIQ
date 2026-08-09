@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { apiPost } from "@/lib/api/client";
 import type { DiscoverySummary } from "@/lib/cron/discover-jobs";
 
 type RunDiscoveryState = {
@@ -19,9 +20,8 @@ export function RunDiscoveryButton() {
     setIsPending(true);
     setState({});
     try {
-      const res = await fetch("/api/discovery/run", { method: "POST" });
-      const json = (await res.json().catch(() => ({}))) as RunDiscoveryState;
-      if (!res.ok) {
+      const json = await apiPost<RunDiscoveryState>("/api/discovery/run");
+      if (json.status === "error") {
         setState({ status: "error", error: json.error ?? "Something went wrong. Please try again." });
       } else {
         setState(json);

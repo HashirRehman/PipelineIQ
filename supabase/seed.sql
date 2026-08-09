@@ -37,13 +37,19 @@ insert into public.seniority_level (id, name) values
 on conflict (name) do nothing;
 
 -- Pipeline stages (lead pipeline after an employer reply) --------
+-- Names/order must match LEAD_STATUSES in lib/constants.ts — the leads UI
+-- renders these verbatim (status select, board columns, list sections).
 insert into public.pipeline_stages (id, name, order_index) values
-  ('10000000-0000-4000-8000-000000000040', 'New Lead',  1),
-  ('10000000-0000-4000-8000-000000000041', 'Screening', 2),
-  ('10000000-0000-4000-8000-000000000042', 'Interview', 3),
-  ('10000000-0000-4000-8000-000000000043', 'Offer',     4),
-  ('10000000-0000-4000-8000-000000000044', 'Hired',     5),
-  ('10000000-0000-4000-8000-000000000045', 'Rejected',  6)
+  ('10000000-0000-4000-8000-000000000040', 'Applied',                1),
+  ('10000000-0000-4000-8000-000000000041', 'Assessment Received',    2),
+  ('10000000-0000-4000-8000-000000000042', 'Assessment Submitted',   3),
+  ('10000000-0000-4000-8000-000000000043', 'HR Interview',           4),
+  ('10000000-0000-4000-8000-000000000044', 'Tech Interview 1',       5),
+  ('10000000-0000-4000-8000-000000000045', 'Tech Interview 2',       6),
+  ('10000000-0000-4000-8000-000000000046', 'Client Interview',       7),
+  ('10000000-0000-4000-8000-000000000047', 'Offer Received',         8),
+  ('10000000-0000-4000-8000-000000000048', 'Offer Accepted/Rejected',9),
+  ('10000000-0000-4000-8000-000000000049', 'Closed',                10)
 on conflict (id) do nothing;
 
 -- Scrapers (old DB: job_sources) --------------------------------

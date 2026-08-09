@@ -117,3 +117,33 @@ export const markAppliedSchema = z.object({
   jobId: z.uuid(),
   profileId: z.uuid(),
 });
+
+// Add an applied job to the leads pipeline. Same payload shape as
+// mark-applied — the lead wraps the same (job, profile) pair.
+export const addToLeadsSchema = markAppliedSchema;
+
+export const updateLeadSchema = z
+  .object({
+    notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),
+    pipelineStageId: z.uuid("Invalid stage.").optional(),
+  })
+  .refine(
+    (data) => data.notes !== undefined || data.pipelineStageId !== undefined,
+    { message: "Provide notes or a stage to update." },
+  );
+
+export const createCommentSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "Comment cannot be empty.")
+    .max(2000, "Comment must be 2000 characters or fewer."),
+});
+
+export const updateCommentSchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "Comment cannot be empty.")
+    .max(2000, "Comment must be 2000 characters or fewer."),
+});

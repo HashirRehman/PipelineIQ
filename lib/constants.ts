@@ -26,6 +26,35 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_STATUS_DONE: LeadStatus = "Closed";
 
+/* Filter vocabulary shared by the job list pages (Discovery, Applied Jobs) */
+export const WORK_TYPES = ["All Types", "remote", "onsite"] as const;
+
+export const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"] as const;
+
+/* Date-range and sort filters — shared by Leads and Discovery. The UI
+   components (components/jobs/date-range-filter.tsx, sort-filter.tsx) and the
+   server-side parsing (lib/api/job-filters.ts) read from these, so a new
+   option lands in both pages with one edit. */
+export const DATE_RANGES = [
+  { value: "all", label: "All time" },
+  { value: "day", label: "Last 24 hours" },
+  { value: "week", label: "Last 7 days" },
+  { value: "month", label: "Last 30 days" },
+  { value: "year", label: "Last 12 months" },
+] as const;
+
+export type DateRange = (typeof DATE_RANGES)[number]["value"];
+
+export const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "relevance", label: "Relevance" },
+  { value: "company_asc", label: "Company A–Z" },
+  { value: "company_desc", label: "Company Z–A" },
+] as const;
+
+export type SortOption = (typeof SORT_OPTIONS)[number]["value"];
+
 /* ════════════════════════════════════════════════════════════════════
    COLOR TOKENS
    ────────────────────────────────────────────────────────────────────
@@ -105,14 +134,3 @@ export const USER_STATUS_COLOR: Record<string, string> = {
   inactive: STATUS.slate,
 };
 
-export const JOB_STATUS_BG: Record<string, string> = {
-  new:       "transparent",
-  applied:   "color-mix(in srgb, var(--status-green) 6%, transparent)",
-  dismissed: "color-mix(in srgb, var(--status-red) 4%, transparent)",
-};
-
-export const JOB_STATUS_BORDER: Record<string, string> = {
-  new:       "var(--border)",
-  applied:   "color-mix(in srgb, var(--status-green) 20%, transparent)",
-  dismissed: "color-mix(in srgb, var(--status-red) 15%, transparent)",
-};

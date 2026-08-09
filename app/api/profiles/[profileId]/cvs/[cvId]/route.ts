@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { profileMutationResponse } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { deleteProfileCv } from "@/lib/services/profiles";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,18 @@ export async function DELETE(
   const { profileId, cvId } = await context.params;
 
   const supabase = await createClient();
-  const result = await deleteProfileCv(supabase, profileId, cvId);
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
+  const result = await deleteProfileCv(supabase, profileId, cvId, org.organizationId);
 
   if (result.success) {
     revalidatePath("/");

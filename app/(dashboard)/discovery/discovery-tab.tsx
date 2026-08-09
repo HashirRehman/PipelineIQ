@@ -1,25 +1,25 @@
 "use client"
 import { useEffect, useState } from "react"
-import { Loader2, Briefcase, MapPin, Clock, ChevronLeft, ChevronRight, SlidersHorizontal, Bookmark } from "lucide-react"
+import { Loader2, Briefcase, SlidersHorizontal } from "lucide-react"
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { PageHeader } from "@/components/page-header"
 import { GooeyInput } from "@/components/ui/gooey-input"
 import { RunDiscoveryButton } from "@/components/run-discovery-button"
-import { TintedBadge } from "@/components/tinted-badge"
-import { JOB_STATUS_BG, JOB_STATUS_BORDER, PARSER_COLOR, WORK_TYPE_COLOR, scoreColor } from "@/lib/constants"
-import { timeAgo } from "@/lib/format"
+import { FilterOption } from "@/components/jobs/filter-option"
+import { JobCard } from "@/components/jobs/job-card"
+import { Pagination } from "@/components/jobs/pagination"
+import { DateRangeSection, SortSection } from "@/components/jobs/filter-sections"
+import { PARSERS, WORK_TYPES, PARSER_COLOR, WORK_TYPE_COLOR, type DateRange, type SortOption } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import JobDrawer, { type Job } from "@/components/job-drawer"
-import { apiPost } from "@/lib/api/client"
+import { apiPost, withOrgId } from "@/lib/api/client"
 
-const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"]
-const WORK_TYPES = ["All Types", "remote", "onsite"]
 const REGIONS = ["Global", "US Only"]
 const PAGE_SIZE = 5
 
 const REGION_TO_PARAM: Record<string, string> = { Global: "", "US Only": "us_only" }
 
-const buildQueryKey = (opts: { page: number; workType: string; parser: string; search: string; region: string }) =>
+const buildQueryKey = (opts: { page: number; workType: string; parser: string; search: string; region: string; dateRange: DateRange; sort: SortOption }) =>
   new URLSearchParams({
     page: String(opts.page),
     pageSize: String(PAGE_SIZE),
@@ -27,6 +27,8 @@ const buildQueryKey = (opts: { page: number; workType: string; parser: string; s
     parser: opts.parser === "All Sources" ? "" : opts.parser,
     search: opts.search,
     region: REGION_TO_PARAM[opts.region] ?? "",
+    dateRange: opts.dateRange,
+    sort: opts.sort,
   }).toString()
 
 interface DiscoveryResponse {
@@ -45,6 +47,8 @@ export default function DiscoveryTab() {
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
   const [regionFilter, setRegionFilter] = useState("Global")
+  const [dateRange, setDateRange] = useState<DateRange>("all")
+  const [sort, setSort] = useState<SortOption>("relevance")
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -55,12 +59,12 @@ export default function DiscoveryTab() {
   const [dismissReason, setDismissReason] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(true)
 
-  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, region: regionFilter })
+  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, region: regionFilter, dateRange, sort })
   const loading = appliedKey !== loadingKey
 
   useEffect(() => {
     const ctrl = new AbortController()
-    fetch(`/api/discovery?${loadingKey}`, { signal: ctrl.signal })
+    fetch(withOrgId(`/api/discovery?${loadingKey}`), { signal: ctrl.signal })
       .then(async res => {
         if (!res.ok) throw new Error("Failed to load jobs")
         return res.json() as Promise<DiscoveryResponse>
@@ -86,6 +90,8 @@ export default function DiscoveryTab() {
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
   const changeParser = (v: string) => { setParserFilter(v); setPage(1) }
   const changeRegion = (v: string) => { setRegionFilter(v); setPage(1) }
+  const changeDateRange = (v: DateRange) => { setDateRange(v); setPage(1) }
+  const changeSort = (v: SortOption) => { setSort(v); setPage(1) }
 
   const handleApply = (id: string) => {
     const job = jobs.find(j => j.id === id) ?? selectedJob
@@ -117,7 +123,12 @@ export default function DiscoveryTab() {
     setDismissReason("")
   }
 
-  const isActiveFilter = parserFilter !== "All Sources" || workTypeFilter !== "All Types" || regionFilter !== "Global"
+  const isActiveFilter =
+    parserFilter !== "All Sources" ||
+    workTypeFilter !== "All Types" ||
+    regionFilter !== "Global" ||
+    dateRange !== "all" ||
+    sort !== "relevance"
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -217,7 +228,7 @@ export default function DiscoveryTab() {
             {isActiveFilter && (
               <button
                 type="button"
-                onClick={() => { setParserFilter("All Sources"); setWorkTypeFilter("All Types"); setRegionFilter("Global"); setPage(1) }}
+                onClick={() => { setParserFilter("All Sources"); setWorkTypeFilter("All Types"); setRegionFilter("Global"); setDateRange("all"); setSort("relevance"); setPage(1) }}
                 className="text-meta text-primary hover:underline cursor-pointer"
               >
                 Clear
@@ -275,6 +286,10 @@ export default function DiscoveryTab() {
               ))}
             </div>
           </div>
+
+          {/* Time + Sort (shared with Applied Jobs) */}
+          <DateRangeSection value={dateRange} onValueChange={changeDateRange} />
+          <SortSection value={sort} onValueChange={changeSort} />
         </div>
       </aside>
 
@@ -297,188 +312,3 @@ export default function DiscoveryTab() {
   )
 }
 
-/* ─── Sub-components ─── */
-
-function FilterOption({
-  active,
-  onClick,
-  children,
-  dot,
-  disabled = false,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-  dot?: string
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "flex items-center gap-2 w-full rounded px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer",
-        disabled && "opacity-40 cursor-not-allowed",
-        active
-          ? "bg-primary/10 font-semibold text-primary"
-          : "text-foreground",
-        !disabled && !active && "hover:bg-accent",
-      )}
-    >
-      {dot && <span className="size-1.5 rounded-full shrink-0" style={{ background: dot }} />}
-      {children}
-    </button>
-  )
-}
-
-function JobCard({
-  job,
-  onClick,
-}: {
-  job: Job
-  onClick: () => void
-}) {
-  const score = job.relevanceScore ?? 0
-  const scoreRingColor = scoreColor(score)
-  const parserColor = PARSER_COLOR[job.parser] ?? "var(--status-slate)"
-  const workColor = WORK_TYPE_COLOR[job.workType] ?? "var(--status-slate)"
-
-  return (
-    <div
-      onClick={onClick}
-      className="group flex flex-col rounded-xl border bg-card p-4 cursor-pointer shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
-      style={{
-        borderColor: JOB_STATUS_BORDER[job.status] ?? "var(--border)",
-        background: JOB_STATUS_BG[job.status] === "transparent" ? "var(--card)" : JOB_STATUS_BG[job.status],
-      }}
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-              {job.title}
-            </h3>
-            {job.status === "applied" && <TintedBadge color="var(--status-green)">Applied</TintedBadge>}
-            {job.status === "dismissed" && <TintedBadge color="var(--status-red)">Dismissed</TintedBadge>}
-            {job.possiblyClosed && <TintedBadge color="var(--status-amber)">Possibly Closed</TintedBadge>}
-          </div>
-          <p className="text-xs text-muted-foreground mb-2">{job.company}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="size-3" />{job.location}
-            </span>
-            <TintedBadge color={workColor}>{job.workType}</TintedBadge>
-            <TintedBadge color={parserColor}>{job.parser}</TintedBadge>
-          </div>
-        </div>
-
-        {/* Score ring */}
-        {score > 0 && (
-          <div className="shrink-0 text-center">
-            <svg width="40" height="40" viewBox="0 0 40 40">
-              <circle cx="20" cy="20" r="16" fill="none" stroke="var(--border)" strokeWidth="3" />
-              <circle
-                cx="20" cy="20" r="16" fill="none" stroke={scoreRingColor} strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 16}
-                strokeDashoffset={2 * Math.PI * 16 * (1 - score / 100)}
-                transform="rotate(-90 20 20)"
-              />
-              <text x="20" y="24" textAnchor="middle" fill="currentColor" style={{ fontSize: "var(--text-micro)", fontWeight: 700 }}>{score}</text>
-            </svg>
-          </div>
-        )}
-      </div>
-
-      {/* Footer: save (disabled) + time */}
-      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
-        <button
-          type="button"
-          disabled
-          title="Save (coming soon)"
-          aria-label="Save job (coming soon)"
-          className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
-        >
-          <Bookmark className="size-3.5" />
-        </button>
-        <span className="flex items-center gap-1 text-meta text-muted-foreground">
-          <Clock className="size-3" />{timeAgo(job.postedAt)}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function getPageItems(current: number, total: number): (number | "…")[] {
-  const items: (number | "…")[] = []
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || Math.abs(i - current) <= 1) {
-      items.push(i)
-    } else if (items[items.length - 1] !== "…") {
-      items.push("…")
-    }
-  }
-  return items
-}
-
-function Pagination({
-  page,
-  totalPages,
-  onChange,
-  className,
-}: {
-  page: number
-  totalPages: number
-  onChange: (p: number) => void
-  className?: string
-}) {
-  const items = getPageItems(page, totalPages)
-
-  return (
-    <div className={cn("flex items-center justify-center gap-1", className)}>
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(1, page - 1))}
-        disabled={page <= 1}
-        className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
-        aria-label="Previous page"
-      >
-        <ChevronLeft className="size-4" />
-      </button>
-
-      {items.map((item, i) =>
-        item === "…" ? (
-          <span key={`ellipsis-${i}`} className="flex size-8 items-center justify-center text-xs text-muted-foreground">
-            …
-          </span>
-        ) : (
-          <button
-            key={item}
-            type="button"
-            onClick={() => onChange(item)}
-            aria-current={item === page ? "page" : undefined}
-            className={cn(
-              "flex size-8 items-center justify-center rounded border text-xs font-medium transition-colors cursor-pointer",
-              item === page
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
-            )}
-          >
-            {item}
-          </button>
-        ),
-      )}
-
-      <button
-        type="button"
-        onClick={() => onChange(Math.min(totalPages, page + 1))}
-        disabled={page >= totalPages}
-        className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
-        aria-label="Next page"
-      >
-        <ChevronRight className="size-4" />
-      </button>
-    </div>
-  )
-}

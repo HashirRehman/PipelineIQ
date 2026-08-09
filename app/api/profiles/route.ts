@@ -5,6 +5,7 @@ import {
   readJsonBody,
 } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
+import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createProfile } from "@/lib/services/profiles";
 import {
   createClient,
@@ -46,7 +47,7 @@ export type ProfilesListApiResponse = {
   assignableUsers: AssignableUser[];
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCachedUser();
 
   if (!user) {
@@ -57,6 +58,9 @@ export async function GET() {
   }
 
   const supabase = await createClient();
+
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
 
   const [
     isAdmin,
@@ -81,6 +85,7 @@ export async function GET() {
           users(full_name)
         `,
       )
+      .eq("organization_id", org.organizationId)
       .is("deleted_at", null)
       .order("full_name"),
 
@@ -133,6 +138,7 @@ export async function GET() {
     const { data: userRows, error: usersError } = await supabase
       .from("users")
       .select("id, full_name, email")
+      .eq("organization_id", org.organizationId)
       .is("deleted_at", null)
       .order("full_name");
 
@@ -174,7 +180,15 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
-  const result = await createProfile(supabase, body);
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
+  const result = await createProfile(supabase, org.organizationId, body);
 
   if (result.success) {
     revalidatePath("/");

@@ -5,6 +5,7 @@ import type { ProfileDetailApiResponse } from "@/app/api/profiles/[profileId]/ro
 import { ProfileDetailSheet } from "@/components/profiles/profile-detail-sheet"
 import { ProfilesList } from "@/components/profiles/profiles-list"
 import { PageHeader } from "@/components/page-header"
+import { withOrgId } from "@/lib/api/client"
 import { Loader2 } from "lucide-react"
 
 export default function ProfilesTab() {
@@ -18,7 +19,7 @@ export default function ProfilesTab() {
 
   const loadProfiles = useCallback(async (signal?: AbortSignal, options?: { silent?: boolean }) => {
     try {
-      const res = await fetch("/api/profiles", { signal, cache: "no-store" })
+      const res = await fetch(withOrgId("/api/profiles"), { signal, cache: "no-store" })
       if (!res.ok) throw new Error("Failed to load profiles.")
       setListData(await res.json() as ProfilesListApiResponse)
       setError(null)
@@ -40,7 +41,7 @@ export default function ProfilesTab() {
   }, [loadProfiles])
 
   const fetchDetail = useCallback(async (profileId: string): Promise<ProfileDetailApiResponse> => {
-    const res = await fetch(`/api/profiles/${encodeURIComponent(profileId)}`, { cache: "no-store" })
+    const res = await fetch(withOrgId(`/api/profiles/${encodeURIComponent(profileId)}`), { cache: "no-store" })
     if (!res.ok) throw new Error("Failed to load profile.")
     return res.json()
   }, [])

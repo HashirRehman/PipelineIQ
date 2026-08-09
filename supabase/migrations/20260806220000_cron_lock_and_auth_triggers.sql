@@ -1,4 +1,4 @@
--- Post-reset hardening (A1, A2, E2 of docs/hardening-fixes-plan.md)
+-- Post-reset hardening (A1, A2 of docs/hardening-fixes-plan.md)
 -- 1. Seed the cron run-lock row. The fresh schema made cron_run_locks.id a
 --    uuid (was text 'discover-jobs' in the old schema) and seeded nothing, so
 --    lib/cron/discover-jobs.ts' CRON_LOCK_ID lookup/update finds no row and the
@@ -57,25 +57,3 @@ $$;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
-
--- 3. sync_user_email(): recreate the old email-sync trigger so users.email
---    never drifts from auth.users.email.
-create or replace function public.sync_user_email()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  update public.users
-  set email = new.email
-  where id = new.id;
-  return new;
-end;
-$$;
-
-create trigger on_auth_user_email_updated
-after update of email on auth.users
-for each row
-when (old.email is distinct from new.email)
-execute function public.sync_user_email();
