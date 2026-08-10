@@ -1,52 +1,27 @@
-// The parsed-CV contract — v1 of what lands in profile_cvs.parsed_data.
+// v1 of what lands in profile_cvs.parsed_data, and the boundary that makes an
+// LLM response safe to rely on.
 //
-// This schema is the boundary between "what an LLM felt like returning" and
-// "what the rest of the app can rely on". The model is prompted for this
-// shape, but nothing about an LLM guarantees it, so every field is coerced
-// here and the whole parse is rejected if the result still isn't usable.
-//
-// Design rule: top-level keys are the public contract. `parsed.skills` is a
-// flat string array you can read directly, without walking `experience` and
-// flattening. Richer structure hangs below it.
-//
-// Leniency is deliberate and one-directional: a MISSING field is normal (real
-// CVs are sparse, so absent → null / []), but a field of the wrong SHAPE is
-// still coerced rather than fatal, because losing an entire CV's parse over
-// one malformed date would be a worse outcome than losing that date. What is
-// NOT lenient: the top-level object must be an object, and `skills` must
-// survive as an array — a parse with neither is not worth storing.
-//
-// Lives here rather than in lib/validation/schemas.ts (which validates HTTP
-// request input) because this validates an AI response and is the storage
-// format's definition — it belongs with the module that owns CV parsing.
+// Everything is coerced rather than rejected — real CVs are sparse, and losing
+// a whole parse over one bad date would be worse than losing the date.
 import { z } from "zod";
 
-/** Bump when the shape below changes; drives targeted re-parses. */
+/** Bump on any shape change; drives targeted re-parses. */
 export const PARSED_CV_SCHEMA_VERSION = 1;
 
 const NULLISH_TEXT = new Set(["", "n/a", "na", "none", "null", "unknown", "not specified", "-"]);
 
-/**
- * Wraps a coercion function as a schema for one field.
- *
- * The `.optional()` is load-bearing, not decoration: in zod 4 a transform on a
- * required schema rejects a missing key *before* the transform can run, so
- * every absent field would throw instead of coercing to null — which for
- * sparse real-world CVs would fail nearly every parse. Verified against zod
- * 4.4: without it, `{ company: "X" }` throws on the six sibling keys it
- * didn't set. These functions never return undefined, so the output stays
- * fully defined despite the optional input.
- */
+// Don't drop the .optional(): in zod 4 a transform on a required schema
+// rejects a missing key before the transform runs, so every absent field
+// would throw instead of coercing to null.
 function coerce<T>(fn: (value: unknown) => T) {
   return z.unknown().optional().transform(fn);
 }
 
-/** Absent or non-object → {}, so nested shapes coerce instead of throwing. */
 function toObject(value: unknown): object {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
 }
 
-/** "" / "N/A" / "unknown" from the model all mean "absent", not a value. */
+// "" / "N/A" / "unknown" all mean absent
 function toNullableText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -76,13 +51,9 @@ const MONTH_NAMES: Record<string, number> = {
 };
 
 /**
- * Normalizes a CV date to `"YYYY-MM"`, or `"YYYY"` when only a year is known.
- *
- * Year-only is a first-class value rather than being padded to `"YYYY-01"`:
- * CVs routinely give just a year, and inventing January would be a fact the
- * document never stated. "Present"/"Current"/"Ongoing" and anything
- * unparseable both become null — for an end_date that correctly reads as
- * "still there", which `is_current` then carries explicitly.
+ * To "YYYY-MM", or "YYYY" when that's all the CV gives — never padded to
+ * "YYYY-01", which would state a month the document didn't. "Present" and
+ * anything unparseable become null.
  */
 function toMonthString(value: unknown): string | null {
   if (typeof value === "number" && value >= 1900 && value <= 2100) return String(value);
@@ -91,8 +62,7 @@ function toMonthString(value: unknown): string | null {
   const raw = value.trim().toLowerCase();
   if (raw.length === 0 || /^(present|current|now|ongoing|to date|till date)$/.test(raw)) return null;
 
-  // Already ISO-ish: 2021-03, 2021/03, or 2021-03-15 (day dropped — the
-  // format is month-granular, and a CV's day is noise even when present).
+  // 2021-03, 2021/03, 2021-03-15 (day dropped — the format is month-granular)
   const iso = raw.match(/^(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?$/);
   if (iso) {
     const month = Number(iso[2]);
@@ -124,7 +94,6 @@ function toMonthString(value: unknown): string | null {
 
 const monthString = coerce(toMonthString);
 
-/** Keeps strings, drops everything else, trims, drops blanks. */
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -133,13 +102,7 @@ function toStringArray(value: unknown): string[] {
     .filter((item) => item.length > 0 && !NULLISH_TEXT.has(item.toLowerCase()));
 }
 
-/**
- * Dedupes case-insensitively while keeping the first spelling seen.
- *
- * Stored as written ("Node.js", not "nodejs") — matching-time normalization
- * already exists in groq-client's normalizeForMatch(), and baking a lossy
- * form into storage would make `skills` worse for display and for the UI.
- */
+/** Dedupes case-insensitively but stores the spelling as written. */
 function dedupeSkills(skills: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -154,7 +117,6 @@ function dedupeSkills(skills: string[]): string[] {
 
 const skillArray = coerce((value) => dedupeSkills(toStringArray(value)));
 
-/** Tolerates a non-array (or absent) list of objects without failing the parse. */
 function objectArray(value: unknown): unknown[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item) => typeof item === "object" && item !== null);
@@ -171,9 +133,7 @@ const experienceEntrySchema = z
     highlights: coerce(toStringArray),
     skills: skillArray,
   })
-  // A reverse-chronological CV signals "still here" by leaving the end date
-  // off, which the model often reflects without also setting is_current. The
-  // two shouldn't disagree, so an absent end date settles it.
+  // no end date means "still there", whatever is_current says
   .transform((entry) => ({
     ...entry,
     is_current: entry.is_current || entry.end_date === null,
@@ -211,14 +171,8 @@ const skillGroupSchema = z.object({
   skills: skillArray,
 });
 
-/**
- * Drops entries the model emitted as empty shells (every field null/empty).
- *
- * Booleans never count as evidence of content: `is_current` is *derived* from
- * a missing end date, so an otherwise-empty experience entry would arrive
- * here carrying `is_current: true` and survive on the strength of a flag
- * nothing in the CV actually stated.
- */
+// Drops empty shells. Booleans don't count as content — is_current is derived
+// above, so an otherwise-empty entry would survive on it.
 function dropEmpty<T extends object>(entries: T[]): T[] {
   return entries.filter((entry) =>
     Object.values(entry).some((value) =>
@@ -234,8 +188,7 @@ function listOf<T extends z.ZodType<object>>(entry: T) {
 }
 
 export const parsedCvSchema = z.object({
-  // Always this app's constant, never the model's — the model has no idea
-  // which version of our format it was prompted for.
+  // always ours, never the model's
   schema_version: coerce(() => PARSED_CV_SCHEMA_VERSION),
 
   candidate: coerce(toObject).pipe(
@@ -257,10 +210,7 @@ export const parsedCvSchema = z.object({
   headline: nullableText,
   summary: nullableText,
 
-  // Hints, not authority: profiles.years_of_experience and
-  // profiles.seniority_level_id stay canonical because a human set them.
-  // These exist to flag a discrepancy and to give an un-filled profile
-  // something to score against.
+  // Hints only — the profiles columns a human filled in stay canonical.
   total_years_experience: nullableNumber,
   seniority_hint: nullableText,
 
@@ -279,12 +229,7 @@ export const parsedCvSchema = z.object({
 
 export type ParsedCv = z.output<typeof parsedCvSchema>;
 
-/**
- * The one hard requirement: a parse that found no skills AND no experience
- * extracted nothing worth storing. Everything else can legitimately be empty
- * on a real CV, but this combination means the model returned a well-formed
- * shell — treat it as a failure rather than persisting an empty success.
- */
+/** No skills and no experience means the model returned an empty shell. */
 export function isUsableParse(parsed: ParsedCv): boolean {
   return parsed.skills.length > 0 || parsed.experience.length > 0;
 }
