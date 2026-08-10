@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Bookmark, X } from "lucide-react"
+import { Bookmark, Loader2, X } from "lucide-react"
 
 import { JobComments } from "@/components/job-comments"
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
@@ -230,6 +230,12 @@ interface Props {
   activeProfile: ActiveProfile | null
   onApply?: (id: string) => void
   onMarkApplied?: (id: string) => void
+  /** True while the mark-applied API call is in flight — shows a loader and
+   * disables the button. */
+  markAppliedPending?: boolean
+  /** Server error from the last in-drawer action (e.g. mark-applied), shown
+   * inline so a failed request isn't silent. */
+  actionError?: string | null
   onDismiss?: (id: string, reason: string) => void
   onAddToLead?: () => void
   addToLeadPending?: boolean
@@ -253,7 +259,7 @@ interface Props {
 
 export default function JobDrawer({
   job, onClose, open, activeProfile,
-  onApply, onMarkApplied, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
+  onApply, onMarkApplied, markAppliedPending = false, actionError = null, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
   commentsJobId, notes, onNotesSave, canEditNotes = true,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
 }: Props) {
@@ -308,6 +314,15 @@ export default function JobDrawer({
               <span className="text-xs text-muted-foreground">{displayJob.location}</span>
             </div>
 
+            {/* Profile-dependent actions can't run without a profile — the
+                API requires the acting user's assigned profile id (RLS
+                scopes it), so call it out instead of silently doing nothing. */}
+            {!activeProfile && (showActions || onAddToLead || onDismiss) && (
+              <div role="status" className="mb-4 rounded-md border border-status-amber/30 bg-status-amber/10 px-3 py-2 text-xs text-status-amber dark:text-status-amber-500">
+                No profile is assigned to your account, so job actions are unavailable. Assign a profile in Profiles, then reload this page.
+              </div>
+            )}
+
             {showActions && (
               <div className="flex gap-2 mb-4">
                 {displayJob.status === "new" && (
@@ -317,15 +332,30 @@ export default function JobDrawer({
                       Apply Now
                     </Button>
                     <Button variant="outline" onClick={() => onMarkApplied?.(displayJob.id)}
-                      className="flex-1 border-border text-foreground text-xs font-medium h-9 shadow-none">
-                      Mark Applied
+                      disabled={markAppliedPending || !activeProfile}
+                      className="flex-1 border-border text-foreground text-xs font-medium h-9 shadow-none disabled:opacity-60">
+                      {markAppliedPending ? (
+                        <>
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Marking…
+                        </>
+                      ) : (
+                        "Mark Applied"
+                      )}
                     </Button>
                     <Button variant="outline" onClick={() => setDismissOpen?.(!dismissOpen)}
+                      disabled={!activeProfile}
                       className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-9 shadow-none">
                       Dismiss
                     </Button>
                   </>
                 )}
+              </div>
+            )}
+
+            {actionError && (
+              <div role="alert" className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {actionError}
               </div>
             )}
 
@@ -337,7 +367,7 @@ export default function JobDrawer({
                 {onAddToLead && (
                   <Button
                     onClick={onAddToLead}
-                    disabled={addToLeadPending || displayJob.isLead}
+                    disabled={addToLeadPending || displayJob.isLead || !activeProfile}
                     className="flex-1 bg-primary text-primary-foreground hover:opacity-90 text-xs font-semibold h-9 shadow-none disabled:opacity-60"
                   >
                     {displayJob.isLead ? "Added to Leads" : addToLeadPending ? "Adding…" : "Add to Leads"}

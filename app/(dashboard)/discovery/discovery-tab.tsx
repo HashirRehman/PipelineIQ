@@ -58,6 +58,8 @@ export default function DiscoveryTab() {
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(true)
+  const [markAppliedPending, setMarkAppliedPending] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, region: regionFilter, dateRange, sort })
   const loading = appliedKey !== loadingKey
@@ -99,12 +101,17 @@ export default function DiscoveryTab() {
   }
 
   const handleMarkApplied = async (id: string) => {
-    if (!profile) return
+    if (!profile || markAppliedPending) return
+    setMarkAppliedPending(true)
+    setActionError(null)
     try {
       await apiPost<{ success: boolean }>("/api/discovery/mark-applied", { jobId: id, profileId: profile.id })
     } catch (err) {
       console.error("markApplied failed", err)
+      setActionError(err instanceof Error ? err.message : "Failed to mark as applied. Please try again.")
       return
+    } finally {
+      setMarkAppliedPending(false)
     }
     setJobs(js => js.filter(j => j.id !== id))
     if (selectedJob?.id === id) setSelectedJob(null)
@@ -137,7 +144,7 @@ export default function DiscoveryTab() {
         {/* Header */}
         <PageHeader
           title="Discovery"
-          subtitle={profile ? `Jobs matched for ${profile.name}` : "Job matches for your active profile"}
+          subtitle={profile ? `Jobs matched for ${profile.name}` : "No active profile — assign one in Profiles to act on jobs"}
           actions={
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground tabular-nums">{totalCount} job{totalCount !== 1 ? "s" : ""}</span>
@@ -195,7 +202,7 @@ export default function DiscoveryTab() {
                   <JobCard
                     key={job.id}
                     job={job}
-                    onClick={() => setSelectedJob(job)}
+                    onClick={() => { setSelectedJob(job); setActionError(null) }}
                   />
                 ))}
               </div>
@@ -301,6 +308,8 @@ export default function DiscoveryTab() {
         onClose={() => setSelectedJob(null)}
         onApply={handleApply}
         onMarkApplied={handleMarkApplied}
+        markAppliedPending={markAppliedPending}
+        actionError={actionError}
         onDismiss={handleDismiss}
         showActions={true}
         dismissOpen={dismissOpen}

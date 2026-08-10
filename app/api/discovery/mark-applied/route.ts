@@ -99,6 +99,6 @@ export async function POST(request: Request) {
     }
   }
 
-  revalidatePath("/");
+  await revalidatePath("/");
   return NextResponse.json({ success: true });
 }
