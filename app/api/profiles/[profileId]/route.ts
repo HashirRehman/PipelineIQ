@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/profiles-response";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
+import type { ParsedCv } from "@/lib/cv-parsing/parsed-cv";
 import { updateProfile } from "@/lib/services/profiles";
 import {
   createClient,
@@ -31,13 +32,34 @@ export type ProfileDetailApiResponse = {
     assignedUserId: string | null;
     assignedUserName: string | null;
   };
-  cvs: {
-    id: string;
-    fileName: string;
-    createdAt: string;
-    downloadUrl: string | null;
-  }[];
+  cvs: ProfileCvEntry[];
 };
+
+/**
+ * A CV plus its parse state.
+ *
+ * `parsed` is only ever populated when `parseStatus` is 'success'. A failed
+ * re-parse keeps the previous good parse on the row (see parse-cv.ts), so a
+ * 'failed' CV can still have data worth showing — the UI shows the error
+ * alongside it rather than hiding one behind the other.
+ */
+export type ProfileCvEntry = {
+  id: string;
+  fileName: string;
+  createdAt: string;
+  downloadUrl: string | null;
+  parseStatus: "pending" | "success" | "failed";
+  parseError: string | null;
+  parsedAt: string | null;
+  parsed: ParsedCv | null;
+};
+
+const PARSE_STATUSES = new Set(["pending", "success", "failed"]);
+
+/** The column is plain text in Postgres; narrow it rather than trusting it. */
+function toParseStatus(value: string): ProfileCvEntry["parseStatus"] {
+  return PARSE_STATUSES.has(value) ? (value as ProfileCvEntry["parseStatus"]) : "pending";
+}
 
 export async function GET(
   request: NextRequest,
@@ -105,7 +127,11 @@ export async function GET(
           id,
           file_name,
           storage_path,
-          created_at
+          created_at,
+          parse_status,
+          parse_error,
+          parsed_at,
+          parsed_data
         `,
       )
       .eq("profile_id", profileId)
@@ -151,6 +177,12 @@ export async function GET(
       downloadUrl: isCloudinaryUrl
         ? cv.storage_path.replace("/upload/", "/upload/fl_attachment/")
         : null,
+      parseStatus: toParseStatus(cv.parse_status),
+      parseError: cv.parse_error,
+      parsedAt: cv.parsed_at,
+      // Validated by parsedCvSchema before it was ever written, so this cast
+      // reflects a guarantee the write path already enforced.
+      parsed: (cv.parsed_data as ParsedCv | null) ?? null,
     };
   });
 

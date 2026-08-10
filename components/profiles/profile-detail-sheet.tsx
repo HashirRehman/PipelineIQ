@@ -11,6 +11,7 @@ import { ProfileCvList } from "./profile-cv-list";
 import { ProfileCvUploadForm } from "./profile-cv-upload-form";
 import { ProfileAssignment } from "./profile-assignment";
 import type { AssignableUser } from "@/app/api/profiles/route";
+import type { ProfileCvEntry } from "@/app/api/profiles/[profileId]/route";
 
 type ProfileDetail = {
   id: string;
@@ -30,12 +31,8 @@ type ProfileDetail = {
 };
 
 type SeniorityLevel = { id: string; name: string };
-type CvEntry = {
-  id: string;
-  fileName: string;
-  createdAt: string;
-  downloadUrl: string | null;
-};
+// Shared with the API so the parse fields can't drift out of sync here.
+type CvEntry = ProfileCvEntry;
 
 function formatRate(profile: ProfileDetail) {
   if (profile.rateExpectation === null) {

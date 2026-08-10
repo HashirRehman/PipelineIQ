@@ -2,9 +2,9 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 10 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 11 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
-- **Last updated:** 2026-08-09
+- **Last updated:** 2026-08-10
 
 > Migrations are intentionally comment-free; this document is the single source of truth for schema reasoning, old-DB mappings, and open questions. Keep it in sync when migrations change.
 
@@ -37,6 +37,7 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 8 | `20260806220000_cron_lock_and_auth_triggers.sql` | seeds the `cron_run_locks` row; `handle_new_user()` auth trigger (auth.users → users auto-create) |
 | 9 | `20260806230000_security_and_constraint_hardening.sql` | trigger helper `search_path`; `profiles.user_id` FK `ON DELETE SET NULL`; `profile_cvs` MIME/size/unique-storage-path constraints; `job_profile_states` update policy allows profile owners to set `applied` / `dismissed` |
 | 10 | `20260809120000_job_comments.sql` | `job_comments` (flat team discussion on jobs — additive, applied via `db push`, no reset) |
+| 11 | `20260810094117_profile_cv_parsed_data.sql` | `profile_cvs` parse columns (`parsed_data` jsonb + `parse_status`/`parse_error`/`parsed_at`/`parse_model_version`/`parse_schema_version`), status CHECK, success-implies-payload CHECK, partial index on unfinished parses — additive, `db push`, no reset |
 
 ---
 
@@ -142,8 +143,73 @@ CVs attached to a profile. A profile can have **multiple** CVs; files live in a 
 | file_name | text | NOT NULL |
 | file_type | text | NOT NULL |
 | file_size_bytes | bigint | NOT NULL |
+| parsed_data | jsonb | nullable — the structured parse of the CV (v1 shape below) |
+| parsed_at | timestamptz | nullable — when the successful parse landed |
+| parse_status | text | NOT NULL, default `'pending'`, CHECK in (`pending`, `success`, `failed`) |
+| parse_error | text | nullable — why the last parse attempt failed |
+| parse_model_version | text | nullable — the AI model that produced `parsed_data` |
+| parse_schema_version | integer | nullable — the `parsed_data` format version |
 | created_at / updated_at | timestamptz | NOT NULL, default `now()` |
 | deleted_at | timestamptz | |
+
+**Parsing is per CV, not per profile.** A profile can hold several CVs and
+`job_profile_matches` scores each one separately, so each CV carries its own
+parse. `CHECK (parse_status <> 'success' OR (parsed_data, parsed_at,
+parse_schema_version all NOT NULL))` keeps a `success` row from being
+indistinguishable from an unparsed one.
+
+**Operational contract:** the row is inserted `pending`; the parse runs *after*
+the upload response (`after()`), so a Groq rate-limit can never fail an
+otherwise-good upload. A failure records `parse_status = 'failed'` +
+`parse_error` and leaves the file intact. `parse_schema_version` makes a format
+change a targeted re-parse (`where parse_schema_version < 2`) rather than a
+guess about which rows are stale. A partial index on `parse_status` (where it
+isn't `success`) backs the sweep, which only ever looks for unfinished work.
+
+**`parsed_data` v1 shape.** Top-level keys are the contract — `parsed_data ->
+'skills'` is a flat array of skill strings, readable without walking
+`experience`. Every field is nullable and every array defaults to `[]`, because
+real CVs are sparse. Dates are `"YYYY-MM"` strings, or `"YYYY"` when the CV
+gives only a year — a day is dropped even when present, and a year-only date is
+**not** padded to `"YYYY-01"`, because inventing a month states a fact the
+document never did. `end_date: null` with `is_current: true` means present, and
+the two are reconciled on parse (no end date ⇒ current). Skills are deduped
+case-insensitively but
+stored as written (`"Node.js"`, not `"nodejs"`) — matching-time normalization
+already lives in `normalizeForMatch()`. Raw CV text is deliberately **not**
+stored here, so reading the parse doesn't drag a whole document through
+Postgres.
+
+```
+schema_version           1
+candidate                { full_name, email, phone, location, links: { linkedin, github, portfolio } }
+headline                 short professional title
+summary                  free-text professional summary
+total_years_experience   number — a hint, not authoritative
+seniority_hint           string — a hint, not authoritative
+skills                   ["React", "Node.js", …]          ← the flat contract
+skill_groups             [{ category, skills[] }]
+titles                   job titles held
+industries               domains worked in
+experience               [{ company, title, location, start_date, end_date, is_current, highlights[], skills[] }]
+education                [{ institution, degree, field_of_study, start_date, end_date }]
+certifications           [{ name, issuer, issued_date, expires_date }]
+languages                [{ name, proficiency }]
+projects                 [{ name, description, url, skills[] }]
+```
+
+No `duration_months`: it would be derived from the dates and, for a current
+role, would silently go stale the moment it was written. Consumers compute it
+from `start_date` / `end_date` instead.
+
+`skills` is the flat contract and is complete on its own — it includes skills
+named only inside a single role or project, not just those in a CV's Skills
+section, so a consumer never has to walk `experience` to find them.
+
+`total_years_experience` and `seniority_hint` are **hints only** —
+`profiles.years_of_experience` and `profiles.seniority_level_id` stay
+authoritative because a human set them. The parsed values give a discrepancy
+signal and let a profile with no typed data still be scored.
 
 ### 3.8 `scrapers` — old DB: `job_sources`
 

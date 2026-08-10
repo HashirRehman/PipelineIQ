@@ -1,6 +1,7 @@
 // Module 9 — AiClient interface (all capabilities designed up front; only
 // scoreRelevance + extractRemoteRegion ship in MVP, both Module 3 scope —
 // see docs/03-technical-implementation-plan.md Section 12).
+import type { ParsedCv } from "@/lib/cv-parsing/parsed-cv";
 
 export type ProfileContext = {
   seniorityLevel: string;
@@ -26,6 +27,11 @@ export type LeadContext = {
 };
 
 export interface AiClient {
+  // Structures a CV's extracted text into the stored parsed_data shape.
+  // Takes text, not a file: extraction is lib/cv-parsing/extract-text.ts's
+  // job and is deterministic, so this interface stays about the AI step and
+  // a provider swap never involves a PDF library.
+  parseCv(text: string): Promise<{ parsed: ParsedCv; modelVersion: string }>;
   scoreRelevance(
     profile: ProfileContext,
     job: JobListing,
