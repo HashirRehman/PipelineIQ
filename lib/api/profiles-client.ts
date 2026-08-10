@@ -76,6 +76,22 @@ export function uploadProfileCvRequest(profileId: string, formData: FormData) {
   );
 }
 
+/**
+ * Re-runs the parse for one CV.
+ *
+ * Used both to retry a failed parse and to parse a CV that never was (older
+ * rows, or an upload whose background parse didn't land). Runs server-side
+ * inline, so the response reflects the actual outcome.
+ */
+export function parseProfileCvRequest(profileId: string, cvId: string) {
+  return toResult(
+    apiPost<ProfileMutationResponse>(
+      `${profilePath(profileId)}/cvs/${encodeURIComponent(cvId)}/parse`,
+      {},
+    ),
+  );
+}
+
 export function deleteProfileCvRequest(profileId: string, cvId: string) {
   return toResult(
     apiDelete<ProfileMutationResponse>(

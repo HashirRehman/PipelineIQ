@@ -4,6 +4,11 @@
 // on the AiClient interface is Phase 2 scope (see docs/03 Section 12) and
 // throws rather than pretending to work, so this class stays honestly
 // type-checked against the full interface without faking capability.
+import {
+  isUsableParse,
+  parsedCvSchema,
+  type ParsedCv,
+} from "@/lib/cv-parsing/parsed-cv";
 import type { AiClient, JobListing, LeadContext, ProfileContext } from "./client";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -64,7 +69,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<unknown> {
+// The scoring/eligibility calls return a handful of fields and fit in Groq's
+// default output allowance. A CV parse doesn't: a full parsed_data object for
+// a multi-role CV runs well past it, and a truncated response is not a
+// degraded parse but invalid JSON, so that caller raises the ceiling
+// explicitly rather than discovering the limit as a parse error.
+type GroqCallOptions = { maxTokens?: number };
+
+async function callGroqJson(
+  systemPrompt: string,
+  userPrompt: string,
+  options: GroqCallOptions = {},
+): Promise<unknown> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not set.");
@@ -91,6 +107,7 @@ async function callGroqJson(systemPrompt: string, userPrompt: string): Promise<u
         ],
         response_format: { type: "json_object" },
         temperature: 0,
+        ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
       }),
     });
 
@@ -183,7 +200,88 @@ function hasLiteralSkillMention(skills: string[], description: string): boolean 
   });
 }
 
+// A CV is truncated from the END, unlike a job description (which keeps both
+// ends — see the head+tail reasoning above). The two documents bury their
+// signal in opposite places: a posting hides eligibility rules in a footer,
+// while a CV is reverse-chronological, so its most recent and most relevant
+// roles are at the top and what falls off the end is the oldest history.
+//
+// The ceiling is set generously rather than tightly: real one-page resumes
+// measured ~970-1000 characters of extracted text, so this is roughly a
+// twelve-page CV before anything is dropped at all. Cost is not the binding
+// constraint here the way it is for per-job scoring — a CV is parsed once,
+// not once per job per run.
+const CV_TEXT_MAX_CHARS = 12_000;
+
+// A parsed_data object for a CV with several roles, each carrying highlights
+// and skills, comfortably exceeds Groq's default output allowance; past it the
+// JSON is cut mid-string and fails to parse outright. Sized with real headroom
+// because the failure mode is a total loss of the parse, not a shorter one.
+const CV_PARSE_MAX_OUTPUT_TOKENS = 8_000;
+
 export class GroqAiClient implements AiClient {
+  async parseCv(text: string): Promise<{ parsed: ParsedCv; modelVersion: string }> {
+    const systemPrompt =
+      "You extract structured data from a candidate's CV/resume text for a recruiting platform. " +
+      "This is an EXTRACTION task, not an inference task: every value must come from the text. " +
+      "Never invent an employer, skill, date, or qualification that is not written there. " +
+      "Respond only with JSON in exactly this shape:\n" +
+      "{" +
+      '"candidate":{"full_name":<string|null>,"email":<string|null>,"phone":<string|null>,' +
+      '"location":<string|null>,"links":{"linkedin":<string|null>,"github":<string|null>,"portfolio":<string|null>}},' +
+      '"headline":<string|null>,"summary":<string|null>,' +
+      '"total_years_experience":<number|null>,"seniority_hint":<string|null>,' +
+      '"skills":[<string>],"skill_groups":[{"category":<string>,"skills":[<string>]}],' +
+      '"titles":[<string>],"industries":[<string>],' +
+      '"experience":[{"company":<string|null>,"title":<string|null>,"location":<string|null>,' +
+      '"start_date":<string|null>,"end_date":<string|null>,"is_current":<boolean>,' +
+      '"highlights":[<string>],"skills":[<string>]}],' +
+      '"education":[{"institution":<string|null>,"degree":<string|null>,"field_of_study":<string|null>,' +
+      '"start_date":<string|null>,"end_date":<string|null>}],' +
+      '"certifications":[{"name":<string|null>,"issuer":<string|null>,"issued_date":<string|null>,"expires_date":<string|null>}],' +
+      '"languages":[{"name":<string|null>,"proficiency":<string|null>}],' +
+      '"projects":[{"name":<string|null>,"description":<string|null>,"url":<string|null>,"skills":[<string>]}]' +
+      "}\n" +
+      // The flat list is what the app actually reads, so it must be complete
+      // on its own — a skill that appears only inside a role would be
+      // invisible to every consumer of `skills`.
+      '"skills" must be a FLAT list of every distinct technology, tool, and professional skill named ' +
+      "anywhere in the CV, including ones mentioned only inside a job or project. Name each skill as the " +
+      "CV writes it. Do not group them, and do not put categories in this list.\n" +
+      'Dates must be "YYYY-MM", or "YYYY" if the CV gives only a year. Use null for an ongoing role\'s ' +
+      'end_date and set is_current true — never write "Present" as a date.\n' +
+      "Use null for anything the CV does not state, and [] for a list with no entries. Do not write " +
+      '"N/A" or "unknown". total_years_experience is a number of years, stated if the CV states it, ' +
+      "otherwise inferred only from the employment dates.";
+
+    const truncated =
+      text.length > CV_TEXT_MAX_CHARS ? text.slice(0, CV_TEXT_MAX_CHARS) : text;
+
+    const raw = await callGroqJson(systemPrompt, `CV text:\n${truncated}`, {
+      maxTokens: CV_PARSE_MAX_OUTPUT_TOKENS,
+    });
+
+    // parsedCvSchema coerces the shape; it does not rescue a response that
+    // isn't an object at all.
+    const result = parsedCvSchema.safeParse(raw);
+    if (!result.success) {
+      throw new Error(
+        `parseCv: response did not match the parsed-CV schema: ${result.error.issues
+          .slice(0, 3)
+          .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+          .join("; ")}`,
+      );
+    }
+
+    if (!isUsableParse(result.data)) {
+      throw new Error(
+        "parseCv: the parse found neither skills nor experience — refusing to store an empty result.",
+      );
+    }
+
+    return { parsed: result.data, modelVersion: GROQ_MODEL };
+  }
+
   async scoreRelevance(
     profile: ProfileContext,
     job: JobListing,

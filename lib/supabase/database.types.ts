@@ -480,6 +480,12 @@ export type Database = {
           file_size_bytes: number
           file_type: string
           id: string
+          parse_error: string | null
+          parse_model_version: string | null
+          parse_schema_version: number | null
+          parse_status: string
+          parsed_at: string | null
+          parsed_data: Json | null
           profile_id: string
           storage_path: string
           updated_at: string
@@ -491,6 +497,12 @@ export type Database = {
           file_size_bytes: number
           file_type: string
           id?: string
+          parse_error?: string | null
+          parse_model_version?: string | null
+          parse_schema_version?: number | null
+          parse_status?: string
+          parsed_at?: string | null
+          parsed_data?: Json | null
           profile_id: string
           storage_path: string
           updated_at?: string
@@ -502,6 +514,12 @@ export type Database = {
           file_size_bytes?: number
           file_type?: string
           id?: string
+          parse_error?: string | null
+          parse_model_version?: string | null
+          parse_schema_version?: number | null
+          parse_status?: string
+          parsed_at?: string | null
+          parsed_data?: Json | null
           profile_id?: string
           storage_path?: string
           updated_at?: string
@@ -720,26 +738,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      apply_job_profile: {
-        Args: { p_job_id: string; p_profile_id: string; p_user_id: string }
-        Returns: string
-      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
-      dismiss_job_profile: {
-        Args: { p_job_id: string; p_profile_id: string; p_reason: string }
-        Returns: undefined
-      }
       is_admin: { Args: never; Returns: boolean }
-      upsert_job_profile_match: {
-        Args: {
-          p_ai_model_version: string
-          p_cv_id: string
-          p_job_id: string
-          p_profile_id: string
-          p_relevance_score: number
-        }
-        Returns: string
-      }
     }
     Enums: {
       application_status: "suggested" | "dismissed" | "applied"

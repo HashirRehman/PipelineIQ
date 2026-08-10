@@ -7,6 +7,7 @@ import {
   uploadCvFile,
   type CvUploadResult,
 } from "@/lib/cloudinary";
+import { scheduleCvParse } from "@/lib/cv-parsing/schedule";
 import {
   createProfileSchema,
   deleteProfileCvSchema,
@@ -366,10 +367,15 @@ export async function uploadProfileCv(
 
   const cvId = crypto.randomUUID();
 
+  // Read once and reuse: Cloudinary needs these bytes, and so does the parse
+  // scheduled at the end of this function — re-downloading the file we just
+  // uploaded would be a pointless round trip.
+  const fileBytes = Buffer.from(await file.arrayBuffer());
+
   let upload: CvUploadResult;
   try {
     upload = await uploadCvFile(
-      Buffer.from(await file.arrayBuffer()),
+      fileBytes,
       profileId,
       cvId,
       file.name,
@@ -386,6 +392,8 @@ export async function uploadProfileCv(
     };
   }
 
+  // parse_status is left to its column default ('pending') — the DB owns that
+  // default, and restating it here would be one more thing to drift.
   const { error: insertError } = await supabase.from("profile_cvs").insert({
     id: cvId,
     profile_id: profileId,
@@ -410,6 +418,11 @@ export async function uploadProfileCv(
       error: "Something went wrong saving the CV record. Please try again.",
     };
   }
+
+  // The row is stored and the response can go out now; the parse fills in
+  // parse_status / parsed_data moments later. Scheduled only after a
+  // successful insert, so there is always a row to write the result to.
+  scheduleCvParse({ cvId, fileType: file.type, buffer: fileBytes });
 
   return { success: true, profileId };
 }

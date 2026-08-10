@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   // without this, the client JS bundle itself can fail to load under that
   // host, so "use client" pages silently never hydrate.
   allowedDevOrigins: ["127.0.0.1"],
+
+  // CV text extraction (lib/cv-parsing/extract-text.ts) uses two CJS,
+  // Node-only libraries. pdf-parse ships its own pdf.js builds and resolves
+  // one at runtime — bundling it pulls in every copy and breaks the runtime
+  // require, so both are kept external and loaded as real Node modules.
+  serverExternalPackages: ["pdf-parse", "mammoth"],
 };
 
 export default nextConfig;
