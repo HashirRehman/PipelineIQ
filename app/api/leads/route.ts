@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/api/guard";
-import { dateRangeCutoff, parseDateRange, parseSort } from "@/lib/api/job-filters";
+import { isWithinWindow, parseDateWindow, parseSort } from "@/lib/api/job-filters";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { addToLeadsSchema } from "@/lib/validation/schemas";
 import type { SortOption } from "@/lib/constants";
 
@@ -29,8 +29,10 @@ export interface ApiLead {
   status: string;
   profileId: string;
   profileName: string;
-  /** Null once the applier's account is deleted (leads stay with the
-   * profile; the owner snapshot is unlinked, migration 14). */
+  /** The profile's CURRENT assigned user (who owns the lead now). Follows
+   * the profile, not the creation-time snapshot — so leads created by an
+   * admin, or whose applier was deleted/reassigned, still land on the right
+   * developer. Null when the profile has no assigned user. */
   assignedTo: string | null;
   notes: string;
   parser: string;
@@ -41,6 +43,9 @@ export interface ApiLeadUser {
   id: string;
   name: string;
   role: "admin" | "lead" | "bd";
+  /** Ids of the profiles currently assigned to this user — couples the
+   * profile/user filters client-side. */
+  profileIds: string[];
 }
 
 type LeadRow = {
@@ -59,7 +64,7 @@ type LeadRow = {
     apply_url: string;
     scrapers: { name: string } | null;
   } | null;
-  profiles: { full_name: string } | null;
+  profiles: { full_name: string; user_id: string | null } | null;
   users: { full_name: string } | null;
   pipeline_stages: { name: string } | null;
 };
@@ -76,7 +81,7 @@ function toApiLead(row: LeadRow): ApiLead {
     status: row.pipeline_stages?.name ?? "",
     profileId: row.profile_id,
     profileName: row.profiles?.full_name ?? "",
-    assignedTo: row.user_id ?? null,
+    assignedTo: row.profiles?.user_id ?? null,
     notes: row.notes ?? "",
     parser: row.jobs?.scrapers?.name ?? "",
     applyUrl: row.jobs?.apply_url ?? "",
@@ -97,6 +102,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Job pages (Discovery / Pipeline / Leads / Statistics) are open to every
+  // role; the gate stays as a named helper so a future restricted role only
+  // has to change lib/auth/roles.ts.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessJobs) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
   const organizationId = org.organizationId;
@@ -109,20 +122,22 @@ export async function GET(request: Request) {
   const status = searchParams.get("status") ?? "";
   const profileId = searchParams.get("profileId") ?? "";
   const userId = searchParams.get("userId") ?? "";
-  const dateRange = parseDateRange(searchParams.get("dateRange"));
+  // Explicit date window (Friday–Thursday weeks / calendar months, computed
+  // client-side); leads are dated by their applied_at.
+  const dateWindow = parseDateWindow(searchParams);
   const sort = parseSort(searchParams.get("sort"), LEAD_SORT_OPTIONS, "newest");
 
   const [leadsRes, profilesRes, usersRes, stagesRes] = await Promise.all([
     supabase
       .from("leads")
       .select(
-        "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, scrapers(name)), profiles(full_name), users(full_name), pipeline_stages(name)",
+        "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
       )
       .eq("organization_id", organizationId)
       .is("deleted_at", null),
     supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, user_id")
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
       .order("full_name"),
@@ -153,8 +168,6 @@ export async function GET(request: Request) {
   const { data: userRows } = usersRes;
   const { data: stageRows } = stagesRes;
 
-  const cutoff = dateRangeCutoff(dateRange);
-
   let leads = ((leadRows ?? []) as LeadRow[]).filter((row) => {
     const title = row.jobs?.title ?? "";
     const company = row.jobs?.company_name ?? "";
@@ -168,7 +181,7 @@ export async function GET(request: Request) {
     const matchStatus = !status || stageName === status;
     const matchProfile = !profileId || row.profile_id === profileId;
     const matchUser = !userId || row.user_id === userId;
-    const matchDate = !cutoff || row.applied_at >= cutoff;
+    const matchDate = isWithinWindow(row.applied_at, dateWindow);
     return matchSearch && matchStatus && matchProfile && matchUser && matchDate;
   });
 
@@ -192,10 +205,21 @@ export async function GET(request: Request) {
   const offset = (page - 1) * pageSize;
   const paged = leads.slice(offset, offset + pageSize);
 
-  const profiles: { id: string; name: string }[] = (profileRows ?? []).map((p) => ({
+  const profiles: { id: string; name: string; userId: string | null }[] = (profileRows ?? []).map((p) => ({
     id: p.id,
     name: p.full_name,
+    // Current assigned user — couples the profile/user filters (picking a
+    // profile narrows the user list to its owner, and vice versa).
+    userId: p.user_id ?? null,
   }));
+
+  const profileIdsByUser = new Map<string, string[]>();
+  for (const p of profileRows ?? []) {
+    if (!p.user_id) continue;
+    const list = profileIdsByUser.get(p.user_id) ?? [];
+    list.push(p.id);
+    profileIdsByUser.set(p.user_id, list);
+  }
 
   const users: ApiLeadUser[] = (userRows ?? []).map((u) => {
     const roleName = (u.roles?.name ?? "").toLowerCase();
@@ -204,7 +228,7 @@ export async function GET(request: Request) {
       : roleName.includes("lead") || roleName.includes("manager")
         ? "lead"
         : "bd";
-    return { id: u.id, name: u.full_name || u.id, role };
+    return { id: u.id, name: u.full_name || u.id, role, profileIds: profileIdsByUser.get(u.id) ?? [] };
   });
 
   const pipelineStages = (stageRows ?? []).map((s) => ({
@@ -219,6 +243,10 @@ export async function GET(request: Request) {
     profiles,
     pipelineStages,
     currentUser: { id: user.id, name: user.user_metadata?.full_name ?? user.email ?? "" },
+    // Whether the caller may edit OTHER users' lead notes (Admin + BD
+    // Manager from the ROLE_PERMISSIONS matrix). The applier can always edit
+    // their own lead's notes.
+    canManageLeadNotes: perms.canManageLeadNotes,
     totalCount,
     page,
     pageSize,
@@ -236,6 +264,11 @@ export async function POST(request: Request) {
   const user = await getCachedUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessJobs) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   let body: unknown;

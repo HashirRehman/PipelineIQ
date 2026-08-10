@@ -33,6 +33,8 @@ export interface JobProfileState {
   profileName: string
   status: "new" | "applied" | "dismissed"
   isLead: boolean
+  /** When this profile applied — null unless the pair is applied. */
+  appliedAt?: string | null
 }
 
 export interface Job {
@@ -42,6 +44,10 @@ export interface Job {
   location: string
   workType: "remote" | "onsite"
   postedAt: string
+  /** When the job was applied (most recent applied pair) — set on the
+   * applied feed so cards and sorting reflect the application time, not the
+   * posting time. */
+  appliedAt?: string | null
   applyUrl: string
   parser: string
   status: "new" | "applied" | "dismissed"
@@ -568,10 +574,10 @@ export default function JobDrawer({
                     className="flex-1 bg-primary text-primary-foreground hover:opacity-90 text-xs font-semibold h-9 shadow-none disabled:opacity-60"
                   >
                     {leadable.length === 0
-                      ? "Added to Leads"
+                      ? "Convert to Leads"
                       : addToLeadPending
-                        ? "Adding…"
-                        : "Add to Leads"}
+                        ? "Converting…"
+                        : "Convert to Leads"}
                   </Button>
                 )}
                 {/* A job already in the leads pipeline can't be dismissed —

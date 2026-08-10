@@ -1,6 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
+import { getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import {
   CloudinaryConfigError,
   deleteCvFile,
@@ -42,20 +42,21 @@ type AdminGate =
   | { user: User; denied?: undefined }
   | { user?: undefined; denied: ProfileMutationResult };
 
-// Mirrors the rest of the app: is_admin comes from the JWT claims baked in
-// by the custom_access_token_hook migration (getCachedIsAdmin reads them
-// locally via cached JWKS — no live RPC round trip), same as
-// app/api/users/route.ts and middleware.ts. RLS still re-checks
-// public.is_admin() live at query time regardless.
-async function requireAdminUser(): Promise<AdminGate> {
+// Mirrors the rest of the app: roles come from the JWT's user_role claim
+// baked in by the custom_access_token_hook migration (getCachedRolePermissions
+// reads it locally via cached JWKS — no live RPC round trip), same as
+// app/api/users/route.ts. RLS still re-checks is_admin()/is_bd_manager() live
+// at query time regardless. Profile management is Admin + BD Manager
+// (Business Developers see no Profiles page at all).
+async function requireProfileManagerUser(): Promise<AdminGate> {
   const user = await getCachedUser();
 
   if (!user) {
     return { denied: { success: false, status: 401, error: NOT_AUTHORIZED } };
   }
 
-  const isAdmin = await getCachedIsAdmin();
-  if (!isAdmin) {
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessProfiles) {
     return { denied: { success: false, status: 403, error: NOT_AUTHORIZED } };
   }
 
@@ -100,7 +101,7 @@ export async function createProfile(
     return invalidInput(parsed.error.issues[0]?.message);
   }
 
-  const gate = await requireAdminUser();
+  const gate = await requireProfileManagerUser();
   if (gate.denied) {
     return gate.denied;
   }
@@ -145,7 +146,7 @@ export async function updateProfile(
     return invalidInput(parsed.error.issues[0]?.message);
   }
 
-  const gate = await requireAdminUser();
+  const gate = await requireProfileManagerUser();
   if (gate.denied) {
     return gate.denied;
   }
@@ -195,7 +196,7 @@ export async function setProfileActive(
     return invalidInput(parsed.error.issues[0]?.message);
   }
 
-  const gate = await requireAdminUser();
+  const gate = await requireProfileManagerUser();
   if (gate.denied) {
     return gate.denied;
   }
@@ -243,7 +244,7 @@ export async function setProfileAssignment(
     return invalidInput(parsed.error.issues[0]?.message);
   }
 
-  const gate = await requireAdminUser();
+  const gate = await requireProfileManagerUser();
   if (gate.denied) {
     return gate.denied;
   }
@@ -254,16 +255,21 @@ export async function setProfileAssignment(
   // to users(id), so without this check an admin could attach a cross-org
   // user to a profile — making that user the RLS owner of another tenant's
   // profile (and its CVs), which their discovery feed would then surface.
+  // Admins are excluded from assignment entirely (they manage profiles, they
+  // don't own them).
   if (userId) {
     const { data: userRow } = await supabase
       .from("users")
-      .select("id")
+      .select("id, roles(name)")
       .eq("id", userId)
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
       .maybeSingle();
     if (!userRow) {
       return { success: false, status: 400, error: "Selected user not found." };
+    }
+    if (userRow.roles?.name === "Admin") {
+      return { success: false, status: 400, error: "Admins cannot be assigned to profiles." };
     }
   }
 
@@ -323,7 +329,7 @@ export async function uploadProfileCv(
   }
 
   const { file } = parsed.data;
-  const gate = await requireAdminUser();
+  const gate = await requireProfileManagerUser();
   if (gate.denied) {
     return gate.denied;
   }
@@ -465,7 +471,7 @@ export async function deleteProfileCv(
     return invalidInput(parsed.error.issues[0]?.message);
   }
 
-  const gate = await requireAdminUser();
+  const gate = await requireProfileManagerUser();
   if (gate.denied) {
     return gate.denied;
   }

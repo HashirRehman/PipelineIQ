@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { roleUserKey } from "@/lib/auth/roles";
 import { createUserSchema, deleteUserSchema, updateUserSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -22,13 +23,6 @@ export interface ApiRole {
   name: string;
 }
 
-function mapRoleNameToUserRole(roleName?: string | null): ApiAppUser["role"] {
-  if (!roleName) return "bd";
-  const normalized = roleName.toLowerCase().trim();
-  if (normalized.includes("admin")) return "admin";
-  if (normalized.includes("lead") || normalized.includes("manager")) return "lead";
-  return "bd";
-}
 
 async function findRoleById(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -61,8 +55,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = await getCachedIsAdmin();
-  if (!isAdmin) {
+  const perms = await getCachedRolePermissions();
+  if (!perms.canViewUsers) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
@@ -105,7 +99,7 @@ export async function GET(request: Request) {
       name: p.full_name || p.email.split("@")[0] || "User",
       email: p.email,
       roleId,
-      role: mapRoleNameToUserRole(roleName),
+      role: roleUserKey(roleName),
       status: p.is_active ? "active" : "inactive",
       joinedAt,
     };
@@ -121,14 +115,15 @@ export async function GET(request: Request) {
     joinedAt: new Date().toISOString().split("T")[0],
   };
 
-  // GET is already admin-gated above (403 for non-admins), so a successful
-  // response means the caller is an admin — surface that so the UI can show
-  // the admin-only controls (invite, edit, deactivate/activate).
+  // GET is gated above (Admin + BD Manager). isAdmin gates the row actions
+  // (edit / deactivate / delete — admin-only); canInvite gates the invite
+  // button (also admin-only). BD Managers see the roster but nothing else.
   return NextResponse.json({
     users,
     roles,
     currentUser: currentUserObj,
-    isAdmin: true,
+    isAdmin: perms.isAdmin,
+    canInvite: perms.canInviteUsers,
   });
 }
 
@@ -144,8 +139,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = await getCachedIsAdmin();
-  if (!isAdmin) {
+  const perms = await getCachedRolePermissions();
+  if (!perms.canInviteUsers) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
@@ -228,7 +223,7 @@ export async function POST(request: Request) {
     name,
     email,
     roleId: role.id,
-    role: mapRoleNameToUserRole(role.name),
+    role: roleUserKey(role.name),
     status: "active",
     joinedAt: new Date().toISOString().split("T")[0],
   };
@@ -248,13 +243,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = await getCachedIsAdmin();
-  if (!isAdmin) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-
-  const org = await verifyOrganizationAccess(request, supabase, user.id);
-  if (!org.ok) return org.response;
+  const perms = await getCachedRolePermissions();
 
   let body: unknown;
   try {
@@ -272,6 +261,22 @@ export async function PATCH(request: Request) {
   }
 
   const { userId, name, status, roleId } = parsed.data;
+
+  // BD Managers mirror Admins except user management: editing/deactivating/
+  // deleting OTHER team members is Admin-only, but anyone may edit their own
+  // name (RLS users_update grants exactly that — own full_name only). The
+  // self-check below still blocks own status/role changes.
+  const isSelfNameEdit =
+    userId === user.id &&
+    name !== undefined &&
+    status === undefined &&
+    roleId === undefined;
+  if (!perms.canManageUsers && !isSelfNameEdit) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
 
   if (userId === user.id && (status !== undefined || roleId !== undefined)) {
     return NextResponse.json(
@@ -334,8 +339,8 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = await getCachedIsAdmin();
-  if (!isAdmin) {
+  const perms = await getCachedRolePermissions();
+  if (!perms.canManageUsers) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

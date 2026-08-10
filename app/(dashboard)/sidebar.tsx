@@ -18,6 +18,7 @@ import {
 import { Avatar } from "@/components/avatar";
 import { PipelineIQLogo, RecursoMark } from "@/components/pipelineiq-logo";
 import { apiPost } from "@/lib/api/client";
+import { getRolePermissionsByKey } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 import type { TabId } from "@/lib/constants";
 
@@ -74,6 +75,19 @@ interface SidebarProps {
 export default function Sidebar({ counts, user }: SidebarProps) {
   const pathname = usePathname();
   const activeTab = getActiveTab(pathname);
+
+  // Nav visibility comes from the ROLE_PERMISSIONS matrix (lib/auth/roles.ts)
+  // — the single source of truth for what each role may do. The layout passes
+  // the role lowercased, so lookup is case-insensitive.
+  const perms = getRolePermissionsByKey(user?.role);
+  const canViewUsers = perms.canViewUsers;
+  const canAccessProfiles = perms.canAccessProfiles;
+  const canAccessJobs = perms.canAccessJobs;
+  const visibleNav = NAV.filter((item) => {
+    if (item.id === "users") return canViewUsers;
+    if (item.id === "profiles") return canAccessProfiles;
+    return canAccessJobs;
+  });
   // React mirror of the localStorage flag. The server snapshot is always
   // false (expanded) so SSR and the first client render agree — the real
   // value is picked up synchronously on the client with no hydration
@@ -136,7 +150,7 @@ export default function Sidebar({ counts, user }: SidebarProps) {
         aria-label="Main navigation"
       >
         <ul role="list" className="flex flex-col gap-y-0.5">
-          {NAV.map((item) => {
+          {visibleNav.map((item) => {
             const isActive = activeTab === item.id;
             const count = counts?.[item.id];
             const Icon = item.icon;
@@ -216,7 +230,7 @@ export default function Sidebar({ counts, user }: SidebarProps) {
                 </p>
                 {user.role && (
                   <p className="text-caption text-primary/80 mt-0.5 font-medium capitalize">
-                    {user.role}
+                    {perms.label}
                   </p>
                 )}
               </div>

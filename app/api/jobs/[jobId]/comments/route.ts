@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { createCommentSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +47,14 @@ export async function GET(
   const user = await getCachedUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Job pages (comments live in the job drawer) are open to every role; the
+  // gate stays as a named helper so a future restricted role only has to
+  // change lib/auth/roles.ts.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessJobs) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
@@ -97,6 +105,14 @@ export async function POST(
   const user = await getCachedUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Job pages (comments live in the job drawer) are open to every role; the
+  // gate stays as a named helper so a future restricted role only has to
+  // change lib/auth/roles.ts.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessJobs) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);

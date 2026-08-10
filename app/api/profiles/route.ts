@@ -9,7 +9,7 @@ import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createProfile } from "@/lib/services/profiles";
 import {
   createClient,
-  getCachedIsAdmin,
+  getCachedRolePermissions,
   getCachedUser,
 } from "@/lib/supabase/server";
 
@@ -40,7 +40,9 @@ export type ProfilesListApiResponse = {
     id: string;
     name: string;
   }[];
-  isAdmin: boolean;
+  /** Whether the caller may create/edit/assign/upload for profiles
+   * (Admin + BD Manager — the UI's profile-management controls key off this). */
+  canManage: boolean;
   assignableUsers: AssignableUser[];
 };
 
@@ -54,18 +56,19 @@ export async function GET(request: Request) {
     );
   }
 
+  // Profiles are Admin + BD Manager; Business Developers get 403 (the UI
+  // hides the page and shows an access-denied state).
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessProfiles) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
   const supabase = await createClient();
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  const [
-    isAdmin,
-    profilesResult,
-    seniorityLevelsResult,
-  ] = await Promise.all([
-    getCachedIsAdmin(),
-
+  const [profilesResult, seniorityLevelsResult] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -119,37 +122,39 @@ export async function GET(request: Request) {
     assignedUserName: profile.users?.full_name ?? null,
   }));
 
-  // RLS on users only exposes the list to admins (via the admin-gated
-  // users_select policy), so this whole block runs solely for admins.
-  let assignableUsers: AssignableUser[] = [];
-  if (isAdmin) {
-    const { data: userRows, error: usersError } = await supabase
-      .from("users")
-      .select("id, full_name, email")
-      .eq("organization_id", org.organizationId)
-      .is("deleted_at", null)
-      .order("full_name");
+  // RLS on users exposes the full list to Admins and BD Managers (migration
+  // 15's users_select), so profile managers can assign users to profiles.
+  // The GET gate above already guarantees canAccessProfiles (Admin + BD
+  // Manager). Admins themselves are excluded — they manage profiles, they
+  // don't own them (and admins can't be assigned, per the permission model).
+  const { data: userRows, error: usersError } = await supabase
+    .from("users")
+    .select("id, full_name, email, roles(name)")
+    .eq("organization_id", org.organizationId)
+    .is("deleted_at", null)
+    .order("full_name");
 
-    if (usersError) {
-      console.error("api/profiles: users query failed", usersError);
+  if (usersError) {
+    console.error("api/profiles: users query failed", usersError);
 
-      return NextResponse.json(
-        { error: "Failed to load profiles." },
-        { status: 500 },
-      );
-    }
+    return NextResponse.json(
+      { error: "Failed to load profiles." },
+      { status: 500 },
+    );
+  }
 
-    assignableUsers = (userRows ?? []).map((userRow) => ({
+  const assignableUsers: AssignableUser[] = (userRows ?? [])
+    .filter((userRow) => userRow.roles?.name !== "Admin")
+    .map((userRow) => ({
       id: userRow.id,
       name: userRow.full_name || userRow.email.split("@")[0] || "User",
       email: userRow.email,
     }));
-  }
 
   const response: ProfilesListApiResponse = {
     profiles,
     seniorityLevels: seniorityLevelsResult.data ?? [],
-    isAdmin: Boolean(isAdmin),
+    canManage: perms.canAccessProfiles,
     assignableUsers,
   };
 

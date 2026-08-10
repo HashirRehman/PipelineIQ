@@ -31,16 +31,27 @@ export const WORK_TYPES = ["All Types", "remote", "onsite"] as const;
 
 export const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"] as const;
 
-/* Date-range and sort filters — shared by Leads and Discovery. The UI
-   components (components/jobs/date-range-filter.tsx, sort-filter.tsx) and the
-   server-side parsing (lib/api/job-filters.ts) read from these, so a new
-   option lands in both pages with one edit. */
+/* Date-range and sort filters — shared by the Pipeline, Leads, and Discovery
+   pages. The UI components (components/jobs/date-range-filter.tsx,
+   sort-filter.tsx) and the server-side parsing (lib/api/job-filters.ts) read
+   from these, so a new option lands everywhere with one edit.
+
+   Weeks are Friday-morning → Thursday-night (the business week, not
+   Monday–Sunday); months and years are actual calendar periods — NOT rolling
+   "last 30 days / 12 months". The exact window for the selected range is
+   computed client-side in the user's local time (lib/date-window.ts) and sent
+   to the API as explicit from/to, so the UI can also display the precise
+   range (e.g. "This week · Aug 7 – Aug 13").
+
+   The Pipeline page adds two more exclusive date controls on top of these:
+   a months-of-this-year dropdown and a This/Last year dropdown — picking one
+   clears the others (they'd otherwise conflict). */
 export const DATE_RANGES = [
+  { value: "this_week", label: "This week" },
+  { value: "last_week", label: "Last week" },
+  { value: "this_month", label: "This month" },
+  { value: "this_year", label: "This year" },
   { value: "all", label: "All time" },
-  { value: "day", label: "Last 24 hours" },
-  { value: "week", label: "Last 7 days" },
-  { value: "month", label: "Last 30 days" },
-  { value: "year", label: "Last 12 months" },
 ] as const;
 
 export type DateRange = (typeof DATE_RANGES)[number]["value"];

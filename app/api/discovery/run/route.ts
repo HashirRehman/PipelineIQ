@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GroqAiClient } from "@/lib/ai/groq-client";
 import {
@@ -27,6 +27,13 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ status: "error", error: "Not authorized." }, { status: 401 });
+  }
+
+  // Job pages are open to every role; the gate stays as a named helper so a
+  // future restricted role only has to change lib/auth/roles.ts.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessJobs) {
+    return NextResponse.json({ status: "error", error: "Not authorized." }, { status: 403 });
   }
 
   // Discovery itself is platform-wide (the run resolves the org internally),

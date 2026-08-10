@@ -8,18 +8,11 @@ import { StatCard } from "@/components/stat-card"
 import { GooeyInput } from "@/components/ui/gooey-input"
 import { ResultsCount } from "@/components/results-count"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { roleUserKey } from "@/lib/auth/roles"
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 
 interface RoleOption { id: string; name: string }
-
-// Map role name strings to typed UserRole keys
-function mapRoleName(name: string): "admin" | "lead" | "bd" {
-  const n = name.toLowerCase()
-  if (n === "admin") return "admin"
-  if (n === "lead") return "lead"
-  return "bd"
-}
 
 const labelClass = "block text-meta font-medium text-muted-foreground mb-1.5"
 const inputClass = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/50"
@@ -64,7 +57,7 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
   const roleButtons = (
     <div className="flex gap-2">
       {roles.map(r => {
-        const color = ROLE_COLOR[mapRoleName(r.name)]
+        const color = ROLE_COLOR[roleUserKey(r.name)]
         const sel = roleId === r.id
         return (
           <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
@@ -147,6 +140,7 @@ export default function UsersTab() {
   const [roles, setRoles] = useState<RoleOption[]>([])
   const [activeUser, setActiveUser] = useState<ApiAppUser | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [canInvite, setCanInvite] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState("")
@@ -178,6 +172,7 @@ export default function UsersTab() {
         setRoles(json.roles ?? [])
         setActiveUser(json.currentUser ?? null)
         setIsAdmin(json.isAdmin ?? false)
+        setCanInvite(json.canInvite ?? false)
         setError(null)
       })
       .catch(err => {
@@ -199,7 +194,7 @@ export default function UsersTab() {
         ...u,
         name: updates.name ?? u.name,
         roleId: updates.roleId ?? u.roleId,
-        role: updates.roleId ? mapRoleName(roleName) : u.role,
+        role: updates.roleId ? roleUserKey(roleName) : u.role,
       }
     }))
     // Modal closes itself on success.
@@ -258,13 +253,17 @@ export default function UsersTab() {
   const adminCount = users.filter(u => u.role === "admin").length
   const activeCount = users.filter(u => u.status === "active").length
 
+  // Everyone on this page (Admins + BD Managers) may edit their own profile
+  // (name only); only Admins get edit / deactivate / delete on other members.
+  const showActionsColumn = isAdmin || activeUser != null
+
   if (accessDenied) {
     return (
       <div className="p-8">
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <div className="text-sm font-semibold text-foreground mb-1.5">Access denied</div>
           <div className="text-xs text-muted-foreground">
-            Only administrators can view and manage team members.
+            Only administrators and BD managers can view team members.
           </div>
         </div>
       </div>
@@ -333,7 +332,7 @@ export default function UsersTab() {
           <option value="inactive">Inactive</option>
         </select>
 
-        {isAdmin && (
+        {canInvite && (
           <button
             type="button"
             onClick={() => setShowInvite(true)}
@@ -368,7 +367,7 @@ export default function UsersTab() {
                   <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground">Role</th>
                   <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground hidden md:table-cell">Status</th>
                   <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground hidden lg:table-cell">Joined</th>
-                  {isAdmin && <th className="px-4 py-3 text-right text-caption font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>}
+                  {showActionsColumn && <th className="px-4 py-3 text-right text-caption font-semibold uppercase tracking-wide text-muted-foreground">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
@@ -407,7 +406,7 @@ export default function UsersTab() {
                           {user.joinedAt ? formatDate(user.joinedAt) : "—"}
                         </span>
                       </td>
-                      {isAdmin && (
+                      {(isAdmin || isSelf) && (
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
                             <button
@@ -418,7 +417,7 @@ export default function UsersTab() {
                             >
                               <Pencil className="size-3.5" />
                             </button>
-                            {!isSelf && (
+                            {isAdmin && !isSelf && (
                               <button
                                 type="button"
                                 onClick={() => toggleStatus(user.id)}
@@ -439,7 +438,7 @@ export default function UsersTab() {
                                 )}
                               </button>
                             )}
-                            {!isSelf && (
+                            {isAdmin && !isSelf && (
                               <button
                                 type="button"
                                 onClick={() => { setDeleteError(""); setDeletingUser(user) }}

@@ -9,9 +9,10 @@
     "lint": "eslint",
     "db:types:remote": "npx supabase gen types typescript --linked > lib/supabase/database.types.ts",
     "migrate:new": "node scripts/migrateNew.cjs",
-    "migrate:up": "node scripts/migrateUp.cjs",
+    "migrate:up": "node scripts/migrateUp.cjs && npm run db:types:remote",
     "supa:link": "node scripts/supaLink.cjs",
-    "seed:user": "node scripts/createUser.cjs"
+    "seed:user": "node scripts/createUser.cjs",
+    "seed:dummy": "node scripts/seedDummyData.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

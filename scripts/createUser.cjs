@@ -22,10 +22,10 @@ require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
 
 const DEFAULTS = {
-  email: 'fareed.zafar@recursolabs.com',
+  email: 'test.manager@recursolabs.com',
   orgName: 'Recurso Labs',
-  role: 'Admin',
-  demoProfileEmail: 'saad.mumtaz@example.com',
+  role: 'BD Manager',
+  demoProfileEmail: '',
 };
 
 function deriveName(email) {

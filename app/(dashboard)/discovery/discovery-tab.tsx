@@ -20,6 +20,7 @@ import {
   type DateRange,
   type SortOption,
 } from "@/lib/constants";
+import { getDateWindow } from "@/lib/date-window";
 import { cn } from "@/lib/utils";
 import JobDrawer, { type Job } from "@/components/job-drawer";
 import { apiPost, withOrgId } from "@/lib/api/client";
@@ -40,8 +41,8 @@ const buildQueryKey = (opts: {
   region: string;
   dateRange: DateRange;
   sort: SortOption;
-}) =>
-  new URLSearchParams({
+}) => {
+  const params = new URLSearchParams({
     page: String(opts.page),
     pageSize: String(PAGE_SIZE),
     workType: opts.workType === "All Types" ? "" : opts.workType,
@@ -50,7 +51,15 @@ const buildQueryKey = (opts: {
     region: REGION_TO_PARAM[opts.region] ?? "",
     dateRange: opts.dateRange,
     sort: opts.sort,
-  }).toString();
+  });
+  // Exact week/month/year window, computed client-side in local time.
+  const window = getDateWindow(opts.dateRange);
+  if (window) {
+    params.set("from", window.from);
+    params.set("to", window.to);
+  }
+  return params.toString();
+};
 
 interface DiscoveryResponse {
   jobs: Job[];

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { markAppliedSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,13 @@ export async function POST(request: Request) {
   const user = await getCachedUser();
   if (!user) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
+  }
+
+  // Job actions are open to every role; the gate stays as a named helper so
+  // a future restricted role only has to change lib/auth/roles.ts.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessJobs) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   let body: unknown;

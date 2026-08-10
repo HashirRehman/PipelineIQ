@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { updateCommentSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +99,7 @@ export async function DELETE(
 
   const { commentId } = await params;
 
-  const isAdmin = await getCachedIsAdmin();
+  const perms = await getCachedRolePermissions();
 
   const { data: comment } = await supabase
     .from("job_comments")
@@ -112,10 +112,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Comment not found." }, { status: 404 });
   }
 
-  // Deletes are author-or-admin (moderation).
-  if (comment.user_id !== user.id && !isAdmin) {
+  // Deletes are author-or-moderator (moderation) — the moderator set comes
+  // from the ROLE_PERMISSIONS matrix (Admin + BD Manager).
+  if (comment.user_id !== user.id && !perms.canModerateComments) {
     return NextResponse.json(
-      { error: "Only the author or an admin can delete this comment." },
+      { error: "Only the author, an admin, or a manager can delete this comment." },
       { status: 403 },
     );
   }

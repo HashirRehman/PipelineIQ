@@ -170,12 +170,12 @@ function DeleteCvButton({
 export function ProfileCvList({
   cvs,
   profileId,
-  isAdmin,
+  canManage,
   onChanged,
 }: {
   cvs: CvEntry[];
   profileId: string;
-  isAdmin: boolean;
+  canManage: boolean;
   onChanged?: () => void;
 }) {
   const router = useRouter();
@@ -266,7 +266,7 @@ export function ProfileCvList({
           key={cv.id}
           cv={cv}
           profileId={profileId}
-          isAdmin={isAdmin}
+          canManage={canManage}
           isExpanded={expandedCvId === cv.id}
           onToggle={() => setExpandedCvId(expandedCvId === cv.id ? null : cv.id)}
           isParsing={parsingCvIds.includes(cv.id)}
@@ -282,7 +282,7 @@ export function ProfileCvList({
 function CvRow({
   cv,
   profileId,
-  isAdmin,
+  canManage,
   isExpanded,
   onToggle,
   isParsing,
@@ -292,7 +292,7 @@ function CvRow({
 }: {
   cv: CvEntry;
   profileId: string;
-  isAdmin: boolean;
+  canManage: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   isParsing: boolean;
@@ -341,7 +341,7 @@ function CvRow({
               <Download className="size-3.5" />
             </a>
           )}
-          {isAdmin && (
+          {canManage && (
             <DeleteCvButton profileId={profileId} cv={cv} onDeleted={onDeleted} />
           )}
         </div>
@@ -352,7 +352,7 @@ function CvRow({
           <ProfileCvDetails
             cv={cv}
             state={state}
-            isAdmin={isAdmin}
+            canManage={canManage}
             actionError={actionError}
             onParse={onParse}
           />

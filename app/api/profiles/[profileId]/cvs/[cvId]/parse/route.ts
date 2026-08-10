@@ -14,7 +14,7 @@ import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { parseAndStoreCv } from "@/lib/cv-parsing/parse-cv";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 // A Groq call plus a file download; nowhere near the ceiling, but a default
@@ -39,8 +39,9 @@ export async function POST(
   }
 
   // Re-parsing spends AI budget and overwrites stored data, so it matches
-  // upload/delete: admin only.
-  if (!(await getCachedIsAdmin())) {
+  // upload/delete: Admin + BD Manager.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canAccessProfiles) {
     return NextResponse.json({ success: false, error: "Not authorized." }, { status: 403 });
   }
 

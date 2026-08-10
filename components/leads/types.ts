@@ -11,10 +11,12 @@ export interface Lead {
   workType: "remote" | "onsite" | "hybrid"
   appliedAt: string
   status: LeadStatus
-  /** Permanent owner snapshot — the user whose assigned profile applied.
-   * Null once that account is deleted (leads stay with the profile). */
+  /** The profile's current assigned user — leads follow the profile, so
+   * this is who owns the lead now (not the creation-time snapshot). Null
+   * when the profile has no assigned user. */
   assignedTo: string | null
-  /** Applier's Notes — writable only by the applier (assignedTo). */
+  /** Applier's Notes — writable by the profile's current assigned user
+   * (assignedTo) plus Admin / BD Manager (canManageLeadNotes). */
   notes: string
   salary: string | null
   parser: string
@@ -24,14 +26,19 @@ export interface Lead {
 // Structural stand-ins for the people/profiles referenced by the lead rows.
 // They mirror the AppUser/Profile shapes the old app/page.tsx used to export
 // (removed in the sidebar restructure), pinned to just the fields the lead
-// views actually render (id/name/role).
+// views actually render (id/name/role). The ownership links (profile.userId,
+// user.profileIds) drive the coupled profile/user filters in LeadFilterBar.
 export interface AppUser {
   id: string
   name: string
   role: "admin" | "lead" | "bd"
+  /** Ids of the profiles currently assigned to this user. */
+  profileIds: string[]
 }
 
 export interface Profile {
   id: string
   name: string
+  /** The user this profile is currently assigned to (null = unassigned). */
+  userId: string | null
 }

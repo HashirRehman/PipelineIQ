@@ -16,14 +16,14 @@ export function ProfileAssignment({
   assignedUserId,
   assignedUserName,
   users,
-  isAdmin,
+  canManage,
   onChanged,
 }: {
   profileId: string;
   assignedUserId: string | null;
   assignedUserName: string | null;
   users: AssignableUser[];
-  isAdmin: boolean;
+  canManage: boolean;
   onChanged?: () => void;
 }) {
   const router = useRouter();
@@ -74,7 +74,7 @@ export function ProfileAssignment({
     }
   };
 
-  if (!isAdmin) {
+  if (!canManage) {
     return (
       <p className="text-sm text-foreground">
         {assignedUserName ?? "Unassigned"}

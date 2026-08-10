@@ -263,7 +263,6 @@ export default function SettingsTab() {
       {/* Header */}
       <div className="flex items-start justify-between border-b border-border bg-background px-6 py-4 shrink-0">
         <div>
-          <h1 className="text-sm font-semibold text-foreground">Theme</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Personalize colors and the app shell background. Applied instantly and saved to this browser.
           </p>

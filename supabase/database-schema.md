@@ -2,9 +2,9 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 12 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 16 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
-- **Last updated:** 2026-08-10
+- **Last updated:** 2026-08-11
 
 > Migrations are intentionally comment-free; this document is the single source of truth for schema reasoning, old-DB mappings, and open questions. Keep it in sync when migrations change.
 
@@ -40,6 +40,9 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 11 | `20260810094117_profile_cv_parsed_data.sql` | `profile_cvs` parse columns (`parsed_data` jsonb + `parse_status`/`parse_error`/`parsed_at`/`parse_model_version`/`parse_schema_version`), status CHECK, success-implies-payload CHECK, partial index on unfinished parses — additive, `db push`, no reset |
 | 12 | `20260810120000_allow_multiple_profiles_per_user.sql` | drops UNIQUE on `profiles.user_id` (a user may own several profiles); adds a plain `user_id` index — `db push`, no reset |
 | 13 | `20260810140000_user_delete.sql` | admin-only `users_delete` policy; `leads.user_id` made nullable + `ON DELETE SET NULL`, `job_profile_states.user_id` `ON DELETE SET NULL` (deleting a user removes only the user + comments; leads/states/profiles unlink) — `db push`, no reset |
+| 14 | `20260810150000_bd_manager_access.sql` | `is_bd_manager()` helper; `users_select` widened so BD Managers can read the team roster (view-only — updates/deletes/invites stay admin-only) — `db push`, no reset |
+| 15 | `20260810160000_bd_manager_full_access.sql` | widens business-table RLS so BD Managers mirror Admins everywhere except user management: `is_bd_manager()` added to profiles / profile_cvs / job_profile_matches / job_profile_states / leads / job_comments_update policies; `users` policies unchanged (roster read + own-name edit only, invites/management stay Admin-only) — `db push`, no reset |
+| 16 | `20260810170000_leads_profile_owner.sql` | leads ownership follows the PROFILE, not the creation-time snapshot: `leads_select` / `leads_update` owner branch widened to the profile's current assigned user (`exists profiles p where p.id = profile_id and p.user_id = auth.uid()`), snapshot branch kept for the original applier — so leads created by an admin, or whose applier was deleted/reassigned, still land on the assigned developer — `db push`, no reset |
 
 ---
 
@@ -282,9 +285,9 @@ The `UNIQUE (scraper_id, external_job_id)` constraint prevents duplicate ingest 
 | deleted_at | timestamptz | |
 | notes | text | NOT NULL, default `''` — Applier's Notes |
 
-**Owner semantics:** `user_id` is a permanent snapshot taken at lead creation; it does not move if the profile is later reassigned to another BD.
+**Owner semantics:** `user_id` is a permanent snapshot taken at lead creation (who applied); it does not move if the profile is later reassigned. But **access follows the profile** (migration 16): the lead's owner for RLS and the app layer is the profile's CURRENT assigned user (`profiles.user_id`), with the snapshot kept as an additional read branch so the original applier keeps visibility after a reassignment. Leads created by an Admin/BD Manager on behalf of a profile, or whose applier's account was deleted (snapshot NULLed), still land on the developer assigned to the profile.
 
-**Applier's Notes:** `notes` is writable only by the user whose assigned profile was used to apply — the permanent `user_id` snapshot (the API rejects notes edits from anyone else; RLS scopes the whole row to owner/admin). Status/stage changes are allowed for the owner or an admin.
+**Applier's Notes:** `notes` is writable by the profile's current assigned user plus Admin / BD Manager (`canManageLeadNotes`); the creation-time snapshot may still read (RLS) but edits follow the profile. Status/stage changes are allowed for the owner or an admin.
 
 ### 3.12 `job_profile_matches` — old DB: `job_engineer_matches` (scoring half)
 
@@ -399,7 +402,7 @@ jobs 1─N job_comments, users 1─N job_comments  (authors)
 
 10. **Soft delete everywhere.** History is preserved by rows marked `deleted_at`, never destroyed.
 
-11. **RLS enabled on every table** with policies written (migration 6): reference tables readable by any authenticated user; users/profiles/leads scoped through profile ownership (`profiles.user_id`) and `is_admin()`; writes are admin-only except where a policy grants profile owners their own rows (profiles, `job_profile_states`). There are no SECURITY DEFINER write functions — the cron writes with the service-role key, which bypasses RLS. API-role grants are applied via `supabase/seed.sql`. Migration 13 adds the only delete policy (`users_delete`, admin-only) for the permanent user-deletion flow.
+11. **RLS enabled on every table** with policies written (migration 6): reference tables readable by any authenticated user; users/profiles/leads scoped through profile ownership (`profiles.user_id`) and `is_admin()`; writes are admin-only except where a policy grants profile owners their own rows (profiles, `job_profile_states`). There are no SECURITY DEFINER write functions — the cron writes with the service-role key, which bypasses RLS. API-role grants are applied via `supabase/seed.sql`. Migration 13 adds the only delete policy (`users_delete`, admin-only) for the permanent user-deletion flow. Migration 14 adds `is_bd_manager()` and widens `users_select` so BD Managers can read the team roster. Migration 15 widens every business-table policy to admit `is_bd_manager()` — BD Managers mirror Admins on Profiles / Discovery / Pipeline / Leads / Statistics (view + write) — while `users_insert`/`users_delete` stay admin-only and `users_update` (migration 6 B4) lets them edit only their own `full_name`. Migration 16 re-keys the `leads` owner branch to the profile's current assigned user so ownership follows the profile (matching the Business Developer model "own data or data related to the profile they are assigned"), keeping the snapshot as an additional read branch.
 
 12. **`organization_id` on every business table.** Enables multi-organization scoping from day one.
 

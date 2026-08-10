@@ -1,14 +1,14 @@
 "use client"
 
 import type { AppUser, Profile } from "@/components/leads/types"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { ProfileUserFilters } from "@/components/leads/profile-user-filters"
 
+/**
+ * Profile + user filter bar for the Leads page. The two filters are COUPLED —
+ * picking a profile narrows the user list to its assigned user and vice versa
+ * (see ProfileUserFilters). The Pipeline page composes the same selects into
+ * its larger filter bar.
+ */
 export function LeadFilterBar({
   profiles,
   bdUsers,
@@ -26,32 +26,14 @@ export function LeadFilterBar({
 }) {
   return (
     <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-background shrink-0 flex-wrap">
-      <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? "all")}>
-        <SelectTrigger size="sm" className="h-7 w-auto min-w-[150px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Profiles</SelectItem>
-          {profiles.map(p => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={bdFilter} onValueChange={v => setBdFilter(v ?? "all")}>
-        <SelectTrigger size="sm" className="h-7 w-auto min-w-[140px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All BDs</SelectItem>
-          {bdUsers.map(u => (
-            <SelectItem key={u.id} value={u.id}>
-              {u.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <ProfileUserFilters
+        profiles={profiles}
+        bdUsers={bdUsers}
+        profileFilter={profileFilter}
+        setProfileFilter={setProfileFilter}
+        bdFilter={bdFilter}
+        setBdFilter={setBdFilter}
+      />
     </div>
   )
 }

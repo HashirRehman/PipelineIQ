@@ -72,7 +72,9 @@ export function JobCard({
           <Bookmark className="size-3.5" />
         </button>
         <span className="flex items-center gap-1 text-meta text-muted-foreground">
-          <Clock className="size-3" />{timeAgo(job.postedAt)}
+          {/* Applied jobs are dated by when they were applied; the discovery
+              feed has no appliedAt and falls back to the posting date. */}
+          <Clock className="size-3" />{timeAgo(job.appliedAt ?? job.postedAt)}
         </span>
       </div>
     </div>

@@ -41,13 +41,13 @@ function formatRate(profile: ProfileListItem) {
 
 export function ProfilesList({
   profiles,
-  isAdmin,
+  canManage,
   seniorityLevels,
   onSelectProfile,
   onProfileCreated,
 }: {
   profiles: ProfileListItem[];
-  isAdmin: boolean;
+  canManage: boolean;
   seniorityLevels: SeniorityLevel[];
   onSelectProfile: (profileId: string) => void;
   onProfileCreated?: (profileId: string) => void;
@@ -116,7 +116,7 @@ export function ProfilesList({
             ))}
           </div>
         </div>
-        {isAdmin && onProfileCreated && (
+        {canManage && onProfileCreated && (
           <NewEditProfileDialog
             seniorityLevels={seniorityLevels}
             onCreated={onProfileCreated}

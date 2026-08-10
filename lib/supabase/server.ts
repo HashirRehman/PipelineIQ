@@ -2,6 +2,12 @@
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import {
+  getRolePermissions,
+  isAdminRole,
+  isBdManagerRole,
+  type RolePermissionSet,
+} from "@/lib/auth/roles";
 import type { Database } from "./database.types";
 
 export async function createClient() {
@@ -74,6 +80,27 @@ export const getCachedUserRole = cache(async () => {
   const { data } = await supabase.auth.getClaims();
   const role = data?.claims?.user_role;
   return typeof role === "string" && role.length > 0 ? role : null;
+});
+
+export type RolePermissions = RolePermissionSet & {
+  role: string | null;
+  isAdmin: boolean;
+  isBdManager: boolean;
+};
+
+// The acting user's permissions, derived once per server request from the
+// JWT's user_role claim (same memoization as getCachedUserRole). The flag
+// set comes from the ROLE_PERMISSIONS matrix in lib/auth/roles.ts — the
+// single source of truth for what each role may do. RLS is the real
+// boundary — these flags only gate which UI/API paths a role may take.
+export const getCachedRolePermissions = cache(async (): Promise<RolePermissions> => {
+  const role = await getCachedUserRole();
+  return {
+    role,
+    isAdmin: isAdminRole(role),
+    isBdManager: isBdManagerRole(role),
+    ...getRolePermissions(role),
+  };
 });
 
 // The acting user's organization id, resolved once per server request (same

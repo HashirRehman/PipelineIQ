@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
-import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { updateLeadSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -43,11 +43,12 @@ export async function PATCH(
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  // RLS scopes this to the owner snapshot (user_id = auth.uid()) or admin;
-  // the org filter additionally rejects cross-org lead ids up front.
+  // RLS scopes this to the owner (owner snapshot or the profile's current
+  // assigned user) or admin/manager; the org filter additionally rejects
+  // cross-org lead ids up front.
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, user_id")
+    .select("id, user_id, profiles(user_id)")
     .eq("id", leadId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -55,11 +56,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Lead not found." }, { status: 404 });
   }
 
-  // Applier's Notes: only the user whose assigned profile was used to apply
-  // (the permanent user_id owner snapshot) may write or edit the notes.
-  if (notes !== undefined && lead.user_id !== user.id) {
+  // Applier's Notes: the user whose assigned profile owns the lead (the
+  // profile's CURRENT user — leads follow the profile) may write or edit the
+  // notes — plus the roles with canManageLeadNotes in the ROLE_PERMISSIONS
+  // matrix (Admin + BD Manager), who manage the whole pipeline.
+  const perms = await getCachedRolePermissions();
+  const isProfileOwner = lead.profiles?.user_id != null && lead.profiles.user_id === user.id;
+  if (notes !== undefined && lead.user_id !== user.id && !isProfileOwner && !perms.canManageLeadNotes) {
     return NextResponse.json(
-      { error: "Only the user who applied with the profile can edit the notes." },
+      { error: "Only the applier, an admin, or a manager can edit the notes." },
       { status: 403 },
     );
   }

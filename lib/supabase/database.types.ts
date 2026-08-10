@@ -274,6 +274,7 @@ export type Database = {
           is_remote: boolean | null
           job_posted_at: string | null
           organization_id: string
+          parsed_data: Json | null
           possibly_closed: boolean
           possibly_closed_reason: string | null
           remote_allowed_region: string | null
@@ -292,6 +293,7 @@ export type Database = {
           is_remote?: boolean | null
           job_posted_at?: string | null
           organization_id: string
+          parsed_data?: Json | null
           possibly_closed?: boolean
           possibly_closed_reason?: string | null
           remote_allowed_region?: string | null
@@ -310,6 +312,7 @@ export type Database = {
           is_remote?: boolean | null
           job_posted_at?: string | null
           organization_id?: string
+          parsed_data?: Json | null
           possibly_closed?: boolean
           possibly_closed_reason?: string | null
           remote_allowed_region?: string | null
@@ -347,7 +350,7 @@ export type Database = {
           pipeline_stage_id: string
           profile_id: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           applied_at?: string
@@ -362,7 +365,7 @@ export type Database = {
           pipeline_stage_id: string
           profile_id: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           applied_at?: string
@@ -377,7 +380,7 @@ export type Database = {
           pipeline_stage_id?: string
           profile_id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -610,7 +613,7 @@ export type Database = {
           {
             foreignKeyName: "profiles_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -740,6 +743,7 @@ export type Database = {
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      is_bd_manager: { Args: never; Returns: boolean }
     }
     Enums: {
       application_status: "suggested" | "dismissed" | "applied"

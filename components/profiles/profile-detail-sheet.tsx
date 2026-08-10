@@ -86,7 +86,7 @@ export function ProfileDetailSheet({
   seniorityLevels,
   assignableUsers,
   cvs,
-  isAdmin,
+  canManage,
   onClose,
   onChanged,
 }: {
@@ -95,7 +95,7 @@ export function ProfileDetailSheet({
   seniorityLevels: SeniorityLevel[];
   assignableUsers: AssignableUser[];
   cvs: CvEntry[];
-  isAdmin: boolean;
+  canManage: boolean;
   onClose: () => void;
   onChanged?: () => void;
 }) {
@@ -138,7 +138,7 @@ export function ProfileDetailSheet({
             <span className="text-xs text-muted-foreground">
               {displayProfile.isActive ? "Active" : "Inactive"}
             </span>
-            {isAdmin && (
+            {canManage && (
               <ProfileActiveToggle
                 profileId={displayProfile.id}
                 isActive={displayProfile.isActive}
@@ -154,7 +154,7 @@ export function ProfileDetailSheet({
         <div className="flex flex-1 min-h-0">
           {/* Left column — everything else */}
           <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6 space-y-7">
-            {isAdmin && (
+            {canManage && (
               <section>
                 <SectionTitle>Assignment</SectionTitle>
                 <ProfileAssignment
@@ -162,7 +162,7 @@ export function ProfileDetailSheet({
                   assignedUserId={displayProfile.assignedUserId}
                   assignedUserName={displayProfile.assignedUserName}
                   users={assignableUsers}
-                  isAdmin={isAdmin}
+                  canManage={canManage}
                   onChanged={onChanged}
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -184,10 +184,10 @@ export function ProfileDetailSheet({
               <ProfileCvList
                 cvs={displayCvs}
                 profileId={displayProfile.id}
-                isAdmin={isAdmin}
+                canManage={canManage}
                 onChanged={onChanged}
               />
-              {isAdmin && (
+              {canManage && (
                 <div className="mt-3">
                   <ProfileCvUploadForm profileId={displayProfile.id} onChanged={onChanged} />
                 </div>
@@ -199,7 +199,7 @@ export function ProfileDetailSheet({
           <aside className="w-[280px] shrink-0 border-l border-border bg-page-bg overflow-y-auto px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <div className="text-xs font-semibold text-foreground">Details</div>
-              {isAdmin && (
+              {canManage && (
                 <button
                   type="button"
                   onClick={() => {

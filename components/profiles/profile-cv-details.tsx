@@ -268,13 +268,13 @@ function ParseActionButton({
 export function ProfileCvDetails({
   cv,
   state,
-  isAdmin,
+  canManage,
   actionError,
   onParse,
 }: {
   cv: ProfileCvEntry;
   state: CvParseState;
-  isAdmin: boolean;
+  canManage: boolean;
   actionError: string | null;
   onParse: () => void;
 }) {
@@ -293,7 +293,7 @@ export function ProfileCvDetails({
             <FileSearch className="size-3.5" />
             This CV hasn&apos;t been read yet, so there are no details to show.
           </div>
-          {isAdmin && <ParseActionButton label="Read this CV" onClick={onParse} disabled={false} />}
+          {canManage && <ParseActionButton label="Read this CV" onClick={onParse} disabled={false} />}
         </div>
       )}
 
@@ -306,7 +306,7 @@ export function ProfileCvDetails({
               {cv.parseError ? <span className="text-muted-foreground"> {cv.parseError}</span> : null}
             </span>
           </div>
-          {isAdmin && <ParseActionButton label="Try again" onClick={onParse} disabled={false} />}
+          {canManage && <ParseActionButton label="Try again" onClick={onParse} disabled={false} />}
           {/* A failed re-parse keeps the previous good parse, so show it rather
               than pretending there's nothing — the error above says it's stale. */}
           {cv.parsed && (
@@ -323,7 +323,7 @@ export function ProfileCvDetails({
       {state === "parsed" && cv.parsed && (
         <div className="flex flex-col gap-3">
           <ParsedCvBody parsed={cv.parsed} />
-          {isAdmin && (
+          {canManage && (
             <div className="border-t border-border pt-3">
               <ParseActionButton label="Read again" onClick={onParse} disabled={false} />
             </div>

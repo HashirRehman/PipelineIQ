@@ -6,10 +6,33 @@ import { GooeyInput } from "@/components/ui/gooey-input"
 import { FilterOption } from "@/components/jobs/filter-option"
 import { JobCard } from "@/components/jobs/job-card"
 import { Pagination } from "@/components/jobs/pagination"
-import { DateRangeSection, SortSection } from "@/components/jobs/filter-sections"
 import JobDrawer, { type Job } from "@/components/job-drawer"
+import { ProfileUserFilters } from "@/components/leads/profile-user-filters"
 import { ResultsCount } from "@/components/results-count"
-import { WORK_TYPES, PARSER_COLOR, WORK_TYPE_COLOR, type DateRange, type SortOption } from "@/lib/constants"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  DATE_RANGES,
+  SORT_OPTIONS,
+  WORK_TYPES,
+  WORK_TYPE_COLOR,
+  PARSER_COLOR,
+  type DateRange,
+  type SortOption,
+} from "@/lib/constants"
+import {
+  dateRangeLabel,
+  getDateWindow,
+  getMonthWindow,
+  getYearWindow,
+  monthWindowLabel,
+  yearWindowLabel,
+} from "@/lib/date-window"
 import { cn } from "@/lib/utils"
 import { apiPost, withOrgId } from "@/lib/api/client"
 
@@ -28,6 +51,12 @@ const LEAD_FILTERS: readonly { value: LeadFilter; label: string }[] = [
 interface AppliedJobsResponse {
   jobs: Job[]
   profiles: DiscoveryProfile[]
+  /** Team roster for the filter sidebar — populated for Admin/BD Manager only.
+   * profileIds links each user to their currently assigned profiles, so the
+   * profile/user filters can constrain each other. */
+  users: { id: string; name: string; role: "admin" | "lead" | "bd"; profileIds: string[] }[]
+  /** True when the caller may see (and filter by) every user's data. */
+  canViewAllData: boolean
   totalCount: number
   page: number
   pageSize: number
@@ -35,8 +64,22 @@ interface AppliedJobsResponse {
   parsers?: string[]
 }
 
-const buildQueryKey = (opts: { page: number; workType: string; parser: string; search: string; dateRange: DateRange; sort: SortOption; leadFilter: LeadFilter }) =>
-  new URLSearchParams({
+const buildQueryKey = (opts: {
+  page: number
+  workType: string
+  parser: string
+  search: string
+  dateRange: DateRange
+  /** Selected month of THIS year (0–11), or null — exclusive with the others. */
+  month: number | null
+  /** Selected calendar year, or null — exclusive with the others. */
+  year: number | null
+  sort: SortOption
+  leadFilter: LeadFilter
+  profileId: string
+  userId: string
+}) => {
+  const params = new URLSearchParams({
     page: String(opts.page),
     pageSize: String(PAGE_SIZE),
     status: "applied",
@@ -44,9 +87,28 @@ const buildQueryKey = (opts: { page: number; workType: string; parser: string; s
     parser: opts.parser === "All Sources" ? "" : opts.parser,
     search: opts.search,
     dateRange: opts.dateRange,
+    month: opts.month === null ? "" : String(opts.month),
+    year: opts.year === null ? "" : String(opts.year),
     sort: opts.sort,
     leadFilter: opts.leadFilter === "exclude" ? "" : opts.leadFilter,
-  }).toString()
+    profileId: opts.profileId === "all" ? "" : opts.profileId,
+    userId: opts.userId === "all" ? "" : opts.userId,
+  })
+  // Exactly one date control is active; its window (computed client-side in
+  // local time) drives the applied-date filter. The applied feed is filtered
+  // by when the jobs were APPLIED, not posted.
+  const window =
+    opts.month !== null
+      ? getMonthWindow(opts.month, new Date().getFullYear())
+      : opts.year !== null
+        ? getYearWindow(opts.year)
+        : getDateWindow(opts.dateRange)
+  if (window) {
+    params.set("from", window.from)
+    params.set("to", window.to)
+  }
+  return params.toString()
+}
 
 export default function AppliedJobsTab() {
   const [jobs, setJobs] = useState<Job[]>([])
@@ -56,9 +118,22 @@ export default function AppliedJobsTab() {
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
   const [page, setPage] = useState(1)
-  const [dateRange, setDateRange] = useState<DateRange>("all")
-  const [sort, setSort] = useState<SortOption>("relevance")
+  // Default: the current Friday–Thursday week (the business week), and the
+  // applied feed is newest-first (by when jobs were applied).
+  const [dateRange, setDateRange] = useState<DateRange>("this_week")
+  // Months-of-this-year and year dropdowns — picking one clears the others
+  // (they'd otherwise conflict). null = that control is inactive.
+  const [monthFilter, setMonthFilter] = useState<number | null>(null)
+  const [yearFilter, setYearFilter] = useState<number | null>(null)
+  const [sort, setSort] = useState<SortOption>("newest")
   const [leadFilter, setLeadFilter] = useState<LeadFilter>("exclude")
+  // Manager/Admin team filters — which profile or user's applied jobs to
+  // show. Defaults to "all" (everyone's data); the bar is hidden for roles
+  // that only see their own data.
+  const [profileFilter, setProfileFilter] = useState("all")
+  const [userFilter, setUserFilter] = useState("all")
+  const [users, setUsers] = useState<AppliedJobsResponse["users"]>([])
+  const [canViewAllData, setCanViewAllData] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [appliedKey, setAppliedKey] = useState<string | null>(null)
@@ -71,8 +146,12 @@ export default function AppliedJobsTab() {
   // Bumped after a job action (add-to-leads / dismiss) so the feed silently
   // re-fetches and reflects the updated per-profile state.
   const [refreshKey, setRefreshKey] = useState(0)
+  // Calendar year/month for the months-of-this-year and year dropdowns.
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth()
 
-  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, dateRange, sort, leadFilter })
+  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter })
   const loading = appliedKey !== loadingKey
 
   useEffect(() => {
@@ -85,6 +164,8 @@ export default function AppliedJobsTab() {
       .then(json => {
         setJobs(json.jobs)
         setProfiles(json.profiles)
+        setUsers(json.users ?? [])
+        setCanViewAllData(json.canViewAllData ?? false)
         setTotalCount(json.totalCount)
         setTotalPages(json.totalPages)
         if (json.parsers?.length) setParsers(json.parsers)
@@ -103,15 +184,62 @@ export default function AppliedJobsTab() {
   const changeSearch = (v: string) => { setSearch(v); setPage(1) }
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
   const changeParser = (v: string) => { setParserFilter(v); setPage(1) }
-  const changeDateRange = (v: DateRange) => { setDateRange(v); setPage(1) }
+  const changeDateRange = (v: DateRange) => {
+    setDateRange(v)
+    setMonthFilter(null)
+    setYearFilter(null)
+    setPage(1)
+  }
+  const changeMonth = (v: string) => {
+    const month = v === "" ? null : Number(v)
+    setMonthFilter(month)
+    // Picking a real month yields the quick range; picking "All months"
+    // only clears the month filter (leaving the quick range as it was).
+    if (month !== null) {
+      setDateRange("all")
+      setYearFilter(null)
+    }
+    setPage(1)
+  }
+  const changeYear = (v: string) => {
+    const year = v === "" ? null : Number(v)
+    setYearFilter(year)
+    // Picking a real year yields the quick range and month filter;
+    // picking "All years" only clears the year filter.
+    if (year !== null) {
+      setDateRange("all")
+      setMonthFilter(null)
+    }
+    setPage(1)
+  }
   const changeSort = (v: SortOption) => { setSort(v); setPage(1) }
   const changeLeadFilter = (v: LeadFilter) => { setLeadFilter(v); setPage(1) }
+  const changeProfile = (v: string) => { setProfileFilter(v ?? "all"); setPage(1) }
+  const changeUser = (v: string) => { setUserFilter(v ?? "all"); setPage(1) }
 
   const isActiveFilter =
     parserFilter !== "All Sources" ||
     workTypeFilter !== "All Types" ||
-    dateRange !== "all" ||
-    sort !== "relevance"
+    dateRange !== "this_week" ||
+    monthFilter !== null ||
+    yearFilter !== null ||
+    sort !== "newest" ||
+    leadFilter !== "exclude" ||
+    profileFilter !== "all" ||
+    userFilter !== "all"
+
+  const clearFilters = () => {
+    setParserFilter("All Sources")
+    setWorkTypeFilter("All Types")
+    setDateRange("this_week")
+    setMonthFilter(null)
+    setYearFilter(null)
+    setSort("newest")
+    setLeadFilter("exclude")
+    setProfileFilter("all")
+    setUserFilter("all")
+    setPage(1)
+  }
 
   const handleAddToLead = async (profileIds: string[]) => {
     if (!selectedJob || !profiles.length || addToLeadPending) return
@@ -215,16 +343,17 @@ export default function AppliedJobsTab() {
         </div>
       </div>
 
-      {/* Right filter sidebar */}
+      {/* Right filter sidebar — every filter lives here: Profile, User, Date,
+          Work Type, Source, Leads visibility, Sort. */}
       <aside
         className={cn(
           "shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-          filtersOpen ? "w-[240px]" : "w-0",
+          filtersOpen ? "w-[260px]" : "w-0",
         )}
       >
         <div
           className={cn(
-            "flex h-full w-[240px] flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-200",
+            "flex h-full w-[260px] flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-200",
             filtersOpen ? "opacity-100" : "opacity-0",
           )}
         >
@@ -235,12 +364,81 @@ export default function AppliedJobsTab() {
             {isActiveFilter && (
               <button
                 type="button"
-                onClick={() => { setParserFilter("All Sources"); setWorkTypeFilter("All Types"); setDateRange("all"); setSort("relevance"); setPage(1) }}
+                onClick={clearFilters}
                 className="text-meta text-primary hover:underline cursor-pointer"
               >
                 Clear
               </button>
             )}
+          </div>
+
+          {/* Profile + User (coupled) — manager/admin only */}
+          {canViewAllData && (
+            <div className="px-4 pb-4">
+              <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">
+                Team
+              </p>
+              <ProfileUserFilters
+                stacked
+                profiles={profiles}
+                bdUsers={users.filter(u => u.role === "bd" || u.role === "lead")}
+                profileFilter={profileFilter}
+                setProfileFilter={changeProfile}
+                bdFilter={userFilter}
+                setBdFilter={changeUser}
+              />
+            </div>
+          )}
+
+          {/* Date — three mutually-exclusive controls: quick ranges (this /
+              last week/month/year, all time), months of this year, and
+              this/last year. Picking one clears the others; each option
+              shows its exact date range for transparency. */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">
+              Date
+            </p>
+            <div className="flex flex-col gap-2">
+              <Select value={dateRange} onValueChange={v => changeDateRange((v ?? "this_week") as DateRange)}>
+                <SelectTrigger size="sm" className="h-7 w-full rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_RANGES.map(range => (
+                    <SelectItem key={range.value} value={range.value} className="text-xs">
+                      {dateRangeLabel(range.value)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={monthFilter === null ? "" : String(monthFilter)} onValueChange={v => changeMonth(v ?? "")}>
+                <SelectTrigger size="sm" className="h-7 w-full rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="" className="text-xs">All months</SelectItem>
+                  {/* Only months up to the current one — future months in this
+                      year have no applied data yet. */}
+                  {Array.from({ length: currentMonth + 1 }, (_, i) => (
+                    <SelectItem key={i} value={String(i)} className="text-xs">
+                      {monthWindowLabel(i, currentYear)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={yearFilter === null ? "" : String(yearFilter)} onValueChange={v => changeYear(v ?? "")}>
+                <SelectTrigger size="sm" className="h-7 w-full rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="" className="text-xs">All years</SelectItem>
+                  <SelectItem value={String(currentYear)} className="text-xs">{yearWindowLabel(currentYear)}</SelectItem>
+                  <SelectItem value={String(currentYear - 1)} className="text-xs">{yearWindowLabel(currentYear - 1)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Work Type */}
@@ -294,9 +492,21 @@ export default function AppliedJobsTab() {
             </div>
           </div>
 
-          {/* Time + Sort (shared with Discovery) */}
-          <DateRangeSection value={dateRange} onValueChange={changeDateRange} />
-          <SortSection value={sort} onValueChange={changeSort} />
+          {/* Sort */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Sort</p>
+            <div className="flex flex-col gap-0.5">
+              {SORT_OPTIONS.map(option => (
+                <FilterOption
+                  key={option.value}
+                  active={sort === option.value}
+                  onClick={() => changeSort(option.value)}
+                >
+                  {option.label}
+                </FilterOption>
+              ))}
+            </div>
+          </div>
         </div>
       </aside>
 

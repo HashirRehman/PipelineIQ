@@ -14,11 +14,16 @@ export default function ProfilesTab() {
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
 
   const loadProfiles = useCallback(async (signal?: AbortSignal, options?: { silent?: boolean }) => {
     try {
       const res = await fetch(withOrgId("/api/profiles"), { signal, cache: "no-store" })
+      if (res.status === 403) {
+        setAccessDenied(true)
+        return
+      }
       if (!res.ok) throw new Error("Failed to load profiles.")
       setListData(await res.json() as ProfilesListApiResponse)
       setError(null)
@@ -93,6 +98,19 @@ export default function ProfilesTab() {
     )
   }
 
+  if (accessDenied) {
+    return (
+      <div className="p-8">
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <div className="text-sm font-semibold text-foreground mb-1.5">Access denied</div>
+          <div className="text-xs text-muted-foreground">
+            Only administrators and BD managers can view and manage profiles.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (error || !listData) {
     return (
       <div className="p-8">
@@ -107,7 +125,7 @@ export default function ProfilesTab() {
     <>
       <ProfilesList
         profiles={listData.profiles}
-        isAdmin={listData.isAdmin}
+        canManage={listData.canManage}
         seniorityLevels={listData.seniorityLevels}
         onSelectProfile={selectProfile}
         onProfileCreated={async (profileId) => {
@@ -141,7 +159,7 @@ export default function ProfilesTab() {
         seniorityLevels={listData?.seniorityLevels ?? []}
         assignableUsers={listData?.assignableUsers ?? []}
         cvs={detailData?.cvs ?? []}
-        isAdmin={listData?.isAdmin ?? false}
+        canManage={listData?.canManage ?? false}
         onClose={closeDetail}
         onChanged={refreshAfterMutation}
       />

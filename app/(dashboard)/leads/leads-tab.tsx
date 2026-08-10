@@ -27,6 +27,7 @@ import {
   type SortOption,
 } from "@/lib/constants"
 import { apiPatch, withOrgId } from "@/lib/api/client"
+import { getDateWindow } from "@/lib/date-window"
 import JobDrawer, { type Job } from "@/components/job-drawer"
 
 const PAGE_SIZE = 100
@@ -34,9 +35,10 @@ const PAGE_SIZE = 100
 interface LeadsResponse {
   leads: ApiLead[]
   users: ApiLeadUser[]
-  profiles: { id: string; name: string }[]
+  profiles: { id: string; name: string; userId: string | null }[]
   pipelineStages: { id: string; name: string; orderIndex: number }[]
   currentUser: { id: string; name: string }
+  canManageLeadNotes: boolean
   totalCount: number
   page: number
   pageSize: number
@@ -50,8 +52,8 @@ const buildQueryKey = (opts: {
   userId: string
   dateRange: DateRange
   sort: SortOption
-}) =>
-  new URLSearchParams({
+}) => {
+  const params = new URLSearchParams({
     search: opts.search,
     status: opts.status === "all" ? "" : opts.status,
     profileId: opts.profileId === "all" ? "" : opts.profileId,
@@ -59,7 +61,15 @@ const buildQueryKey = (opts: {
     dateRange: opts.dateRange,
     sort: opts.sort,
     pageSize: String(PAGE_SIZE),
-  }).toString()
+  })
+  // Exact week/month/year window (leads are dated by applied_at).
+  const window = getDateWindow(opts.dateRange)
+  if (window) {
+    params.set("from", window.from)
+    params.set("to", window.to)
+  }
+  return params.toString()
+}
 
 function toLead(a: ApiLead): Lead {
   return {
@@ -87,6 +97,7 @@ export default function LeadsTab() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [stages, setStages] = useState<LeadsResponse["pipelineStages"]>([])
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
+  const [canManageLeadNotes, setCanManageLeadNotes] = useState(false)
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -118,6 +129,7 @@ export default function LeadsTab() {
         setProfiles(json.profiles)
         setStages(json.pipelineStages)
         setCurrentUser(json.currentUser)
+        setCanManageLeadNotes(json.canManageLeadNotes ?? false)
         setError(null)
       })
       .catch((err) => {
@@ -167,13 +179,18 @@ export default function LeadsTab() {
     updateStatus(id, LEAD_STATUS_DONE)
   }
 
-  // Applier's Notes: only the user whose assigned profile applied (the
-  // permanent user_id owner snapshot) may write or edit them.
-  const canEditNotes = Boolean(currentUser && selectedLead && currentUser.id === selectedLead.assignedTo)
+  // Applier's Notes: the profile's current assigned user (assignedTo — leads
+  // follow the profile) may write or edit them — plus Admins and BD
+  // Managers, who manage the whole pipeline (canManageLeadNotes).
+  const canEditNotes = Boolean(
+    currentUser &&
+    selectedLead &&
+    (currentUser.id === selectedLead.assignedTo || canManageLeadNotes),
+  )
 
   const saveNote = async (id: string, notes: string) => {
     const lead = leads.find((l) => l.id === id)
-    if (!lead || !currentUser || currentUser.id !== lead.assignedTo) return
+    if (!lead || !currentUser || (currentUser.id !== lead.assignedTo && !canManageLeadNotes)) return
     setLeads((current) => current.map((l) => (l.id === id ? { ...l, notes } : l)))
     setSelectedLead((current) => (current?.id === id ? { ...current, notes } : current))
     try {
@@ -291,15 +308,18 @@ export default function LeadsTab() {
         </div>
       </div>
 
-      {/* Profile / BD filters */}
-      <LeadFilterBar
-        profiles={profiles}
-        bdUsers={bdUsers}
-        profileFilter={profileFilter}
-        setProfileFilter={changeProfile}
-        bdFilter={bdFilter}
-        setBdFilter={changeBd}
-      />
+      {/* Profile / user filters — a manager/admin tool. Business Developers
+          only ever see their own data, so the bar is hidden for them. */}
+      {canManageLeadNotes && (
+        <LeadFilterBar
+          profiles={profiles}
+          bdUsers={bdUsers}
+          profileFilter={profileFilter}
+          setProfileFilter={changeProfile}
+          bdFilter={bdFilter}
+          setBdFilter={changeBd}
+        />
+      )}
 
       {/* Content */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
