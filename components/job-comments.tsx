@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { timeAgo } from "@/lib/format";
 
 const inputClass =
-  "w-full p-2 bg-muted/40 border-border rounded-md text-foreground text-xs resize-none outline-none mb-2 focus:border-primary";
+  "w-full border p-2 bg-muted/40 border-border rounded-md text-foreground text-xs resize-none outline-none mb-2 focus:border-primary";
 
 function CommentRow({
   comment,

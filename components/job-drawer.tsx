@@ -233,9 +233,6 @@ interface Props {
   /** True while the mark-applied API call is in flight — shows a loader and
    * disables the button. */
   markAppliedPending?: boolean
-  /** Server error from the last in-drawer action (e.g. mark-applied), shown
-   * inline so a failed request isn't silent. */
-  actionError?: string | null
   onDismiss?: (id: string, reason: string) => void
   onAddToLead?: () => void
   addToLeadPending?: boolean
@@ -259,7 +256,7 @@ interface Props {
 
 export default function JobDrawer({
   job, onClose, open, activeProfile,
-  onApply, onMarkApplied, markAppliedPending = false, actionError = null, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
+  onApply, onMarkApplied, markAppliedPending = false, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
   commentsJobId, notes, onNotesSave, canEditNotes = true,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
 }: Props) {
@@ -350,12 +347,6 @@ export default function JobDrawer({
                     </Button>
                   </>
                 )}
-              </div>
-            )}
-
-            {actionError && (
-              <div role="alert" className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {actionError}
               </div>
             )}
 
