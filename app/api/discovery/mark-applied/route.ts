@@ -34,26 +34,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { jobId, profileId } = parsed.data;
+  const { jobId, profileIds } = parsed.data;
+  const uniqueProfileIds = Array.from(new Set(profileIds));
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
   // State rows are lazy: a (job, profile) row is created here, on first
-  // action — absence of a row means 'suggested'. The profile must belong to
-  // the caller's org (scope the lookup so a cross-org profile id fails here),
-  // and the job must belong to the same org — the state row carries that org.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", profileId)
-    .eq("organization_id", org.organizationId)
-    .maybeSingle();
-
-  if (!profile) {
-    return NextResponse.json({ error: "Profile not found." }, { status: 404 });
-  }
-
+  // action — absence of a row means 'suggested'. Every requested profile
+  // must belong to the caller's org (scope the lookup so a cross-org
+  // profile id fails here), and the job must belong to the same org — the
+  // state row carries that org.
   const { data: job } = await supabase
     .from("jobs")
     .select("id")
@@ -64,38 +55,59 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 
-  const { error: insertError } = await supabase.from("job_profile_states").insert({
-    organization_id: profile.organization_id,
-    job_id: jobId,
-    profile_id: profileId,
-    status: "applied",
-    user_id: user.id,
-  });
+  const { data: profileRows, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .in("id", uniqueProfileIds)
+    .eq("organization_id", org.organizationId)
+    .is("deleted_at", null);
 
-  if (insertError) {
-    if (insertError.code === "23505") {
-      // A live row already exists for the pair (e.g. previously dismissed) —
-      // flip it instead of failing on the one-live-row-per-pair index.
-      const { error: updateError } = await supabase
-        .from("job_profile_states")
-        .update({ status: "applied", user_id: user.id })
-        .eq("job_id", jobId)
-        .eq("profile_id", profileId)
-        .is("deleted_at", null);
+  if (profileError) {
+    console.error("api/discovery/mark-applied: profiles query failed", profileError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
 
-      if (updateError) {
-        console.error("api/discovery/mark-applied: state update failed", updateError);
+  if (!profileRows || profileRows.length !== uniqueProfileIds.length) {
+    return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+  }
+
+  for (const profileId of uniqueProfileIds) {
+    const { error: insertError } = await supabase.from("job_profile_states").insert({
+      organization_id: org.organizationId,
+      job_id: jobId,
+      profile_id: profileId,
+      status: "applied",
+      user_id: user.id,
+    });
+
+    if (insertError) {
+      if (insertError.code === "23505") {
+        // A live row already exists for the pair (e.g. previously dismissed) —
+        // flip it instead of failing on the one-live-row-per-pair index.
+        const { error: updateError } = await supabase
+          .from("job_profile_states")
+          .update({ status: "applied", user_id: user.id })
+          .eq("job_id", jobId)
+          .eq("profile_id", profileId)
+          .is("deleted_at", null);
+
+        if (updateError) {
+          console.error("api/discovery/mark-applied: state update failed", updateError);
+          return NextResponse.json(
+            { error: "Something went wrong. Please try again." },
+            { status: 500 },
+          );
+        }
+      } else {
+        console.error("api/discovery/mark-applied: state insert failed", insertError);
         return NextResponse.json(
           { error: "Something went wrong. Please try again." },
           { status: 500 },
         );
       }
-    } else {
-      console.error("api/discovery/mark-applied: state insert failed", insertError);
-      return NextResponse.json(
-        { error: "Something went wrong. Please try again." },
-        { status: 500 },
-      );
     }
   }
 

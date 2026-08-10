@@ -196,6 +196,7 @@ export default function LeadsTab() {
     status: "applied",
     applyUrl: lead.applyUrl,
     isLead: true,
+    profiles: [],
   })
 
   const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead")
@@ -281,7 +282,7 @@ export default function LeadsTab() {
 
           <button
             type="button"
-            title="Leads are created from applied jobs in the Applied Jobs page."
+            title="Leads are created from applied jobs in the Pipeline page."
             className="flex items-center gap-1.5 h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
           >
             <Plus className="size-3.5" />
@@ -330,7 +331,7 @@ export default function LeadsTab() {
         open={selectedLead !== null}
         job={selectedLead ? jobForLead(selectedLead) : null}
         onClose={() => setSelectedLead(null)}
-        activeProfile={profiles.find((p) => p.id === selectedLead?.profileId) ?? null}
+        profiles={profiles.filter((p) => p.id === selectedLead?.profileId)}
         showActions={false}
         commentsJobId={selectedLead?.jobId}
         notes={selectedLead?.notes}

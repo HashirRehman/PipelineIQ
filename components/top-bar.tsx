@@ -16,7 +16,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/leads": "Leads",
   "/profiles": "Profiles",
   "/discovery": "Discovery",
-  "/applied-jobs": "Applied Jobs",
+  "/applied-jobs": "Pipeline",
   "/users": "Team",
   "/statistics": "Statistics",
   "/settings": "Theme",

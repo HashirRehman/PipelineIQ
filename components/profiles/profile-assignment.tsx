@@ -149,17 +149,12 @@ export function ProfileAssignment({
               <ComboboxPrimitive.List className="max-h-60 overflow-y-auto overflow-x-hidden outline-none">
                 {(item: { value: string; label: string }) => {
                   const user = users.find((u) => u.id === item.value);
-                  const assignedElsewhere =
-                    user?.assignedProfileId !== null &&
-                    user?.assignedProfileId !== undefined &&
-                    user.assignedProfileId !== profileId;
                   const selected = item.value === (displayUserId ?? UNASSIGNED);
 
                   return (
                     <ComboboxPrimitive.Item
                       key={item.value}
                       value={item.value}
-                      disabled={assignedElsewhere}
                       className={cn(
                         "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground outline-none select-none",
                         "data-highlighted:bg-accent data-highlighted:text-accent-foreground",
@@ -179,7 +174,6 @@ export function ProfileAssignment({
                         {user && (
                           <span className="truncate text-caption text-muted-foreground">
                             {user.email}
-                            {assignedElsewhere ? " · assigned elsewhere" : ""}
                           </span>
                         )}
                       </span>

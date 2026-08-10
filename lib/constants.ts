@@ -26,7 +26,7 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_STATUS_DONE: LeadStatus = "Closed";
 
-/* Filter vocabulary shared by the job list pages (Discovery, Applied Jobs) */
+/* Filter vocabulary shared by the job list pages (Discovery, Pipeline) */
 export const WORK_TYPES = ["All Types", "remote", "onsite"] as const;
 
 export const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"] as const;

@@ -1,12 +1,12 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Check, Plus, X, Loader2, Pencil } from "lucide-react"
+import { Check, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react"
 import type { ApiAppUser } from "@/app/api/users/route"
 import { apiPost, apiRequest, withOrgId } from "@/lib/api/client"
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
 import { GooeyInput } from "@/components/ui/gooey-input"
-import { PageHeader } from "@/components/page-header"
+import { ResultsCount } from "@/components/results-count"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
@@ -157,6 +157,9 @@ export default function UsersTab() {
   const [accessDenied, setAccessDenied] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [editingUser, setEditingUser] = useState<ApiAppUser | null>(null)
+  const [deletingUser, setDeletingUser] = useState<ApiAppUser | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -229,6 +232,21 @@ export default function UsersTab() {
     }
   }
 
+  const handleDeleteUser = async () => {
+    if (!deletingUser || deletePending) return
+    setDeletePending(true)
+    setDeleteError("")
+    try {
+      await apiRequest<{ success: boolean }>("/api/users", "DELETE", { userId: deletingUser.id })
+      setUsers(us => us.filter(u => u.id !== deletingUser.id))
+      setDeletingUser(null)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete user.")
+    } finally {
+      setDeletePending(false)
+    }
+  }
+
   const filtered = users.filter(u => {
     const q = search.toLowerCase()
     const matchQ = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
@@ -243,7 +261,6 @@ export default function UsersTab() {
   if (accessDenied) {
     return (
       <div className="p-8">
-        <PageHeader title="Team" description="Admin only" />
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <div className="text-sm font-semibold text-foreground mb-1.5">Access denied</div>
           <div className="text-xs text-muted-foreground">
@@ -275,23 +292,6 @@ export default function UsersTab() {
 
   return (
     <>
-      <PageHeader
-        title="Team"
-        description={`${users.length} member${users.length !== 1 ? "s" : ""}`}
-        actions={
-          isAdmin && (
-            <button
-              type="button"
-              onClick={() => setShowInvite(true)}
-              className="inline-flex items-center gap-1.5 h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
-            >
-              <Plus className="size-4" />
-              Invite Member
-            </button>
-          )
-        }
-      />
-
       {actionError && (
         <div className="mx-6 mb-0 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <span>{actionError}</span>
@@ -332,6 +332,17 @@ export default function UsersTab() {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowInvite(true)}
+            className="ml-auto inline-flex items-center gap-1.5 h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            <Plus className="size-4" />
+            Invite Member
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -342,8 +353,15 @@ export default function UsersTab() {
             <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters.</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
-            <table className="w-full text-sm">
+          <>
+            <div className="flex items-center pb-3">
+              <ResultsCount
+                count={filtered.length}
+                label={filtered.length === 1 ? "member" : "members"}
+              />
+            </div>
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+              <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground">Member</th>
@@ -421,6 +439,16 @@ export default function UsersTab() {
                                 )}
                               </button>
                             )}
+                            {!isSelf && (
+                              <button
+                                type="button"
+                                onClick={() => { setDeleteError(""); setDeletingUser(user) }}
+                                className="flex size-7 items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                title="Delete permanently"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}
@@ -428,8 +456,9 @@ export default function UsersTab() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -459,6 +488,46 @@ export default function UsersTab() {
             })
           }}
         />
+      )}
+
+      {deletingUser && (
+        <Dialog open onOpenChange={open => { if (!open) setDeletingUser(null) }}>
+          <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <DialogTitle className="text-base font-semibold">Delete user</DialogTitle>
+            </div>
+            <div className="p-5 flex flex-col gap-4">
+              {deleteError && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-sm text-foreground leading-relaxed">
+                Permanently delete <span className="font-semibold">{deletingUser.name}</span>?
+                This removes their account and comments, and unassigns them from their
+                profiles. Their leads and profile data are kept. This cannot be undone.
+              </p>
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeletingUser(null)}
+                  className="flex-1 h-9 rounded-md border border-border text-sm text-foreground hover:bg-accent transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteUser}
+                  disabled={deletePending}
+                  className="flex-[2] inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-destructive text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                >
+                  {deletePending && <Loader2 className="size-3.5 animate-spin" />}
+                  Delete Permanently
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   )

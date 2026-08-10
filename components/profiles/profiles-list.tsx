@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { MapPin, UserRound } from "lucide-react";
 import { NewEditProfileDialog } from "./new-edit-profile-dialog";
 import { GooeyInput } from "@/components/ui/gooey-input";
+import { ResultsCount } from "@/components/results-count";
 
 export type ProfileListItem = {
   id: string;
@@ -135,7 +136,14 @@ export function ProfilesList({
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <>
+            <div className="flex items-center pb-4">
+              <ResultsCount
+                count={filtered.length}
+                label={filtered.length === 1 ? "candidate" : "candidates"}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((profile) => (
               <button
                 key={profile.id}
@@ -192,7 +200,8 @@ export function ProfilesList({
                 </div>
               </button>
             ))}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

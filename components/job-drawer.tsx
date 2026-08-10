@@ -16,12 +16,23 @@ import { timeAgo } from "@/lib/format"
 
 export interface CvMatch {
   matchId: string
+  /** The assigned profile whose CV produced this match — labeled next to
+   * each CV row so multi-profile users can tell the matches apart. */
+  profileId: string
+  profileName: string
   cvId: string
   cvLabel: string
   isCurrentCv: boolean
   relevanceScore: number
   status: "new" | "applied" | "dismissed"
   dismissReason?: string
+}
+
+export interface JobProfileState {
+  profileId: string
+  profileName: string
+  status: "new" | "applied" | "dismissed"
+  isLead: boolean
 }
 
 export interface Job {
@@ -42,10 +53,14 @@ export interface Job {
   remoteRegion?: string | null
   /** True when this (job, profile) pair already has a live lead. */
   isLead?: boolean
+  /** Per-profile state for every profile assigned to the acting user — a job
+   * can be new for one profile while applied/dismissed for another, so the
+   * action buttons target a subset of these. */
+  profiles: JobProfileState[]
 }
 
 
-function RelevanceMatch({ profile, job }: { profile: ActiveProfile; job: Job }) {
+function RelevanceMatch({ profiles, job }: { profiles: ActiveProfile[]; job: Job }) {
   const score = job.relevanceScore ?? 0
   const cvMatches = job.cvMatches ?? []
   const bestCv = cvMatches.length > 0
@@ -56,10 +71,14 @@ function RelevanceMatch({ profile, job }: { profile: ActiveProfile; job: Job }) 
     return (
       <div className="p-3.5 px-4 bg-muted/30 rounded-lg border border-border mb-4">
         <div className="text-xs font-semibold text-foreground mb-1">
-          Match with {profile.name}
+          {profiles.length <= 1
+            ? `Match with ${profiles[0]?.name ?? "profile"}`
+            : `Matches across ${profiles.length} profiles`}
         </div>
         <div className="text-xs text-muted-foreground">
-          No match yet — this job hasn&apos;t been scored against this profile&apos;s CVs.
+          No match yet — this job hasn&apos;t been scored against{" "}
+          {profiles.length <= 1 ? "this profile" : "these profiles"}
+          &apos; CVs.
         </div>
       </div>
     )
@@ -73,7 +92,9 @@ function RelevanceMatch({ profile, job }: { profile: ActiveProfile; job: Job }) 
   return (
     <div className="p-3.5 px-4 bg-muted/30 rounded-lg border border-border mb-4">
       <div className="text-xs font-semibold text-foreground mb-3">
-        Match with {profile.name}
+        {profiles.length <= 1
+          ? `Match with ${profiles[0]?.name ?? "profile"}`
+          : `Matches across ${profiles.length} profiles`}
         {bestCv && <span className="font-normal text-muted-foreground"> · {bestCv.cvLabel}</span>}
       </div>
       <div className="flex items-center gap-4 mb-1">
@@ -99,6 +120,9 @@ function RelevanceMatch({ profile, job }: { profile: ActiveProfile; job: Job }) 
                 <span className="flex-1 min-w-0 truncate text-xs text-foreground">
                   {cv.cvLabel}
                   {cv.isCurrentCv && <span className="ml-1.5 text-caption text-muted-foreground">(current)</span>}
+                  {cv.profileName && (
+                    <span className="ml-1.5 text-caption text-muted-foreground">· {cv.profileName}</span>
+                  )}
                 </span>
                 <div className="w-24 h-1.5 rounded-full bg-border overflow-hidden shrink-0">
                   <div
@@ -113,6 +137,112 @@ function RelevanceMatch({ profile, job }: { profile: ActiveProfile; job: Job }) 
             ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// "Which profile, or all?" — rendered whenever the acting user has two or
+// more assigned profiles and an action still has profiles it can target,
+// even if only one remains (the picker is gated on assigned count, not
+// actionable count, per the product rule). Every assigned profile is listed;
+// the ones the action can't target are disabled with a hint. Defaults to all
+// targetable profiles.
+function ActionProfilePicker({
+  profiles,
+  actionableIds,
+  actionLabel,
+  pending = false,
+  onConfirm,
+  onCancel,
+}: {
+  profiles: JobProfileState[]
+  actionableIds: Set<string>
+  actionLabel: string
+  pending?: boolean
+  onConfirm: (profileIds: string[]) => void
+  onCancel: () => void
+}) {
+  const actionable = profiles.filter((p) => actionableIds.has(p.profileId))
+  const [selected, setSelected] = useState<string | "all">("all")
+
+  return (
+    <div className="mb-4 rounded-md border border-border bg-muted/30 p-3">
+      <p className="text-xs font-semibold text-foreground mb-2">
+        {actionLabel} for which profile?
+      </p>
+      <div className="flex flex-col gap-1">
+        <label
+          className={`flex items-center gap-2 text-xs text-foreground ${actionable.length === 0 ? "pointer-events-none opacity-50" : ""}`}
+        >
+          <input
+            type="radio"
+            name="action-profile"
+            checked={selected === "all"}
+            onChange={() => setSelected("all")}
+            disabled={actionable.length === 0}
+            className="accent-primary"
+          />
+          All profiles ({actionable.length})
+        </label>
+        {profiles.map((p) => {
+          const disabled = !actionableIds.has(p.profileId)
+          const hint = p.isLead
+            ? "in leads"
+            : p.status === "applied"
+              ? "applied"
+              : p.status === "dismissed"
+                ? "dismissed"
+                : null
+          return (
+            <label
+              key={p.profileId}
+              className={`flex items-center gap-2 text-xs text-foreground ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              <input
+                type="radio"
+                name="action-profile"
+                checked={selected === p.profileId}
+                onChange={() => setSelected(p.profileId)}
+                disabled={disabled}
+                className="accent-primary"
+              />
+              {p.profileName}
+              {hint && (
+                <span className="text-caption text-muted-foreground">({hint})</span>
+              )}
+            </label>
+          )
+        })}
+      </div>
+      <div className="flex gap-2 mt-3">
+        <Button
+          type="button"
+          onClick={() =>
+            onConfirm(
+              selected === "all"
+                ? actionable.map((p) => p.profileId)
+                : [selected],
+            )
+          }
+          disabled={
+            pending ||
+            (selected === "all"
+              ? actionable.length === 0
+              : !actionableIds.has(selected))
+          }
+          className="px-3.5 h-8 text-xs font-semibold shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {pending ? "Working…" : actionLabel}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="h-8 text-xs text-muted-foreground hover:text-foreground shadow-none"
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
   )
 }
@@ -227,14 +357,16 @@ interface Props {
   job: Job | null
   onClose: () => void
   open: boolean
-  activeProfile: ActiveProfile | null
+  /** Every profile assigned to the acting user — drives the no-profile
+   * warning and the match panel header. */
+  profiles: ActiveProfile[]
   onApply?: (id: string) => void
-  onMarkApplied?: (id: string) => void
+  onMarkApplied?: (id: string, profileIds: string[]) => void
   /** True while the mark-applied API call is in flight — shows a loader and
    * disables the button. */
   markAppliedPending?: boolean
-  onDismiss?: (id: string, reason: string) => void
-  onAddToLead?: () => void
+  onDismiss?: (id: string, reason: string, profileIds: string[]) => void
+  onAddToLead?: (profileIds: string[]) => void
   addToLeadPending?: boolean
   showActions?: boolean
   /**
@@ -255,7 +387,7 @@ interface Props {
 }
 
 export default function JobDrawer({
-  job, onClose, open, activeProfile,
+  job, onClose, open, profiles,
   onApply, onMarkApplied, markAppliedPending = false, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
   commentsJobId, notes, onNotesSave, canEditNotes = true,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
@@ -265,9 +397,20 @@ export default function JobDrawer({
   const [prevJob, setPrevJob] = useState<Job | null>(job)
   const [prevNotes, setPrevNotes] = useState(notes)
 
+  // Profile picker for the action buttons: shown whenever the acting user
+  // has 2+ assigned profiles and the action still has profiles it can
+  // target ("which profile, or all?"). Lists every assigned profile with
+  // the non-targetable ones disabled.
+  const [pendingAction, setPendingAction] = useState<null | {
+    kind: "apply" | "dismiss" | "lead"
+    profiles: JobProfileState[]
+    actionableIds: Set<string>
+  }>(null)
+
   if (job !== prevJob) {
     setPrevJob(job)
     if (job) setLastJob(job)
+    setPendingAction(null)
   }
   if (notes !== prevNotes) {
     setPrevNotes(notes)
@@ -280,8 +423,34 @@ export default function JobDrawer({
 
   if (!displayJob) return null
 
+  // Which of the acting user's profiles each action can still target. The
+  // picker lists every assigned profile and disables the ones an action
+  // can't target ("All profiles" means all of the targetable ones).
+  const profileStates = displayJob.profiles ?? []
+  const markApplicable = profileStates.filter((p) => p.status !== "applied")
+  const dismissable = profileStates.filter((p) => p.status !== "dismissed" && !p.isLead)
+  const leadable = profileStates.filter((p) => p.status === "applied" && !p.isLead)
+
+  // Ask "which profile, or all?" whenever the acting user has 2+ assigned
+  // profiles and the action still has profiles it can target — even if only
+  // one remains (the picker is gated on assigned count, not actionable
+  // count, per the product rule). A single-profile user still acts directly.
+  const beginAction = (kind: "apply" | "lead", applicable: JobProfileState[]) => {
+    if (profiles.length >= 2 && applicable.length > 0) {
+      setPendingAction({
+        kind,
+        profiles: profileStates,
+        actionableIds: new Set(applicable.map((p) => p.profileId)),
+      })
+    } else if (applicable.length === 1) {
+      const ids = [applicable[0].profileId]
+      if (kind === "apply") onMarkApplied?.(displayJob.id, ids)
+      else onAddToLead?.(ids)
+    }
+  }
+
   return (
-    <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+    <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) { onClose(); setPendingAction(null) } }}>
       <DrawerContent
         className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground"
       >
@@ -314,7 +483,7 @@ export default function JobDrawer({
             {/* Profile-dependent actions can't run without a profile — the
                 API requires the acting user's assigned profile id (RLS
                 scopes it), so call it out instead of silently doing nothing. */}
-            {!activeProfile && (showActions || onAddToLead || onDismiss) && (
+            {profiles.length === 0 && (showActions || onAddToLead || onDismiss) && (
               <div role="status" className="mb-4 rounded-md border border-status-amber/30 bg-status-amber/10 px-3 py-2 text-xs text-status-amber dark:text-status-amber-500">
                 No profile is assigned to your account, so job actions are unavailable. Assign a profile in Profiles, then reload this page.
               </div>
@@ -328,48 +497,98 @@ export default function JobDrawer({
                       className="flex-1 bg-primary text-primary-foreground hover:opacity-90 text-xs font-semibold h-9 shadow-none">
                       Apply Now
                     </Button>
-                    <Button variant="outline" onClick={() => onMarkApplied?.(displayJob.id)}
-                      disabled={markAppliedPending || !activeProfile}
-                      className="flex-1 border-border text-foreground text-xs font-medium h-9 shadow-none disabled:opacity-60">
-                      {markAppliedPending ? (
-                        <>
-                          <Loader2 className="size-3.5 animate-spin" />
-                          Marking…
-                        </>
-                      ) : (
-                        "Mark Applied"
-                      )}
-                    </Button>
-                    <Button variant="outline" onClick={() => setDismissOpen?.(!dismissOpen)}
-                      disabled={!activeProfile}
-                      className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-9 shadow-none">
-                      Dismiss
-                    </Button>
+                    {markApplicable.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => beginAction("apply", markApplicable)}
+                        disabled={markAppliedPending || profiles.length === 0}
+                        className="flex-1 border-border text-foreground text-xs font-medium h-9 shadow-none disabled:opacity-60"
+                      >
+                        {markAppliedPending ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" />
+                            Marking…
+                          </>
+                        ) : (
+                          "Mark Applied"
+                        )}
+                      </Button>
+                    )}
+                    {dismissable.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (profiles.length >= 2 && dismissable.length > 0) {
+                            setPendingAction({
+                              kind: "dismiss",
+                              profiles: profileStates,
+                              actionableIds: new Set(dismissable.map((p) => p.profileId)),
+                            })
+                          }
+                          setDismissOpen?.(true)
+                        }}
+                        disabled={profiles.length === 0}
+                        className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-9 shadow-none"
+                      >
+                        Dismiss
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
             )}
 
-            {/* Applied-job actions: shown in read-only drawers (Applied Jobs)
+            {/* Profile picker for mark-applied / add-to-leads — shown whenever
+                the acting user has 2+ assigned profiles. Dismiss uses the
+                panel below instead (reason + picker together). */}
+            {pendingAction && pendingAction.kind !== "dismiss" && (
+              <ActionProfilePicker
+                profiles={pendingAction.profiles}
+                actionableIds={pendingAction.actionableIds}
+                actionLabel={pendingAction.kind === "apply" ? "Mark Applied" : "Add to Leads"}
+                pending={pendingAction.kind === "apply" ? markAppliedPending : addToLeadPending}
+                onConfirm={(ids) => {
+                  if (pendingAction.kind === "apply") onMarkApplied?.(displayJob.id, ids)
+                  else onAddToLead?.(ids)
+                  setPendingAction(null)
+                }}
+                onCancel={() => setPendingAction(null)}
+              />
+            )}
+
+            {/* Applied-job actions: shown in read-only drawers (Pipeline)
                 when the caller supplies handlers — the discovery drawer passes
                 no onAddToLead/onDismiss here. */}
             {displayJob.status === "applied" && (onAddToLead || onDismiss) && (
               <div className="flex gap-2 mb-4">
                 {onAddToLead && (
                   <Button
-                    onClick={onAddToLead}
-                    disabled={addToLeadPending || displayJob.isLead || !activeProfile}
+                    onClick={() => beginAction("lead", leadable)}
+                    disabled={addToLeadPending || leadable.length === 0 || profiles.length === 0}
                     className="flex-1 bg-primary text-primary-foreground hover:opacity-90 text-xs font-semibold h-9 shadow-none disabled:opacity-60"
                   >
-                    {displayJob.isLead ? "Added to Leads" : addToLeadPending ? "Adding…" : "Add to Leads"}
+                    {leadable.length === 0
+                      ? "Added to Leads"
+                      : addToLeadPending
+                        ? "Adding…"
+                        : "Add to Leads"}
                   </Button>
                 )}
                 {/* A job already in the leads pipeline can't be dismissed —
                     the lead pins its applied state row. */}
-                {onDismiss && !displayJob.isLead && (
+                {onDismiss && dismissable.length > 0 && (
                   <Button
                     variant="outline"
-                    onClick={() => setDismissOpen?.(!dismissOpen)}
+                    onClick={() => {
+                      if (profiles.length >= 2 && dismissable.length > 0) {
+                        setPendingAction({
+                          kind: "dismiss",
+                          profiles: profileStates,
+                          actionableIds: new Set(dismissable.map((p) => p.profileId)),
+                        })
+                      }
+                      setDismissOpen?.(true)
+                    }}
                     className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs h-9 shadow-none"
                   >
                     Dismiss
@@ -382,18 +601,32 @@ export default function JobDrawer({
               <div className="mb-4 p-3 bg-destructive/5 border border-destructive/20 rounded-[7px]">
                 <Textarea rows={2} placeholder="Reason for dismissal (required)…" value={dismissReason} onChange={e => setDismissReason(e.target.value)}
                   className="w-full p-2 bg-muted/40 border-border rounded-md text-foreground text-xs resize-none outline-none mb-2 focus:border-primary" />
-                <div className="flex gap-2">
-                  <Button onClick={() => { if (dismissReason.trim()) { onDismiss?.(displayJob.id, dismissReason); setDismissOpen(false) } }}
-                    disabled={!dismissReason.trim()}
-                    className={`px-3.5 h-8 text-xs font-semibold shadow-none ${dismissReason.trim() ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-secondary text-muted-foreground"}`}>
-                    Confirm Dismiss
-                  </Button>
-                  <Button variant="outline" onClick={() => setDismissOpen(false)} className="h-8 text-xs text-muted-foreground hover:text-foreground shadow-none">Cancel</Button>
-                </div>
+                {pendingAction?.kind === "dismiss" ? (
+                  <ActionProfilePicker
+                    profiles={pendingAction.profiles}
+                    actionableIds={pendingAction.actionableIds}
+                    actionLabel="Dismiss"
+                    onConfirm={(ids) => {
+                      if (!dismissReason.trim()) return
+                      onDismiss?.(displayJob.id, dismissReason, ids)
+                      setDismissOpen(false)
+                    }}
+                    onCancel={() => { setPendingAction(null); setDismissOpen(false) }}
+                  />
+                ) : (
+                  <div className="flex gap-2">
+                    <Button onClick={() => { if (dismissReason.trim()) { onDismiss?.(displayJob.id, dismissReason, dismissable.map(p => p.profileId)); setDismissOpen(false) } }}
+                      disabled={!dismissReason.trim()}
+                      className={`px-3.5 h-8 text-xs font-semibold shadow-none ${dismissReason.trim() ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-secondary text-muted-foreground"}`}>
+                      Confirm Dismiss
+                    </Button>
+                    <Button variant="outline" onClick={() => setDismissOpen(false)} className="h-8 text-xs text-muted-foreground hover:text-foreground shadow-none">Cancel</Button>
+                  </div>
+                )}
               </div>
             )}
 
-            {activeProfile && <RelevanceMatch profile={activeProfile} job={displayJob} />}
+            {profiles.length > 0 && <RelevanceMatch profiles={profiles} job={displayJob} />}
 
             <div className="mb-5">
               <div className="text-xs font-semibold text-foreground mb-2.5">About the Role</div>

@@ -29,7 +29,9 @@ export interface ApiLead {
   status: string;
   profileId: string;
   profileName: string;
-  assignedTo: string;
+  /** Null once the applier's account is deleted (leads stay with the
+   * profile; the owner snapshot is unlinked, migration 14). */
+  assignedTo: string | null;
   notes: string;
   parser: string;
   applyUrl: string;
@@ -46,7 +48,7 @@ type LeadRow = {
   applied_at: string;
   job_id: string;
   profile_id: string;
-  user_id: string;
+  user_id: string | null;
   pipeline_stage_id: string;
   notes: string;
   jobs: {
@@ -74,7 +76,7 @@ function toApiLead(row: LeadRow): ApiLead {
     status: row.pipeline_stages?.name ?? "",
     profileId: row.profile_id,
     profileName: row.profiles?.full_name ?? "",
-    assignedTo: row.user_id,
+    assignedTo: row.user_id ?? null,
     notes: row.notes ?? "",
     parser: row.jobs?.scrapers?.name ?? "",
     applyUrl: row.jobs?.apply_url ?? "",
@@ -251,70 +253,90 @@ export async function POST(request: Request) {
     );
   }
 
-  const { jobId, profileId } = parsed.data;
+  const { jobId, profileIds } = parsed.data;
+  const uniqueProfileIds = Array.from(new Set(profileIds));
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
   const organizationId = org.organizationId;
 
-  // The profile the lead wraps — resolve its owner (the applier). user_id is
-  // the permanent owner snapshot, so notes are writable only by the user the
-  // profile is assigned to (or admins on the row level, with the notes check
-  // enforced in the PATCH route).
-  const { data: profile } = await supabase
+  // Every requested profile must belong to the caller's org. Each lead's
+  // user_id is the permanent owner snapshot of the profile it wraps (the
+  // applier), so notes stay writable only by that user (or admins) — the
+  // notes check is enforced in the PATCH route.
+  const { data: profileRows, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id, user_id, full_name")
-    .eq("id", profileId)
-    .maybeSingle();
-  if (!profile || profile.organization_id !== organizationId) {
+    .in("id", uniqueProfileIds)
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null);
+
+  if (profileError) {
+    console.error("api/leads: profiles query failed", profileError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  if (!profileRows || profileRows.length !== uniqueProfileIds.length) {
     return NextResponse.json({ error: "Profile not found." }, { status: 404 });
   }
-  if (!profile.user_id) {
+
+  if (profileRows.some((p) => !p.user_id)) {
     return NextResponse.json(
       { error: "This profile has no assigned user — assign one before adding leads." },
       { status: 400 },
     );
   }
 
+  // Cross-org guard: the job must belong to the same org as the profiles
+  // (jobs are world-readable under RLS, so scope the reference explicitly).
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, organization_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job || job.organization_id !== organizationId) {
+    return NextResponse.json({ error: "Job not found." }, { status: 404 });
+  }
+
   // Only applied pairs become leads; the state row also pins applied_at and
   // the job_profile_state_id for the lead.
-  const { data: state } = await supabase
+  const { data: stateRows, error: stateError } = await supabase
     .from("job_profile_states")
-    .select("id, created_at")
+    .select("id, created_at, profile_id")
     .eq("job_id", jobId)
-    .eq("profile_id", profileId)
+    .in("profile_id", uniqueProfileIds)
     .eq("status", "applied")
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (!state) {
+    .is("deleted_at", null);
+
+  if (stateError) {
+    console.error("api/leads: states query failed", stateError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  const stateByProfileId = new Map((stateRows ?? []).map((s) => [s.profile_id, s]));
+  if (uniqueProfileIds.some((id) => !stateByProfileId.has(id))) {
     return NextResponse.json(
       { error: "Only jobs marked as applied can be added to leads." },
       { status: 400 },
     );
   }
 
-  // Cross-org guard: the job must belong to the same org as the profile
-  // (jobs are world-readable under RLS, so scope the reference explicitly).
-  const { data: job } = await supabase
-    .from("jobs")
-    .select("id, title, company_name, company_location, is_remote, apply_url, organization_id, scrapers(name)")
-    .eq("id", jobId)
-    .maybeSingle();
-  if (!job || job.organization_id !== profile.organization_id) {
-    return NextResponse.json({ error: "Job not found." }, { status: 404 });
-  }
-
-  // Duplicate-lead rule: at most one live lead per (job, profile) pair.
-  const { data: existing } = await supabase
+  // Duplicate-lead rule: at most one live lead per (job, profile) pair —
+  // already-lead pairs are skipped (idempotent), every other pair gets one.
+  const { data: existingRows } = await supabase
     .from("leads")
-    .select("id")
+    .select("id, profile_id")
     .eq("job_id", jobId)
-    .eq("profile_id", profileId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (existing) {
-    return NextResponse.json({ success: true, created: false, leadId: existing.id });
-  }
+    .in("profile_id", uniqueProfileIds)
+    .is("deleted_at", null);
+
+  const existingProfileIds = new Set((existingRows ?? []).map((l) => l.profile_id));
 
   const { data: firstStage } = await supabase
     .from("pipeline_stages")
@@ -329,28 +351,36 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: inserted, error } = await supabase
-    .from("leads")
-    .insert({
-      organization_id: profile.organization_id,
-      job_id: job.id,
-      profile_id: profile.id,
-      job_profile_state_id: state.id,
-      user_id: profile.user_id,
-      pipeline_stage_id: firstStage.id,
-      applied_at: state.created_at,
-      notes: "",
-    })
-    .select("id")
-    .single();
+  const leadIds: string[] = [];
+  for (const profile of profileRows) {
+    if (existingProfileIds.has(profile.id)) continue;
+    const state = stateByProfileId.get(profile.id);
+    if (!state) continue; // guarded above — belt and braces
 
-  if (error) {
-    console.error("api/leads: insert failed", error);
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 },
-    );
+    const { data: inserted, error: insertError } = await supabase
+      .from("leads")
+      .insert({
+        organization_id: organizationId,
+        job_id: job.id,
+        profile_id: profile.id,
+        job_profile_state_id: state.id,
+        user_id: profile.user_id as string,
+        pipeline_stage_id: firstStage.id,
+        applied_at: state.created_at,
+        notes: "",
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("api/leads: insert failed", insertError);
+      return NextResponse.json(
+        { error: "Something went wrong. Please try again." },
+        { status: 500 },
+      );
+    }
+    leadIds.push(inserted.id);
   }
 
-  return NextResponse.json({ success: true, created: true, leadId: inserted.id });
+  return NextResponse.json({ success: true, created: leadIds.length, leadIds });
 }

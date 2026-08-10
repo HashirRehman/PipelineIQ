@@ -26,7 +26,7 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
   { id: "discovery", label: "Discovery", icon: Search, href: "/discovery" },
   {
     id: "applied-jobs",
-    label: "Applied Jobs",
+    label: "Pipeline",
     icon: CheckCircle2,
     href: "/applied-jobs",
   },

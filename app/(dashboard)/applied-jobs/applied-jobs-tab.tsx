@@ -2,13 +2,13 @@
 import { useEffect, useState } from "react"
 import { Loader2, Briefcase, SlidersHorizontal } from "lucide-react"
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
-import { PageHeader } from "@/components/page-header"
 import { GooeyInput } from "@/components/ui/gooey-input"
 import { FilterOption } from "@/components/jobs/filter-option"
 import { JobCard } from "@/components/jobs/job-card"
 import { Pagination } from "@/components/jobs/pagination"
 import { DateRangeSection, SortSection } from "@/components/jobs/filter-sections"
 import JobDrawer, { type Job } from "@/components/job-drawer"
+import { ResultsCount } from "@/components/results-count"
 import { WORK_TYPES, PARSER_COLOR, WORK_TYPE_COLOR, type DateRange, type SortOption } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { apiPost, withOrgId } from "@/lib/api/client"
@@ -27,7 +27,7 @@ const LEAD_FILTERS: readonly { value: LeadFilter; label: string }[] = [
 
 interface AppliedJobsResponse {
   jobs: Job[]
-  profile: DiscoveryProfile | null
+  profiles: DiscoveryProfile[]
   totalCount: number
   page: number
   pageSize: number
@@ -50,7 +50,7 @@ const buildQueryKey = (opts: { page: number; workType: string; parser: string; s
 
 export default function AppliedJobsTab() {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [profile, setProfile] = useState<DiscoveryProfile | null>(null)
+  const [profiles, setProfiles] = useState<DiscoveryProfile[]>([])
   const [parsers, setParsers] = useState<string[]>(["All Sources"])
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
@@ -68,6 +68,9 @@ export default function AppliedJobsTab() {
   const [addToLeadPending, setAddToLeadPending] = useState(false)
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
+  // Bumped after a job action (add-to-leads / dismiss) so the feed silently
+  // re-fetches and reflects the updated per-profile state.
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, dateRange, sort, leadFilter })
   const loading = appliedKey !== loadingKey
@@ -76,12 +79,12 @@ export default function AppliedJobsTab() {
     const ctrl = new AbortController()
     fetch(withOrgId(`/api/discovery?${loadingKey}`), { signal: ctrl.signal })
       .then(async res => {
-        if (!res.ok) throw new Error("Failed to load applied jobs")
+        if (!res.ok) throw new Error("Failed to load pipeline")
         return res.json() as Promise<AppliedJobsResponse>
       })
       .then(json => {
         setJobs(json.jobs)
-        setProfile(json.profile)
+        setProfiles(json.profiles)
         setTotalCount(json.totalCount)
         setTotalPages(json.totalPages)
         if (json.parsers?.length) setParsers(json.parsers)
@@ -91,11 +94,11 @@ export default function AppliedJobsTab() {
       })
       .catch(err => {
         if (err instanceof DOMException && err.name === "AbortError") return
-        setError("Failed to load applied jobs")
+        setError("Failed to load pipeline")
         setAppliedKey(loadingKey)
       })
     return () => ctrl.abort()
-  }, [loadingKey, page])
+  }, [loadingKey, page, refreshKey])
 
   const changeSearch = (v: string) => { setSearch(v); setPage(1) }
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
@@ -110,69 +113,47 @@ export default function AppliedJobsTab() {
     dateRange !== "all" ||
     sort !== "relevance"
 
-  const handleAddToLead = async () => {
-    if (!selectedJob || !profile || addToLeadPending) return
+  const handleAddToLead = async (profileIds: string[]) => {
+    if (!selectedJob || !profiles.length || addToLeadPending) return
     setAddToLeadPending(true)
     try {
-      await apiPost<{ success: boolean }>("/api/leads", { jobId: selectedJob.id, profileId: profile.id })
-      // The job is now in leads: the default "Not in Leads" filter hides it
-      // from the feed (it lives on in Leads), while the "In Leads"/"All"
-      // views keep it visible with the badge.
-      if (leadFilter === "exclude") {
-        setJobs(js => js.filter(j => j.id !== selectedJob.id))
-        setTotalCount(c => Math.max(0, c - 1))
-        setSelectedJob(null)
-      } else {
-        setJobs(js => js.map(j => (j.id === selectedJob.id ? { ...j, isLead: true } : j)))
-        setSelectedJob(current => (current?.id === selectedJob.id ? { ...current, isLead: true } : current))
-      }
+      await apiPost<{ success: boolean }>("/api/leads", { jobId: selectedJob.id, profileIds })
     } catch (err) {
       console.error("addToLead failed", err)
+      return
     } finally {
       setAddToLeadPending(false)
     }
+    // The default "Not in Leads" filter hides fully-lead jobs from the feed;
+    // the silent refresh reflects that (and the updated badge on mixed jobs).
+    setSelectedJob(null)
+    setRefreshKey(k => k + 1)
   }
 
-  const handleDismiss = async (id: string, reason: string) => {
-    if (!profile) return
-    // Jobs already in leads can't be dismissed (the UI hides the action; this
-    // is belt-and-braces — the API rejects it too).
-    const target = jobs.find(j => j.id === id)
-    if (target?.isLead) return
+  const handleDismiss = async (id: string, reason: string, profileIds: string[]) => {
+    if (!profiles.length) return
     try {
-      await apiPost<{ success: boolean }>("/api/discovery/dismiss", { jobId: id, profileId: profile.id, reason })
+      await apiPost<{ success: boolean }>("/api/discovery/dismiss", { jobId: id, profileIds, reason })
     } catch (err) {
       console.error("dismissJob failed", err)
       return
     }
-    setJobs(js => js.filter(j => j.id !== id))
-    setTotalCount(c => Math.max(0, c - 1))
-    if (selectedJob?.id === id) setSelectedJob(null)
+    setSelectedJob(null)
     setDismissReason("")
     setDismissOpen(false)
+    setRefreshKey(k => k + 1)
   }
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-        {/* Header */}
-        <PageHeader
-          title="Applied Jobs"
-          subtitle={profile ? `Applications for ${profile.name}` : "Your submitted applications"}
-          actions={
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {totalCount} applied
-            </span>
-          }
-        />
-
         {/* Search bar + filters toggle */}
         <div className="flex justify-between items-center gap-2 px-5 py-3 border-b border-border bg-background shrink-0">
           <GooeyInput
             value={search}
             onValueChange={changeSearch}
-            placeholder="Search applied jobs by title, company, or location..."
+            placeholder="Search pipeline by title, company, or location..."
             expandedWidth={576}
           />
           <button
@@ -199,12 +180,12 @@ export default function AppliedJobsTab() {
           ) : loading ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <Loader2 className="size-6 animate-spin text-primary mb-3" />
-              <span className="text-sm">Loading applied jobs...</span>
+              <span className="text-sm">Loading pipeline...</span>
             </div>
           ) : jobs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-dashed border-border">
               <Briefcase className="size-10 text-muted-foreground/40 mb-3" />
-              <p className="text-sm font-semibold text-foreground">No applied jobs found</p>
+              <p className="text-sm font-semibold text-foreground">No pipeline jobs found</p>
               <p className="text-xs text-muted-foreground mt-1">
                 {search || isActiveFilter
                   ? "Try adjusting your search or filters."
@@ -213,6 +194,9 @@ export default function AppliedJobsTab() {
             </div>
           ) : (
             <>
+              <div className="flex items-center pb-3">
+                <ResultsCount count={totalCount} label="applied" />
+              </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {jobs.map(job => (
                   <JobCard
@@ -320,7 +304,7 @@ export default function AppliedJobsTab() {
       <JobDrawer
         open={selectedJob !== null}
         job={selectedJob}
-        activeProfile={profile}
+        profiles={profiles}
         onClose={() => setSelectedJob(null)}
         showActions={false}
         onAddToLead={handleAddToLead}

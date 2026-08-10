@@ -225,9 +225,9 @@ export async function setProfileActive(
   return { success: true, profileId };
 }
 
-// One user can own at most one profile: profiles.user_id is UNIQUE, so the
-// database enforces the 1:1 assignment. A second assignment attempt surfaces
-// as a 23505 unique violation, which we translate into a friendly 409.
+// A user may own multiple profiles (profiles.user_id is no longer UNIQUE),
+// but each profile still belongs to at most one user — user_id is a single
+// FK per row, so assigning a user here simply re-points this profile.
 export async function setProfileAssignment(
   supabase: Client,
   profileId: string,
@@ -275,14 +275,6 @@ export async function setProfileAssignment(
     .select("id");
 
   if (error) {
-    if (error.code === "23505") {
-      return {
-        success: false,
-        status: 409,
-        error:
-          "This user is already assigned to another profile. Unassign them there first.",
-      };
-    }
     if (error.code === "23503") {
       return {
         success: false,

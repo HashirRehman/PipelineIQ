@@ -2,8 +2,8 @@
 // Seeds the PipelineIQ demo admin user and the surrounding rows that
 // require an auth identity (which SQL seed files cannot create):
 //   auth.users -> public.users (single role via users.role_id)
-// Optionally links the demo "Saad Mumtaz" profile to this user (1:1 BD
-// ownership via profiles.user_id).
+// Optionally links the demo "Saad Mumtaz" profile to this user (BD
+// ownership via profiles.user_id — a user may own several profiles).
 //
 // Usage:
 //   node scripts/createUser.cjs [email] [password] [fullName]
@@ -146,7 +146,7 @@ async function main() {
     }
   }
 
-  // 4) Link the demo profile to this user (1:1 ownership — only if unassigned)
+  // 4) Link the demo profile to this user (ownership — only if unassigned)
   const { data: profile, error: profErr } = await supabase
     .from('profiles')
     .select('id, full_name')
@@ -169,7 +169,7 @@ async function main() {
       process.exit(1);
     }
     if (updated && updated.length > 0) {
-      console.log(`Linked profile "${profile.full_name}" to this user (1:1 ownership).`);
+      console.log(`Linked profile "${profile.full_name}" to this user (ownership).`);
     } else {
       console.warn(`Profile "${profile.full_name}" is already assigned to a user — skipped.`);
     }

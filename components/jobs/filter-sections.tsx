@@ -5,7 +5,7 @@ import { FilterOption } from "@/components/jobs/filter-option"
 import { DATE_RANGES, SORT_OPTIONS, type DateRange, type SortOption } from "@/lib/constants"
 
 /**
- * Shared filter-bar sections used by the Discovery and Applied Jobs sidebars.
+ * Shared filter-bar sections used by the Discovery and Pipeline sidebars.
  * Backed by the same DATE_RANGES / SORT_OPTIONS lists and server-side parsing
  * as the APIs, so a new option lands everywhere with one edit.
  */

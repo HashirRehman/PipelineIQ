@@ -19,6 +19,10 @@ export const updateUserSchema = z
     { message: "Provide a name, status, or role to update." },
   );
 
+export const deleteUserSchema = z.object({
+  userId: z.uuid(),
+});
+
 export const signInSchema = z.object({
   email: z.email("Enter a valid email address."),
   password: z.string().min(1, "Password is required."),
@@ -107,19 +111,26 @@ export const setProfileAssignmentSchema = z.object({
     .transform((value) => (value === "" ? null : value)),
 });
 
+// Actions target one or more of the acting user's assigned profiles — a
+// user may own several profiles, so the drawer asks which profile(s) to
+// use (or all of them) before acting.
+const profileIdsSchema = z
+  .array(z.uuid("Select a profile."))
+  .min(1, "Select at least one profile.");
+
 export const dismissJobSchema = z.object({
   jobId: z.uuid(),
-  profileId: z.uuid(),
+  profileIds: profileIdsSchema,
   reason: z.string().trim().min(1, "A reason is required.").max(500),
 });
 
 export const markAppliedSchema = z.object({
   jobId: z.uuid(),
-  profileId: z.uuid(),
+  profileIds: profileIdsSchema,
 });
 
 // Add an applied job to the leads pipeline. Same payload shape as
-// mark-applied — the lead wraps the same (job, profile) pair.
+// mark-applied — each lead wraps one (job, profile) pair.
 export const addToLeadsSchema = markAppliedSchema;
 
 export const updateLeadSchema = z

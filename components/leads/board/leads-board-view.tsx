@@ -256,7 +256,12 @@ function BoardCard({
         {lead.jobTitle}
       </p>
 
-      <p className="mt-0.5 text-meta text-muted-foreground truncate">{lead.company}</p>
+      <p className="mt-0.5 text-meta text-muted-foreground truncate">
+        {lead.company}
+        {lead.profileName && (
+          <span className="text-muted-foreground/70"> · {lead.profileName}</span>
+        )}
+      </p>
 
       <div className="mt-2">
         <span

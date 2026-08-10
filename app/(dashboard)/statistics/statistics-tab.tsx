@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
-import { PageHeader } from "@/components/page-header"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -205,59 +204,56 @@ export default function StatisticsTab() {
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-y-auto">
-      <PageHeader
-        title="Lead Statistics"
-        description="Performance analytics across profiles and team members"
-        actions={
-          <>
-            {isAdmin && (
-              <Select value={userFilter} onValueChange={v => setUserFilter(v ?? 'all')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  {bdUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-            <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? 'all')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Profiles</SelectItem>
-                {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={dateRange} onValueChange={v => setDateRange(v ?? '6mo')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1mo">Last month</SelectItem>
-                <SelectItem value="3mo">Last 3 months</SelectItem>
-                <SelectItem value="6mo">Last 6 months</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
-              </SelectContent>
-            </Select>
-            <Tabs value={granularity} onValueChange={v => setGranularity(v ?? 'monthly')}>
-              <TabsList className="rounded-md border border-border overflow-hidden p-0 h-auto gap-0 shadow-none bg-card">
-                {['daily', 'weekly', 'monthly'].map(g => (
-                  <TabsTrigger key={g} value={g}
-                    className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none ${
-                      granularity === g
-                        ? 'bg-primary/15 font-semibold text-primary'
-                        : 'bg-transparent font-normal text-foreground hover:bg-accent'
-                    }`}>
-                    {g.charAt(0).toUpperCase() + g.slice(1)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </>
-        }
-      />
+      {/* Filter toolbar */}
+      <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-border bg-background shrink-0">
+        {isAdmin && (
+          <Select value={userFilter} onValueChange={v => setUserFilter(v ?? 'all')}>
+            <SelectTrigger size="sm" className="h-8 w-auto min-w-[140px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              {bdUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={profileFilter} onValueChange={v => setProfileFilter(v ?? 'all')}>
+          <SelectTrigger size="sm" className="h-8 w-auto min-w-[140px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Profiles</SelectItem>
+            {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={dateRange} onValueChange={v => setDateRange(v ?? '6mo')}>
+          <SelectTrigger size="sm" className="h-8 w-auto min-w-[130px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1mo">Last month</SelectItem>
+            <SelectItem value="3mo">Last 3 months</SelectItem>
+            <SelectItem value="6mo">Last 6 months</SelectItem>
+            <SelectItem value="1y">Last year</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="ml-auto">
+          <Tabs value={granularity} onValueChange={v => setGranularity(v ?? 'monthly')}>
+            <TabsList className="rounded-md border border-border overflow-hidden p-0 h-auto gap-0 shadow-none bg-card">
+              {['daily', 'weekly', 'monthly'].map(g => (
+                <TabsTrigger key={g} value={g}
+                  className={`h-auto p-2 px-3 border-none rounded-none text-xs shadow-none ${
+                    granularity === g
+                      ? 'bg-primary/15 font-semibold text-primary'
+                      : 'bg-transparent font-normal text-foreground hover:bg-accent'
+                  }`}>
+                  {g.charAt(0).toUpperCase() + g.slice(1)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
 
       <div className="p-6 space-y-6">
         {/* Stat Cards */}

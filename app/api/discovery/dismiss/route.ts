@@ -34,26 +34,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { jobId, profileId } = parsed.data;
+  const { jobId, profileIds, reason } = parsed.data;
+  const uniqueProfileIds = Array.from(new Set(profileIds));
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
   // State rows are lazy: a (job, profile) row is created here, on first
-  // action — absence of a row means 'suggested'. The profile must belong to
-  // the caller's org (scope the lookup so a cross-org profile id fails here),
-  // and the job must belong to the same org — the state row carries that org.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", profileId)
-    .eq("organization_id", org.organizationId)
-    .maybeSingle();
-
-  if (!profile) {
-    return NextResponse.json({ error: "Profile not found." }, { status: 404 });
-  }
-
+  // action — absence of a row means 'suggested'. Every requested profile
+  // must belong to the caller's org (scope the lookup so a cross-org
+  // profile id fails here), and the job must belong to the same org — the
+  // state row carries that org.
   const { data: job } = await supabase
     .from("jobs")
     .select("id")
@@ -64,57 +55,86 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 
-  // A job already in the leads pipeline can't be dismissed — the lead pins
-  // this state row (job_profile_state_id), so flipping it to dismissed would
-  // orphan the lead. The UI hides the Dismiss action for lead jobs; this is
-  // the authoritative guard for direct API calls.
-  const { data: existingLead } = await supabase
-    .from("leads")
+  const { data: profileRows, error: profileError } = await supabase
+    .from("profiles")
     .select("id")
+    .in("id", uniqueProfileIds)
+    .eq("organization_id", org.organizationId)
+    .is("deleted_at", null);
+
+  if (profileError) {
+    console.error("api/discovery/dismiss: profiles query failed", profileError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  if (!profileRows || profileRows.length !== uniqueProfileIds.length) {
+    return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+  }
+
+  // A job already in the leads pipeline can't be dismissed — the lead pins
+  // its state row (job_profile_state_id), so flipping it to dismissed would
+  // orphan the lead. The UI never sends lead pairs here; this is the
+  // authoritative guard for direct API calls.
+  const { data: leadRows, error: leadError } = await supabase
+    .from("leads")
+    .select("profile_id")
     .eq("job_id", jobId)
-    .eq("profile_id", profileId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (existingLead) {
+    .in("profile_id", uniqueProfileIds)
+    .is("deleted_at", null);
+
+  if (leadError) {
+    console.error("api/discovery/dismiss: leads query failed", leadError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  if (leadRows && leadRows.length > 0) {
     return NextResponse.json(
       { error: "This job is already in Leads and cannot be dismissed." },
       { status: 400 },
     );
   }
 
-  const { error: insertError } = await supabase.from("job_profile_states").insert({
-    organization_id: profile.organization_id,
-    job_id: jobId,
-    profile_id: profileId,
-    status: "dismissed",
-    dismissed_reason: parsed.data.reason,
-    user_id: user.id,
-  });
+  for (const profileId of uniqueProfileIds) {
+    const { error: insertError } = await supabase.from("job_profile_states").insert({
+      organization_id: org.organizationId,
+      job_id: jobId,
+      profile_id: profileId,
+      status: "dismissed",
+      dismissed_reason: reason,
+      user_id: user.id,
+    });
 
-  if (insertError) {
-    if (insertError.code === "23505") {
-      // A live row already exists for the pair (e.g. previously applied) —
-      // flip it instead of failing on the one-live-row-per-pair index.
-      const { error: updateError } = await supabase
-        .from("job_profile_states")
-        .update({ status: "dismissed", dismissed_reason: parsed.data.reason, user_id: user.id })
-        .eq("job_id", jobId)
-        .eq("profile_id", profileId)
-        .is("deleted_at", null);
+    if (insertError) {
+      if (insertError.code === "23505") {
+        // A live row already exists for the pair (e.g. previously applied) —
+        // flip it instead of failing on the one-live-row-per-pair index.
+        const { error: updateError } = await supabase
+          .from("job_profile_states")
+          .update({ status: "dismissed", dismissed_reason: reason, user_id: user.id })
+          .eq("job_id", jobId)
+          .eq("profile_id", profileId)
+          .is("deleted_at", null);
 
-      if (updateError) {
-        console.error("api/discovery/dismiss: state update failed", updateError);
+        if (updateError) {
+          console.error("api/discovery/dismiss: state update failed", updateError);
+          return NextResponse.json(
+            { error: "Something went wrong. Please try again." },
+            { status: 500 },
+          );
+        }
+      } else {
+        console.error("api/discovery/dismiss: state insert failed", insertError);
         return NextResponse.json(
           { error: "Something went wrong. Please try again." },
           { status: 500 },
         );
       }
-    } else {
-      console.error("api/discovery/dismiss: state insert failed", insertError);
-      return NextResponse.json(
-        { error: "Something went wrong. Please try again." },
-        { status: 500 },
-      );
     }
   }
 

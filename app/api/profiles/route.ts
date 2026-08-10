@@ -32,9 +32,6 @@ export type AssignableUser = {
   id: string;
   name: string;
   email: string;
-  // Profile currently assigned to this user, if any — drives the 1:1
-  // assignment UI (users already on another profile are disabled).
-  assignedProfileId: string | null;
 };
 
 export type ProfilesListApiResponse = {
@@ -122,17 +119,8 @@ export async function GET(request: Request) {
     assignedUserName: profile.users?.full_name ?? null,
   }));
 
-  // user_id -> profile mapping used to flag users already on another
-  // profile in the assignment UI. RLS on users only exposes the list to
-  // admins (via the admin-gated users_select policy), so this whole block
-  // runs solely for admins.
-  const profileIdByUserId = new Map<string, string>();
-  for (const profile of profilesResult.data ?? []) {
-    if (profile.user_id) {
-      profileIdByUserId.set(profile.user_id, profile.id);
-    }
-  }
-
+  // RLS on users only exposes the list to admins (via the admin-gated
+  // users_select policy), so this whole block runs solely for admins.
   let assignableUsers: AssignableUser[] = [];
   if (isAdmin) {
     const { data: userRows, error: usersError } = await supabase
@@ -155,7 +143,6 @@ export async function GET(request: Request) {
       id: userRow.id,
       name: userRow.full_name || userRow.email.split("@")[0] || "User",
       email: userRow.email,
-      assignedProfileId: profileIdByUserId.get(userRow.id) ?? null,
     }));
   }
 

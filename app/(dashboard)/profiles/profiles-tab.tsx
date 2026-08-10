@@ -4,7 +4,6 @@ import type { ProfilesListApiResponse } from "@/app/api/profiles/route"
 import type { ProfileDetailApiResponse } from "@/app/api/profiles/[profileId]/route"
 import { ProfileDetailSheet } from "@/components/profiles/profile-detail-sheet"
 import { ProfilesList } from "@/components/profiles/profiles-list"
-import { PageHeader } from "@/components/page-header"
 import { withOrgId } from "@/lib/api/client"
 import { Loader2 } from "lucide-react"
 
@@ -106,11 +105,6 @@ export default function ProfilesTab() {
 
   return (
     <>
-      <PageHeader
-        title="Profiles"
-        description={`${listData.profiles.length} candidate${listData.profiles.length !== 1 ? "s" : ""}`}
-      />
-
       <ProfilesList
         profiles={listData.profiles}
         isAdmin={listData.isAdmin}

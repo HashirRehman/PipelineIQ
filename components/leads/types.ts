@@ -11,8 +11,9 @@ export interface Lead {
   workType: "remote" | "onsite" | "hybrid"
   appliedAt: string
   status: LeadStatus
-  /** Permanent owner snapshot — the user whose assigned profile applied. */
-  assignedTo: string
+  /** Permanent owner snapshot — the user whose assigned profile applied.
+   * Null once that account is deleted (leads stay with the profile). */
+  assignedTo: string | null
   /** Applier's Notes — writable only by the applier (assignedTo). */
   notes: string
   salary: string | null

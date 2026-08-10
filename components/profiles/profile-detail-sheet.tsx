@@ -166,7 +166,8 @@ export function ProfileDetailSheet({
                   onChanged={onChanged}
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  One user can be assigned to one profile at a time.
+                  Each profile can be assigned to one user only — a user may
+                  own multiple profiles.
                 </p>
               </section>
             )}

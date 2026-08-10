@@ -41,6 +41,10 @@ type JobWithMatches = {
 
 export type CvMatch = {
   matchId: string;
+  /** The assigned profile whose CV produced this match — lets the drawer
+   * label each CV row with its owner when a user has several profiles. */
+  profileId: string;
+  profileName: string;
   cvId: string;
   cvLabel: string;
   isCurrentCv: boolean;
@@ -63,6 +67,17 @@ export type DiscoveryJob = {
   cvMatches: CvMatch[];
   possiblyClosed: boolean | null;
   remoteRegion: string | null;
+  isLead: boolean;
+  /** Per-profile state for every profile assigned to the acting user — a
+   * job can be new for one profile while applied/dismissed for another, so
+   * actions target a subset of these. */
+  profiles: JobProfileState[];
+};
+
+export type JobProfileState = {
+  profileId: string;
+  profileName: string;
+  status: "new" | "applied" | "dismissed";
   isLead: boolean;
 };
 
@@ -115,34 +130,54 @@ function toDiscoveryProfile(row: ProfileRow): DiscoveryProfile {
 
 function toDiscoveryJob(
   job: JobWithMatches,
-  profileId: string | undefined,
-  userCvIds: Set<string>,
+  profiles: { id: string; full_name: string }[],
+  cvIdsByProfile: Map<string, Set<string>>,
   stateByPair: Map<string, "applied" | "dismissed">,
   leadByPair: Set<string>,
   status: "new" | "applied" | "dismissed",
 ): DiscoveryJob | null {
-  // The default feed ("new") shows only jobs with no applied/dismissed state
-  // for the acting profile. A status feed inverts that: it shows exactly the
-  // jobs the profile marked applied (or dismissed), dropping the rest.
-  const pairStatus = profileId ? stateByPair.get(`${job.id}:${profileId}`) : undefined;
-  if (status === "new") {
-    if (pairStatus) {
-      return null;
-    }
-  } else if (pairStatus !== status) {
+  const profileNameById = new Map(profiles.map((p) => [p.id, p.full_name]));
+  // Per-profile state for every profile assigned to the acting user. The
+  // default feed ("new") shows only jobs with no applied/dismissed state for
+  // at least one profile; a status feed inverts that — it shows exactly the
+  // jobs at least one profile marked applied (or dismissed).
+  const profileStates: JobProfileState[] = profiles.map((p) => {
+    const pairStatus = stateByPair.get(`${job.id}:${p.id}`);
+    return {
+      profileId: p.id,
+      profileName: p.full_name,
+      status: pairStatus ?? "new",
+      isLead: leadByPair.has(`${job.id}:${p.id}`),
+    };
+  });
+
+  // A user with no assigned profile still sees the "new" feed (jobs are
+  // listed match-free, as before); status feeds need at least one profile
+  // with the matching state.
+  const inFeed =
+    profiles.length === 0
+      ? status === "new"
+      : status === "new"
+        ? profileStates.some((s) => s.status === "new")
+        : profileStates.some((s) => s.status === status);
+  if (!inFeed) {
     return null;
   }
 
-  // Only the current user's assigned profile's matches belong in this
-  // user's discovery feed — and only for CVs the profile still has. Users
-  // with no assigned profile, or whose profile has no CVs, see the job
-  // with no match data at all (the jobs are still listed).
-  const matches = (job.job_profile_matches ?? []).filter(
-    (m) => m.profile_id === profileId && userCvIds.has(m.cv_id),
-  );
+  // Matches across ALL of the acting user's profiles and their current CVs —
+  // different profiles (and CVs) can match the same job, and the drawer
+  // aggregates them into one relevance list. Users with no assigned profile,
+  // or whose profiles have no CVs, see the job with no match data at all
+  // (the jobs are still listed).
+  const matches = (job.job_profile_matches ?? []).filter((m) => {
+    const cvIds = cvIdsByProfile.get(m.profile_id);
+    return cvIds ? cvIds.has(m.cv_id) : false;
+  });
 
   const cvMatches: CvMatch[] = matches.map((m) => ({
     matchId: m.id,
+    profileId: m.profile_id,
+    profileName: profileNameById.get(m.profile_id) ?? "Profile",
     cvId: m.cv_id,
     cvLabel: m.profile_cvs?.file_name ?? "Untitled CV",
     isCurrentCv: false,
@@ -170,7 +205,8 @@ function toDiscoveryJob(
     cvMatches,
     possiblyClosed: job.possibly_closed ?? null,
     remoteRegion: job.remote_allowed_region ?? null,
-    isLead: profileId ? leadByPair.has(`${job.id}:${profileId}`) : false,
+    isLead: profileStates.some((s) => s.isLead),
+    profiles: profileStates,
   };
 }
 
@@ -204,27 +240,29 @@ export async function GET(request: NextRequest) {
   const status: "new" | "applied" | "dismissed" =
     statusParam === "applied" || statusParam === "dismissed" ? statusParam : "new";
 
-  // Lead visibility in status feeds (Applied Jobs): "in_leads" shows only
+  // Lead visibility in status feeds (Pipeline): "in_leads" shows only
   // pairs already in the leads pipeline, "all" shows everything, and the
   // default (absent / "") hides lead jobs. The discovery "new" feed is
   // unaffected — lead pairs always carry an applied state, so they never
   // appear there and isLead is always false for its jobs.
   const leadFilter = (searchParams.get("leadFilter") ?? "").toLowerCase();
 
-  // A status feed only makes sense against the acting user's assigned profile,
-  // so derive it here and pass profileId through once.
+  // A status feed only makes sense against the acting user's assigned
+  // profiles, so derive them here and pass the set through once.
   const isStatusFeed = status !== "new";
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
   const organizationId = org.organizationId;
 
-  const [{ data: profileRow }, { data: stateRows }, { data: scraperRows }, { data: leadRows }] =
+  const [{ data: profileRows }, { data: stateRows }, { data: scraperRows }, { data: leadRows }] =
     await Promise.all([
-      // The acting user's assigned profile. Scoped by the verified org too —
-      // a profile can only ever belong to its owner's org, so a cross-org
-      // row here would indicate corruption (assignment is org-checked), and
-      // failing to find it is safer than leaking another org's profile.
+      // Every profile assigned to the acting user — a user may own several,
+      // so the feed aggregates matches across all of them. Scoped by the
+      // verified org too — a profile can only ever belong to its owner's
+      // org, so a cross-org row here would indicate corruption (assignment
+      // is org-checked), and failing to find one is safer than leaking
+      // another org's profile. Active profiles first, then oldest.
       supabase
         .from("profiles")
         .select(
@@ -232,7 +270,9 @@ export async function GET(request: NextRequest) {
         )
         .eq("user_id", user.id)
         .eq("organization_id", organizationId)
-        .maybeSingle(),
+        .is("deleted_at", null)
+        .order("is_active", { ascending: false })
+        .order("created_at", { ascending: true }),
       supabase
         .from("job_profile_states")
         .select("job_id, profile_id, status")
@@ -254,16 +294,17 @@ export async function GET(request: NextRequest) {
         .is("deleted_at", null),
     ]);
 
-  // Live CVs of the current user's assigned profile. Match rows for soft-
+  // Current CVs of the acting user's assigned profiles. Match rows for soft-
   // deleted CVs linger in job_profile_matches (FK rows are kept), so matches
-  // are filtered down to the profile's current CVs — empty when the user has
-  // no assigned profile or no CVs, in which case jobs render match-free.
-  const userCvIds = new Set<string>();
-  if (profileRow) {
+  // are filtered down to each profile's current CVs — empty when the user
+  // has no assigned profile or no CVs, in which case jobs render match-free.
+  const profileIds = (profileRows ?? []).map((p) => p.id);
+  const cvIdsByProfile = new Map<string, Set<string>>();
+  if (profileIds.length > 0) {
     const { data: cvRows, error: cvError } = await supabase
       .from("profile_cvs")
-      .select("id")
-      .eq("profile_id", profileRow.id)
+      .select("id, profile_id")
+      .in("profile_id", profileIds)
       .is("deleted_at", null);
 
     if (cvError) {
@@ -275,7 +316,12 @@ export async function GET(request: NextRequest) {
     }
 
     for (const cv of cvRows ?? []) {
-      userCvIds.add(cv.id);
+      let cvSet = cvIdsByProfile.get(cv.profile_id);
+      if (!cvSet) {
+        cvSet = new Set();
+        cvIdsByProfile.set(cv.profile_id, cvSet);
+      }
+      cvSet.add(cv.id);
     }
   }
 
@@ -336,15 +382,20 @@ export async function GET(request: NextRequest) {
   const cutoff = dateRangeCutoff(dateRange);
 
   let jobs = ((rows ?? []) as JobWithMatches[])
-    .map((job) => toDiscoveryJob(job, profileRow?.id, userCvIds, stateByPair, leadByPair, status))
+    .map((job) => toDiscoveryJob(job, profileRows ?? [], cvIdsByProfile, stateByPair, leadByPair, status))
     .filter((job): job is DiscoveryJob => job !== null);
 
   if (leadFilter === "in_leads") {
-    jobs = jobs.filter((job) => job.isLead);
+    jobs = jobs.filter((job) =>
+      job.profiles.some((p) => p.status === "applied" && p.isLead),
+    );
   } else if (leadFilter !== "all") {
-    // Default: a job already in the leads pipeline is hidden from the
-    // applied feed (it lives on in Leads).
-    jobs = jobs.filter((job) => !job.isLead);
+    // Default: a job whose every applied pair is already a lead is hidden
+    // from the applied feed (those pairs live on in Leads); a mixed job —
+    // applied for one profile but not yet a lead for another — stays.
+    jobs = jobs.filter((job) =>
+      job.profiles.some((p) => p.status === "applied" && !p.isLead),
+    );
   }
 
   if (cutoff) {
@@ -382,7 +433,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     jobs: pagedJobs,
-    profile: profileRow ? toDiscoveryProfile(profileRow) : null,
+    profiles: (profileRows ?? []).map(toDiscoveryProfile),
     totalCount,
     page,
     pageSize,

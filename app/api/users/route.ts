@@ -3,7 +3,7 @@ import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedIsAdmin, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createUserSchema, updateUserSchema } from "@/lib/validation/schemas";
+import { createUserSchema, deleteUserSchema, updateUserSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -317,6 +317,101 @@ export async function PATCH(request: Request) {
 
   if (!data || data.length === 0) {
     return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const supabase = await createClient();
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const isAdmin = await getCachedIsAdmin();
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  }
+
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const parsed = deleteUserSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid input." },
+      { status: 400 },
+    );
+  }
+  const { userId } = parsed.data;
+
+  if (userId === user.id) {
+    return NextResponse.json(
+      { error: "You cannot delete your own account." },
+      { status: 400 },
+    );
+  }
+
+  // The target must be a member of the caller's org (users_select lets
+  // admins see every row, so this lookup passes RLS).
+  const { data: target, error: targetError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("id", userId)
+    .eq("organization_id", org.organizationId)
+    .maybeSingle();
+  if (targetError) {
+    console.error("api/users: delete target query failed", targetError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+  if (!target) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
+  }
+
+  // Permanent: kill the auth identity first so a partially-failed cleanup
+  // can never leave a login-able account behind. "Not found" is tolerated
+  // so a retry after a mid-way failure still completes the cleanup.
+  const { error: authDeleteError } =
+    await createAdminClient().auth.admin.deleteUser(userId);
+  if (authDeleteError && !/not found/i.test(authDeleteError.message)) {
+    console.error("api/users: auth delete failed", authDeleteError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
+  // Delete the public users row (admin-only, via the users_delete policy).
+  // The schema's FKs do the unlinking — comments cascade, while leads,
+  // application states, and profiles set user_id to NULL (migration 14) —
+  // so only the user and their comments are removed; profile data survives.
+  const { error: deleteError } = await supabase
+    .from("users")
+    .delete()
+    .eq("id", userId)
+    .eq("organization_id", org.organizationId);
+  if (deleteError) {
+    console.error("api/users: users delete failed", deleteError);
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ success: true });
