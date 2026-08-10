@@ -9,7 +9,7 @@ import {
   parsedCvSchema,
   type ParsedCv,
 } from "@/lib/cv-parsing/parsed-cv";
-import type { AiClient, JobListing, LeadContext, ProfileContext } from "./client";
+import type { AiClient, JobListing, LeadContext, ProfileContext, ParsedJobData } from "./client";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -341,22 +341,32 @@ export class GroqAiClient implements AiClient {
     isGloballyOpen: boolean;
     possiblyClosed: boolean;
     possiblyClosedReason: string | null;
+    parsedData?: ParsedJobData | null;
   }> {
     const systemPrompt =
-      "You extract two independent signals from a job posting's description, if present. " +
-      'Respond only with JSON: {"remote_region": "<short label such as \'US only\', \'Worldwide\', \'EMEA\'>" ' +
-      'or null if no eligibility region is stated, ' +
-      '"is_globally_open": <true|false>, ' +
-      '"possibly_closed": <true|false>, ' +
-      '"possibly_closed_reason": "<one sentence>" or null}. ' +
+      "You extract signals and structured metadata from a job posting's description, if present. " +
+      'Respond only with JSON: {\n' +
+      '  "remote_region": "<short label such as \'US only\', \'Worldwide\', \'EMEA\'>" or null,\n' +
+      '  "is_globally_open": <true|false>,\n' +
+      '  "possibly_closed": <true|false>,\n' +
+      '  "possibly_closed_reason": "<one sentence>" or null,\n' +
+      '  "parsed_data": {\n' +
+      '    "skills": [<list of professional skills, roles, and core job competencies required>],\n' +
+      '    "technologies": [<list of frameworks, databases, libraries, tools, and platforms mentioned>],\n' +
+      '    "experience_years": <integer representing minimum required years of experience, or null if not stated>,\n' +
+      '    "salary_range": "<parsed salary/compensation info, or null if not stated>"\n' +
+      '  }\n' +
+      '}. ' +
       "is_globally_open is true only if the posting states no location/citizenship/region restriction on who " +
       "may apply (open worldwide, or never names one) — false whenever a specific country, region, or timezone " +
       "requirement is named (e.g. 'must be US-based', 'EU timezone only'). is_globally_open and possibly_closed " +
-      "are independent — a posting saying the role has been filled can still be is_globally_open: true if it " +
-      "never named a geographic restriction; do not set it false just because the role sounds closed. " +
+      "are independent. " +
       "possibly_closed is true only on explicit fill/closed/no-longer-accepting-applications language, never " +
-      "inferred from posting age or vague wording. possibly_closed_reason must quote or closely paraphrase the " +
-      "specific line justifying possibly_closed, and must be null whenever possibly_closed is false.";
+      "inferred from posting age. possibly_closed_reason must quote or closely paraphrase the " +
+      "specific line justifying possibly_closed, and must be null whenever possibly_closed is false. " +
+      "In parsed_data, skills and technologies lists should extract literal terms and tech mentioned in the text. " +
+      "For experience_years, extract the minimum years of experience if mentioned (e.g., if it says '3+ years', extract 3); " +
+      "if multiple requirements exist, default to the lowest explicit requirement or use null if unspecified.";
 
     const userPrompt = [
       `Job title: ${job.title}`,
@@ -373,10 +383,27 @@ export class GroqAiClient implements AiClient {
       is_globally_open: unknown;
       possibly_closed: unknown;
       possibly_closed_reason: unknown;
+      parsed_data?: {
+        skills?: unknown[];
+        technologies?: unknown[];
+        experience_years?: unknown;
+        salary_range?: unknown;
+      };
     };
 
     if (typeof parsed.is_globally_open !== "boolean" || typeof parsed.possibly_closed !== "boolean") {
       throw new Error(`extractRemoteRegion: unexpected response shape: ${JSON.stringify(rawParsed)}`);
+    }
+
+    let parsedJobData: ParsedJobData | null = null;
+    if (parsed.parsed_data && typeof parsed.parsed_data === "object") {
+      const p = parsed.parsed_data;
+      parsedJobData = {
+        skills: Array.isArray(p.skills) ? p.skills.filter((s): s is string => typeof s === "string") : [],
+        technologies: Array.isArray(p.technologies) ? p.technologies.filter((t): t is string => typeof t === "string") : [],
+        experienceYears: typeof p.experience_years === "number" ? p.experience_years : null,
+        salaryRange: typeof p.salary_range === "string" ? p.salary_range : null,
+      };
     }
 
     return {
@@ -384,6 +411,7 @@ export class GroqAiClient implements AiClient {
       isGloballyOpen: parsed.is_globally_open,
       possiblyClosed: parsed.possibly_closed,
       possiblyClosedReason: typeof parsed.possibly_closed_reason === "string" ? parsed.possibly_closed_reason : null,
+      parsedData: parsedJobData,
     };
   }
 

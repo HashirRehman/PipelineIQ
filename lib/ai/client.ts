@@ -26,6 +26,13 @@ export type LeadContext = {
   status: string;
 };
 
+export type ParsedJobData = {
+  skills: string[];
+  technologies: string[];
+  experienceYears: number | null;
+  salaryRange: string | null;
+};
+
 export interface AiClient {
   // Structures a CV's extracted text into the stored parsed_data shape.
   // Takes text, not a file: extraction is lib/cv-parsing/extract-text.ts's
@@ -41,6 +48,7 @@ export interface AiClient {
     isGloballyOpen: boolean;
     possiblyClosed: boolean;
     possiblyClosedReason: string | null;
+    parsedData?: ParsedJobData | null;
   }>;
   summarizeNotes(notes: string[]): Promise<string>;
   suggestFollowUp(leadContext: LeadContext): Promise<string>;
