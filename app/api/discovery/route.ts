@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isWithinWindow, parseDateWindow, parseSort } from "@/lib/api/job-filters";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
+import type { ParsedJobData } from "@/lib/ai/client";
 import type { SortOption } from "@/lib/constants";
 
 const DISCOVERY_SORT_OPTIONS: readonly SortOption[] = [
@@ -29,6 +30,7 @@ type JobWithMatches = {
   job_posted_at: string | null;
   description: string | null;
   possibly_closed: boolean | null;
+  parsed_data: ParsedJobData | null;
   scrapers: { name: string } | null;
   job_profile_matches: {
     id: string;
@@ -75,6 +77,7 @@ export type DiscoveryJob = {
    * job can be new for one profile while applied/dismissed for another, so
    * actions target a subset of these. */
   profiles: JobProfileState[];
+  parsedData?: ParsedJobData | null;
 };
 
 export type JobProfileState = {
@@ -229,6 +232,7 @@ function toDiscoveryJob(
       null,
     ),
     profiles: profileStates,
+    parsedData: job.parsed_data,
   };
 }
 
@@ -408,7 +412,7 @@ export async function GET(request: NextRequest) {
   }
 
   let query = supabase.from("jobs").select(
-    "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, job_posted_at, description, possibly_closed, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
+    "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, job_posted_at, description, possibly_closed, parsed_data, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
   )
     .eq("organization_id", organizationId)
     .order("job_posted_at", { ascending: false, nullsFirst: false });

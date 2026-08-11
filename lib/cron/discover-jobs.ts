@@ -173,7 +173,7 @@ export async function runJobDiscovery(
   for (const job of enrichmentBatch) {
     summary.enrichmentAttempted++;
     try {
-      const { region, isGloballyOpen, possiblyClosed, possiblyClosedReason } = await aiClient.extractRemoteRegion({
+      const { region, isGloballyOpen, possiblyClosed, possiblyClosedReason, parsedData } = await aiClient.extractRemoteRegion({
         title: job.title,
         companyName: job.company_name,
         description: job.description,
@@ -186,6 +186,7 @@ export async function runJobDiscovery(
           is_globally_open: isGloballyOpen,
           possibly_closed: possiblyClosed,
           possibly_closed_reason: possiblyClosedReason,
+          parsed_data: parsedData,
         })
         .eq("id", job.id);
       if (error) throw error;

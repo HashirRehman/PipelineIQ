@@ -3,6 +3,7 @@ import { Bookmark, Loader2, X } from "lucide-react"
 
 import { JobComments } from "@/components/job-comments"
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
+import { parseDescription, type DescBlock } from "@/lib/job-description"
 
 // Minimal shape — only profile.name is rendered; both the real discovery
 // profile and any caller-supplied profile satisfy it.
@@ -63,6 +64,12 @@ export interface Job {
    * can be new for one profile while applied/dismissed for another, so the
    * action buttons target a subset of these. */
   profiles: JobProfileState[]
+  parsedData?: {
+    skills?: string[]
+    technologies?: string[]
+    experienceYears?: number | null
+    salaryRange?: string | null
+  } | null
 }
 
 
@@ -251,76 +258,6 @@ function ActionProfilePicker({
       </div>
     </div>
   )
-}
-
-type DescBlock =
-  | { type: "heading"; text: string }
-  | { type: "paragraph"; text: string }
-  | { type: "list"; items: string[] }
-
-const BULLET_RE = /^[•·*\-–]\s*/
-
-function isHeading(line: string): boolean {
-  const trimmed = line.trim()
-  if (trimmed.length === 0) return false
-  if (/[.!?]$/.test(trimmed)) return false
-  if (trimmed.length > 60) return false
-  if (trimmed.endsWith(":") || trimmed.endsWith("：")) return true
-  if (/,/.test(trimmed)) return false
-  const words = trimmed.split(/\s+/)
-  const titleCase = words.every(w => /^[A-Z0-9(&]/.test(w))
-  const allCaps = /[A-Z]{2}/.test(trimmed) && trimmed === trimmed.toUpperCase()
-  return titleCase || allCaps
-}
-
-function parseDescription(text: string): DescBlock[] {
-  const lines = text
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean)
-
-  const blocks: DescBlock[] = []
-  const pushList = (item: string) => {
-    const prev = blocks[blocks.length - 1]
-    if (prev && prev.type === "list") {
-      prev.items.push(item)
-    } else {
-      blocks.push({ type: "list", items: [item] })
-    }
-  }
-  const pushHeading = (heading: string) => {
-    const prev = blocks[blocks.length - 1]
-    const normalized = heading.replace(/[：:]$/, "").trim().toLowerCase()
-    const prevNormalized = prev?.type === "heading"
-      ? prev.text.replace(/[：:]$/, "").trim().toLowerCase()
-      : ""
-    if (!(prev?.type === "heading" && prevNormalized === normalized)) {
-      blocks.push({ type: "heading", text: heading })
-    }
-  }
-
-  for (const line of lines) {
-    if (BULLET_RE.test(line)) {
-      pushList(line.replace(BULLET_RE, ""))
-      continue
-    }
-
-    const glued = line.match(/^(.{1,60}?)[：:]•\s*(.+)$/)
-    if (glued) {
-      pushHeading(glued[1].trim())
-      pushList(glued[2].trim())
-      continue
-    }
-
-    if (isHeading(line)) {
-      pushHeading(line)
-      continue
-    }
-
-    blocks.push({ type: "paragraph", text: line })
-  }
-
-  return blocks
 }
 
 function FormattedDescription({ text }: { text: string }) {
@@ -634,6 +571,32 @@ export default function JobDrawer({
 
             {profiles.length > 0 && <RelevanceMatch profiles={profiles} job={displayJob} />}
 
+            {displayJob.parsedData?.skills && displayJob.parsedData.skills.length > 0 && (
+              <div className="mb-5">
+                <div className="text-xs font-semibold text-foreground mb-2">Required Skills</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {displayJob.parsedData.skills.map((skill) => (
+                    <TintedBadge key={skill} color="var(--primary)">
+                      {skill}
+                    </TintedBadge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {displayJob.parsedData?.technologies && displayJob.parsedData.technologies.length > 0 && (
+              <div className="mb-5">
+                <div className="text-xs font-semibold text-foreground mb-2">Technologies & Tools</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {displayJob.parsedData.technologies.map((tech) => (
+                    <TintedBadge key={tech} color="#6366F1">
+                      {tech}
+                    </TintedBadge>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mb-5">
               <div className="text-xs font-semibold text-foreground mb-2.5">About the Role</div>
               <FormattedDescription text={displayJob.description} />
@@ -666,6 +629,20 @@ export default function JobDrawer({
                     : null}
                 </dd>
               </div>
+
+              {displayJob.parsedData?.experienceYears && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Min Experience</dt>
+                  <dd className="text-xs text-foreground font-medium">{displayJob.parsedData.experienceYears} Years</dd>
+                </div>
+              )}
+
+              {displayJob.parsedData?.salaryRange && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Est. Salary</dt>
+                  <dd className="text-xs text-foreground font-medium">{displayJob.parsedData.salaryRange}</dd>
+                </div>
+              )}
 
               {displayJob.possiblyClosed && (
                 <div className="flex items-center justify-between gap-3">
