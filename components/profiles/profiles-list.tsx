@@ -100,7 +100,7 @@ export function ProfilesList({
             value={search}
             onValueChange={setSearch}
             placeholder="Search profiles..."
-            expandedWidth={384}
+            expandedWidth={300}
           />
 
           <div className="flex items-center rounded-md border border-border overflow-hidden">

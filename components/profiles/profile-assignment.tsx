@@ -141,7 +141,7 @@ export function ProfileAssignment({
             sideOffset={4}
             className="isolate z-50 pointer-events-auto"
           >
-            <ComboboxPrimitive.Popup className="relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-48 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-lg">
+            <ComboboxPrimitive.Popup className="relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-lg">
               <ComboboxPrimitive.Input
                 placeholder="Search users…"
                 className="h-8 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-ring focus:ring-2 focus:ring-ring/50 mb-1"

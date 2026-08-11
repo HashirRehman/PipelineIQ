@@ -309,7 +309,7 @@ export default function UsersTab() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-background shrink-0 flex-wrap">
-        <GooeyInput value={search} onValueChange={setSearch} placeholder="Search by name or email..." expandedWidth={384} />
+        <GooeyInput value={search} onValueChange={setSearch} placeholder="Search by name or email..." expandedWidth={300} />
         <select
           value={roleFilter}
           onChange={e => setRoleFilter(e.target.value)}

@@ -1,7 +1,7 @@
 import { Bookmark, Clock, MapPin } from "lucide-react"
 import type { Job } from "@/components/job-drawer"
 import { TintedBadge } from "@/components/tinted-badge"
-import { PARSER_COLOR, WORK_TYPE_COLOR, scoreColor } from "@/lib/constants"
+import { WORK_TYPE_COLOR, scoreColor } from "@/lib/constants"
 import { timeAgo } from "@/lib/format"
 
 export function JobCard({
@@ -13,7 +13,8 @@ export function JobCard({
 }) {
   const score = job.relevanceScore ?? 0
   const scoreRingColor = scoreColor(score)
-  const parserColor = PARSER_COLOR[job.parser] ?? "var(--status-slate)"
+  // Parser = the scraper that fetched the job (e.g. Jsearch) — neutral badge.
+  const parserColor = "var(--status-slate)"
   const workColor = WORK_TYPE_COLOR[job.workType] ?? "var(--status-slate)"
 
   return (

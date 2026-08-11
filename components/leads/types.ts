@@ -1,5 +1,3 @@
-import type { LeadStatus } from "@/lib/constants"
-
 export interface Lead {
   id: string
   jobId: string
@@ -10,7 +8,8 @@ export interface Lead {
   jobLocation: string
   workType: "remote" | "onsite" | "hybrid"
   appliedAt: string
-  status: LeadStatus
+  /** Stage name — comes from the database's pipeline_stages, not a constant. */
+  status: string
   /** The profile's current assigned user — leads follow the profile, so
    * this is who owns the lead now (not the creation-time snapshot). Null
    * when the profile has no assigned user. */
@@ -21,13 +20,15 @@ export interface Lead {
   salary: string | null
   parser: string
   applyUrl: string
+  /** Raw jobs.parsed_data (jsonb) — carries the manual/imported extras. */
+  parsedData: unknown | null
 }
 
 // Structural stand-ins for the people/profiles referenced by the lead rows.
 // They mirror the AppUser/Profile shapes the old app/page.tsx used to export
 // (removed in the sidebar restructure), pinned to just the fields the lead
 // views actually render (id/name/role). The ownership links (profile.userId,
-// user.profileIds) drive the coupled profile/user filters in LeadFilterBar.
+// user.profileIds) drive the coupled profile/user filters in the sidebar.
 export interface AppUser {
   id: string
   name: string

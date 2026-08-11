@@ -1,9 +1,9 @@
 import type { DateRange, SortOption } from "@/lib/constants";
 
 // Shared server-side parsing for the date-range / sort filters used by the
-// leads and discovery APIs. The UI components live in
-// components/jobs/date-range-filter.tsx and sort-filter.tsx; keep the option
-// lists in lib/constants.ts (DATE_RANGES / SORT_OPTIONS) so UI and API never
+// leads and discovery APIs. The UI components (DateRangeSection / SortSection
+// in components/jobs/filter-sections.tsx) render the same option lists; keep
+// them in lib/constants.ts (DATE_RANGES / SORT_OPTIONS) so UI and API never
 // drift.
 //
 // The exact date window (Friday–Thursday weeks, calendar months/years) is

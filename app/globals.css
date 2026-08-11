@@ -122,3 +122,16 @@ body { position: relative; }
   background-color: color-mix(in srgb, var(--scrim) 60%, transparent);
   backdrop-filter: blur(2px);
 }
+
+/* Respect users who prefer reduced motion — tw-animate-css and the in-app
+   transitions otherwise run unconditionally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

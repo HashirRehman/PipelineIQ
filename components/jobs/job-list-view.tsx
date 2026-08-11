@@ -3,7 +3,7 @@
 import { Clock, MapPin } from "lucide-react";
 import type { Job } from "@/components/job-drawer";
 import { TintedBadge } from "@/components/tinted-badge";
-import { PARSER_COLOR, WORK_TYPE_COLOR, scoreColor } from "@/lib/constants";
+import { WORK_TYPE_COLOR, scoreColor } from "@/lib/constants";
 import { timeAgo } from "@/lib/format";
 
 // Table-style list view for the job list pages (Pipeline, Discovery) — the
@@ -29,7 +29,7 @@ export function JobListView({
               Work Type
             </th>
             <th className="hidden px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground md:table-cell">
-              Source
+              Parser
             </th>
             <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground">
               Score
@@ -42,7 +42,9 @@ export function JobListView({
         <tbody className="divide-y divide-border/70">
           {jobs.map((job) => {
             const score = job.relevanceScore ?? 0;
-            const parserColor = PARSER_COLOR[job.parser] ?? "var(--status-slate)";
+            // Parser = the scraper that fetched the job (e.g. Jsearch), from
+            // the scrapers table — a neutral badge, no hardcoded name→color map.
+            const parserColor = "var(--status-slate)";
             const workColor = WORK_TYPE_COLOR[job.workType] ?? "var(--status-slate)";
             return (
               <tr
@@ -82,7 +84,7 @@ export function JobListView({
                   <TintedBadge color={workColor}>{job.workType}</TintedBadge>
                 </td>
 
-                {/* Source */}
+                {/* Parser */}
                 <td className="hidden px-4 py-3 md:table-cell">
                   <TintedBadge color={parserColor}>{job.parser}</TintedBadge>
                 </td>

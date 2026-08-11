@@ -2,23 +2,24 @@
 
 import type { ReactNode } from "react"
 import { ChevronDown, Plus } from "lucide-react"
-import { LEAD_STATUS_COLOR, type LeadStatus } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 
 export function LeadStatusSection({
   status,
+  color,
   count,
   collapsed,
   onToggle,
   children,
 }: {
-  status: LeadStatus
+  status: string
+  /** Stage color — derived from the stage's position in the ordered list. */
+  color: string
   count: number
   collapsed: boolean
   onToggle: () => void
   children: ReactNode
 }) {
-  const color = LEAD_STATUS_COLOR[status]
 
   return (
     <section>
@@ -30,7 +31,7 @@ export function LeadStatusSection({
           aria-expanded={!collapsed}
           aria-label={`${collapsed ? "Expand" : "Collapse"} ${status}`}
           className={cn(
-            "flex flex-1 items-center gap-2 cursor-pointer text-left",
+            "flex flex-1 items-center gap-2 cursor-pointer text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
           )}
         >
           <ChevronDown
@@ -64,7 +65,7 @@ export function LeadStatusSection({
         <button
           type="button"
           aria-label={`Add lead to ${status}`}
-          className="flex size-6 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors cursor-pointer"
+          className="flex size-6 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <Plus className="size-3.5" />
         </button>

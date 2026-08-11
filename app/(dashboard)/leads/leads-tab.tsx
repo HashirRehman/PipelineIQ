@@ -1,75 +1,91 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { List, LayoutDashboard, Plus, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react";
+import {
+  List,
+  LayoutDashboard,
+  Upload,
+  Loader2,
+  SlidersHorizontal,
+} from "lucide-react";
 
-import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route"
-import { LeadsBoardView } from "@/components/leads/board/leads-board-view"
-import { LeadFilterBar } from "@/components/leads/lead-filter-bar"
-import { LeadsListView } from "@/components/leads/list/leads-list-view"
-import type { AppUser, Lead, Profile } from "@/components/leads/types"
-import { DateRangeFilter } from "@/components/jobs/date-range-filter"
-import { SortFilter } from "@/components/jobs/sort-filter"
-import { GooeyInput } from "@/components/ui/gooey-input"
+import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route";
+import { LeadsBoardView } from "@/components/leads/board/leads-board-view";
+import { LeadsListView } from "@/components/leads/list/leads-list-view";
+import type { AppUser, Lead, Profile } from "@/components/leads/types";
+import { FilterOption } from "@/components/jobs/filter-option";
+import { FilterSidebar } from "@/components/jobs/filter-sidebar";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+  DateRangeSection,
+  FilterSection,
+  SortSection,
+} from "@/components/jobs/filter-sections";
+import { ProfileUserFilters } from "@/components/leads/profile-user-filters";
+import { CountryCombobox } from "@/components/ui/country-combobox";
+import { GooeyInput } from "@/components/ui/gooey-input";
+import { cn } from "@/lib/utils";
 import {
-  LEAD_STATUS_DONE,
-  LEAD_STATUSES,
+  stageColor,
   type DateRange,
-  type LeadStatus,
   type SortOption,
-} from "@/lib/constants"
-import { apiPatch, withOrgId } from "@/lib/api/client"
-import { getDateWindow } from "@/lib/date-window"
-import JobDrawer, { type Job } from "@/components/job-drawer"
+} from "@/lib/constants";
+import { apiPatch, withOrgId } from "@/lib/api/client";
+import { getDateWindow } from "@/lib/date-window";
+import JobDrawer, { type Job } from "@/components/job-drawer";
+import dynamic from "next/dynamic";
 
-const PAGE_SIZE = 100
+// Loaded on demand — the Excel parser (SheetJS) is a ~330 KB chunk that
+// should never ship on a page load when the user isn't importing.
+const ImportJobsDialog = dynamic(
+  () =>
+    import("@/components/jobs/import-jobs-dialog").then(
+      (m) => m.ImportJobsDialog,
+    ),
+  { ssr: false },
+);
+
+const PAGE_SIZE = 100;
 
 interface LeadsResponse {
-  leads: ApiLead[]
-  users: ApiLeadUser[]
-  profiles: { id: string; name: string; userId: string | null }[]
-  pipelineStages: { id: string; name: string; orderIndex: number }[]
-  currentUser: { id: string; name: string }
-  canManageLeadNotes: boolean
-  totalCount: number
-  page: number
-  pageSize: number
-  totalPages: number
+  leads: ApiLead[];
+  users: ApiLeadUser[];
+  profiles: { id: string; name: string; userId: string | null }[];
+  pipelineStages: { id: string; name: string; orderIndex: number }[];
+  currentUser: { id: string; name: string };
+  canManageLeadNotes: boolean;
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 const buildQueryKey = (opts: {
-  search: string
-  status: string
-  profileId: string
-  userId: string
-  dateRange: DateRange
-  sort: SortOption
+  search: string;
+  status: string;
+  country: string;
+  profileId: string;
+  userId: string;
+  dateRange: DateRange;
+  sort: SortOption;
 }) => {
   const params = new URLSearchParams({
     search: opts.search,
     status: opts.status === "all" ? "" : opts.status,
+    country: opts.country,
     profileId: opts.profileId === "all" ? "" : opts.profileId,
     userId: opts.userId === "all" ? "" : opts.userId,
     dateRange: opts.dateRange,
     sort: opts.sort,
     pageSize: String(PAGE_SIZE),
-  })
+  });
   // Exact week/month/year window (leads are dated by applied_at).
-  const window = getDateWindow(opts.dateRange)
+  const window = getDateWindow(opts.dateRange);
   if (window) {
-    params.set("from", window.from)
-    params.set("to", window.to)
+    params.set("from", window.from);
+    params.set("to", window.to);
   }
-  return params.toString()
-}
+  return params.toString();
+};
 
 function toLead(a: ApiLead): Lead {
   return {
@@ -82,102 +98,146 @@ function toLead(a: ApiLead): Lead {
     jobLocation: a.jobLocation,
     workType: a.workType,
     appliedAt: a.appliedAt,
-    status: a.status as LeadStatus,
+    status: a.status,
     assignedTo: a.assignedTo,
     notes: a.notes,
+    parsedData: a.parsedData,
     salary: null,
     parser: a.parser,
     applyUrl: a.applyUrl,
-  }
+  };
 }
 
 export default function LeadsTab() {
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [users, setUsers] = useState<AppUser[]>([])
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [stages, setStages] = useState<LeadsResponse["pipelineStages"]>([])
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null)
-  const [canManageLeadNotes, setCanManageLeadNotes] = useState(false)
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [stages, setStages] = useState<LeadsResponse["pipelineStages"]>([]);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [canManageLeadNotes, setCanManageLeadNotes] = useState(false);
 
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [profileFilter, setProfileFilter] = useState("all")
-  const [bdFilter, setBdFilter] = useState("all")
-  const [dateRange, setDateRange] = useState<DateRange>("all")
-  const [sort, setSort] = useState<SortOption>("newest")
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [profileFilter, setProfileFilter] = useState("all");
+  const [bdFilter, setBdFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [sort, setSort] = useState<SortOption>("newest");
 
-  const [view, setView] = useState<"list" | "board">("list")
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
-  const [appliedKey, setAppliedKey] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<"list" | "board">("list");
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [appliedKey, setAppliedKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   // Stage each lead sat in before its checkbox was ticked, so unticking
-  // returns it there rather than dumping everything back into "Applied".
-  const [stageBeforeDone, setStageBeforeDone] = useState<Record<string, LeadStatus>>({})
+  // returns it there rather than dumping everything back into the first stage.
+  const [stageBeforeDone, setStageBeforeDone] = useState<Record<string, string>>({});
 
-  const queryKey = buildQueryKey({ search, status: statusFilter, profileId: profileFilter, userId: bdFilter, dateRange, sort })
-  const loading = appliedKey !== queryKey
+  // The terminal stage — the last one in the ordered pipeline. Marking a lead
+  // "done" moves it here; unticking returns it to its previous stage.
+  const doneStage = stages.length > 0 ? stages[stages.length - 1].name : null;
+
+  const queryKey = buildQueryKey({
+    search,
+    status: statusFilter,
+    country: countryFilter,
+    profileId: profileFilter,
+    userId: bdFilter,
+    dateRange,
+    sort,
+  });
+  const loading = appliedKey !== queryKey;
 
   const loadLeads = (key: string) => {
     fetch(withOrgId(`/api/leads?${key}`))
       .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load leads")
-        return res.json() as Promise<LeadsResponse>
+        if (!res.ok) throw new Error("Failed to load leads");
+        return res.json() as Promise<LeadsResponse>;
       })
       .then((json) => {
-        setLeads(json.leads.map(toLead))
-        setUsers(json.users)
-        setProfiles(json.profiles)
-        setStages(json.pipelineStages)
-        setCurrentUser(json.currentUser)
-        setCanManageLeadNotes(json.canManageLeadNotes ?? false)
-        setError(null)
+        setLeads(json.leads.map(toLead));
+        setUsers(json.users);
+        setProfiles(json.profiles);
+        setStages(json.pipelineStages);
+        setCurrentUser(json.currentUser);
+        setCanManageLeadNotes(json.canManageLeadNotes ?? false);
+        setError(null);
       })
       .catch((err) => {
-        console.error("Failed to load leads:", err)
-        setError("Failed to load leads")
+        console.error("Failed to load leads:", err);
+        setError("Failed to load leads");
       })
-      .finally(() => setAppliedKey(key))
-  }
+      .finally(() => setAppliedKey(key));
+  };
 
   useEffect(() => {
-    loadLeads(queryKey)
-  }, [queryKey])
+    loadLeads(queryKey);
+  }, [queryKey]);
 
-  const changeSearch = (v: string) => setSearch(v)
-  const changeStatus = (v: string | null) => setStatusFilter(v ?? "all")
-  const changeProfile = (v: string) => setProfileFilter(v ?? "all")
-  const changeBd = (v: string) => setBdFilter(v ?? "all")
-  const changeDateRange = (v: DateRange) => setDateRange(v)
-  const changeSort = (v: SortOption) => setSort(v)
+  const changeSearch = (v: string) => setSearch(v);
+  const changeStatus = (v: string | null) => setStatusFilter(v ?? "all");
+  const changeCountry = (v: string) => setCountryFilter(v);
+  const changeProfile = (v: string) => setProfileFilter(v ?? "all");
+  const changeBd = (v: string) => setBdFilter(v ?? "all");
+  const changeDateRange = (v: DateRange) => setDateRange(v);
+  const changeSort = (v: SortOption) => setSort(v);
 
-  const stageIdFor = (status: LeadStatus) => stages.find((s) => s.name === status)?.id ?? null
+  const isActiveFilter =
+    statusFilter !== "all" ||
+    countryFilter !== "" ||
+    profileFilter !== "all" ||
+    bdFilter !== "all" ||
+    dateRange !== "all" ||
+    sort !== "newest";
 
-  const updateStatus = async (id: string, status: LeadStatus) => {
-    const stageId = stageIdFor(status)
-    if (!stageId) return
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setCountryFilter("");
+    setProfileFilter("all");
+    setBdFilter("all");
+    setDateRange("all");
+    setSort("newest");
+  };
+
+  const stageIdFor = (status: string) =>
+    stages.find((s) => s.name === status)?.id ?? null;
+
+  const updateStatus = async (id: string, status: string) => {
+    const stageId = stageIdFor(status);
+    if (!stageId) return;
     // Optimistic update — the status select / board drag should feel instant.
-    setLeads((current) => current.map((lead) => (lead.id === id ? { ...lead, status } : lead)))
-    setSelectedLead((current) => (current?.id === id ? { ...current, status } : current))
+    setLeads((current) =>
+      current.map((lead) => (lead.id === id ? { ...lead, status } : lead)),
+    );
+    setSelectedLead((current) =>
+      current?.id === id ? { ...current, status } : current,
+    );
     try {
-      await apiPatch<{ success: boolean }>(`/api/leads/${id}`, { pipelineStageId: stageId })
+      await apiPatch<{ success: boolean }>(`/api/leads/${id}`, {
+        pipelineStageId: stageId,
+      });
     } catch (err) {
-      console.error("Failed to update lead status:", err)
-      loadLeads(queryKey) // resync
+      console.error("Failed to update lead status:", err);
+      loadLeads(queryKey); // resync
     }
-  }
+  };
 
   const toggleDone = (id: string) => {
-    const lead = leads.find((l) => l.id === id)
-    if (!lead) return
+    const lead = leads.find((l) => l.id === id);
+    if (!lead || !doneStage) return;
 
-    if (lead.status === LEAD_STATUS_DONE) {
-      updateStatus(id, stageBeforeDone[id] ?? "Applied")
-      return
+    if (lead.status === doneStage) {
+      updateStatus(id, stageBeforeDone[id] ?? stages[0]?.name ?? doneStage);
+      return;
     }
 
-    setStageBeforeDone((current) => ({ ...current, [id]: lead.status }))
-    updateStatus(id, LEAD_STATUS_DONE)
-  }
+    setStageBeforeDone((current) => ({ ...current, [id]: lead.status }));
+    updateStatus(id, doneStage);
+  };
 
   // Applier's Notes: the profile's current assigned user (assignedTo — leads
   // follow the profile) may write or edit them — plus Admins and BD
@@ -186,20 +246,29 @@ export default function LeadsTab() {
     currentUser &&
     selectedLead &&
     (currentUser.id === selectedLead.assignedTo || canManageLeadNotes),
-  )
+  );
 
   const saveNote = async (id: string, notes: string) => {
-    const lead = leads.find((l) => l.id === id)
-    if (!lead || !currentUser || (currentUser.id !== lead.assignedTo && !canManageLeadNotes)) return
-    setLeads((current) => current.map((l) => (l.id === id ? { ...l, notes } : l)))
-    setSelectedLead((current) => (current?.id === id ? { ...current, notes } : current))
+    const lead = leads.find((l) => l.id === id);
+    if (
+      !lead ||
+      !currentUser ||
+      (currentUser.id !== lead.assignedTo && !canManageLeadNotes)
+    )
+      return;
+    setLeads((current) =>
+      current.map((l) => (l.id === id ? { ...l, notes } : l)),
+    );
+    setSelectedLead((current) =>
+      current?.id === id ? { ...current, notes } : current,
+    );
     try {
-      await apiPatch<{ success: boolean }>(`/api/leads/${id}`, { notes })
+      await apiPatch<{ success: boolean }>(`/api/leads/${id}`, { notes });
     } catch (err) {
-      console.error("Failed to save note:", err)
-      loadLeads(queryKey)
+      console.error("Failed to save note:", err);
+      loadLeads(queryKey);
     }
-  }
+  };
 
   const jobForLead = (lead: Lead): Job => ({
     id: lead.id,
@@ -211,50 +280,186 @@ export default function LeadsTab() {
     description: `${lead.company} is looking for a ${lead.jobTitle} to join their team.`,
     parser: lead.parser,
     status: "applied",
+    stage: lead.status,
     applyUrl: lead.applyUrl,
     isLead: true,
+    parsedData: (lead.parsedData ?? null) as Job["parsedData"],
     profiles: [],
-  })
+  });
 
-  const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead")
+  const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead");
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
-      {/* Toolbar — compact row */}
-      <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-background shrink-0">
-        <span className="text-sm font-semibold text-foreground mr-1">
-          Leads
-        </span>
-        <span className="flex size-5 items-center justify-center rounded bg-accent text-meta font-semibold text-muted-foreground tabular-nums">
-          {leads.length}
-        </span>
+    <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+        {/* Toolbar — compact row. All filter controls live in the right-hand
+            sidebar (shared shell with Discovery / Pipeline). */}
+        <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-background shrink-0">
+          <span className="text-sm font-semibold text-foreground mr-1">
+            Leads
+          </span>
+          <span className="flex size-5 items-center justify-center rounded bg-accent text-meta font-semibold text-muted-foreground tabular-nums">
+            {leads.length}
+          </span>
 
-        <div className="mx-2 h-4 w-px bg-border" />
+          <div className="mx-2 h-4 w-px bg-border" />
 
-        {/* Search */}
-        <GooeyInput
-          value={search}
-          onValueChange={changeSearch}
-          placeholder="Search leads..."
-          expandedWidth={192}
-        />
+          {/* Search */}
+          <GooeyInput
+            value={search}
+            onValueChange={changeSearch}
+            placeholder="Search leads..."
+            expandedWidth={192}
+          />
 
-        {/* Status dropdown */}
-        <Select value={statusFilter} onValueChange={changeStatus}>
-          <SelectTrigger size="sm" className="h-7 w-auto min-w-[130px] rounded-md text-xs text-muted-foreground bg-card border border-border shadow-none focus:ring-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-xs">Status: any</SelectItem>
-            {LEAD_STATUSES.map((s) => (
-              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          {/* Right: Filters toggle + List / Board toggle + Import */}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 h-7 rounded border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition cursor-pointer focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <Upload className="size-3.5" />
+              Import
+            </button>
+            <div className="flex items-center rounded border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                  view === "list"
+                    ? "bg-accent text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/50",
+                )}
+              >
+                <List className="size-3.5" />
+                List
+              </button>
+              <div className="w-px h-4 bg-border" />
+              <button
+                type="button"
+                onClick={() => setView("board")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                  view === "board"
+                    ? "bg-accent text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/50",
+                )}
+              >
+                <LayoutDashboard className="size-3.5" />
+                Board
+              </button>
+            </div>
 
-        {/* Date range + sort (shared with Discovery) */}
-        <DateRangeFilter value={dateRange} onValueChange={changeDateRange} />
-        <SortFilter
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className={cn(
+                "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                filtersOpen
+                  ? "border-border bg-accent text-foreground"
+                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <SlidersHorizontal className="size-3.5" />
+              Filters
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
+              <Loader2 className="size-5 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="flex-1 py-10 text-center text-sm text-destructive">
+              {error}
+            </div>
+          ) : view === "list" ? (
+            <LeadsListView
+              leads={leads}
+              users={users}
+              stages={stages}
+              doneStage={doneStage}
+              onToggleDone={toggleDone}
+              onStatusChange={updateStatus}
+              onOpen={setSelectedLead}
+            />
+          ) : (
+            <LeadsBoardView
+              leads={leads}
+              users={users}
+              stages={stages}
+              doneStage={doneStage}
+              onStatusChange={updateStatus}
+              onOpen={setSelectedLead}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Right filter sidebar — same shell and sections as Discovery/Pipeline */}
+      <FilterSidebar
+        open={filtersOpen}
+        clearable={isActiveFilter}
+        onClear={clearFilters}
+        widthClass="w-[240px]"
+      >
+        {/* Team — profile/user (coupled); a manager/admin tool. Business
+            Developers only ever see their own data, so it's hidden for them. */}
+        {canManageLeadNotes && (
+          <FilterSection title="Team">
+            <ProfileUserFilters
+              stacked
+              profiles={profiles}
+              bdUsers={bdUsers}
+              profileFilter={profileFilter}
+              setProfileFilter={changeProfile}
+              bdFilter={bdFilter}
+              setBdFilter={changeBd}
+            />
+          </FilterSection>
+        )}
+
+        {/* Status — stages come from the database (pipeline_stages) */}
+        <FilterSection title="Status">
+          <FilterOption
+            active={statusFilter === "all"}
+            onClick={() => changeStatus("all")}
+          >
+            Any
+          </FilterOption>
+          {stages.map((s, i) => (
+            <FilterOption
+              key={s.id}
+              active={statusFilter === s.name}
+              onClick={() => changeStatus(s.name)}
+              dot={stageColor(i)}
+            >
+              {s.name}
+            </FilterOption>
+          ))}
+        </FilterSection>
+
+        {/* Country — searchable dropdown over the ISO country list */}
+        <div className="px-4 pb-4">
+          <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">
+            Country
+          </p>
+          <CountryCombobox
+            value={countryFilter}
+            onValueChange={changeCountry}
+            placeholder="All Countries"
+            clearable
+          />
+        </div>
+
+        {/* Time + Sort (shared with Discovery / Pipeline) */}
+        <DateRangeSection value={dateRange} onValueChange={changeDateRange} />
+        <SortSection
           value={sort}
           onValueChange={changeSort}
           options={[
@@ -264,88 +469,7 @@ export default function LeadsTab() {
             { value: "company_desc", label: "Company Z–A" },
           ]}
         />
-
-        {/* Right: List / Board toggle + New button */}
-        <div className="ml-auto flex items-center gap-2">
-          <div className="flex items-center rounded border border-border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer",
-                view === "list"
-                  ? "bg-accent text-foreground font-medium"
-                  : "text-muted-foreground hover:bg-accent/50",
-              )}
-            >
-              <List className="size-3.5" />
-              List
-            </button>
-            <div className="w-px h-4 bg-border" />
-            <button
-              type="button"
-              onClick={() => setView("board")}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer",
-                view === "board"
-                  ? "bg-accent text-foreground font-medium"
-                  : "text-muted-foreground hover:bg-accent/50",
-              )}
-            >
-              <LayoutDashboard className="size-3.5" />
-              Board
-            </button>
-          </div>
-
-          <button
-            type="button"
-            title="Leads are created from applied jobs in the Pipeline page."
-            className="flex items-center gap-1.5 h-7 rounded bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
-          >
-            <Plus className="size-3.5" />
-            New lead
-          </button>
-        </div>
-      </div>
-
-      {/* Profile / user filters — a manager/admin tool. Business Developers
-          only ever see their own data, so the bar is hidden for them. */}
-      {canManageLeadNotes && (
-        <LeadFilterBar
-          profiles={profiles}
-          bdUsers={bdUsers}
-          profileFilter={profileFilter}
-          setProfileFilter={changeProfile}
-          bdFilter={bdFilter}
-          setBdFilter={changeBd}
-        />
-      )}
-
-      {/* Content */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">
-            <Loader2 className="size-5 animate-spin text-primary" />
-          </div>
-        ) : error ? (
-          <div className="flex-1 py-10 text-center text-sm text-destructive">{error}</div>
-        ) : view === "list" ? (
-          <LeadsListView
-            leads={leads}
-            users={users}
-            onToggleDone={toggleDone}
-            onStatusChange={updateStatus}
-            onOpen={setSelectedLead}
-          />
-        ) : (
-          <LeadsBoardView
-            leads={leads}
-            users={users}
-            onStatusChange={updateStatus}
-            onOpen={setSelectedLead}
-          />
-        )}
-      </div>
+      </FilterSidebar>
 
       <JobDrawer
         open={selectedLead !== null}
@@ -355,9 +479,26 @@ export default function LeadsTab() {
         showActions={false}
         commentsJobId={selectedLead?.jobId}
         notes={selectedLead?.notes}
-        onNotesSave={(value) => { if (selectedLead) saveNote(selectedLead.id, value) }}
+        onNotesSave={(value) => {
+          if (selectedLead) saveNote(selectedLead.id, value);
+        }}
         canEditNotes={canEditNotes}
+        stages={stages.map((s) => ({ id: s.id, name: s.name }))}
+        onStageChange={(stage) => {
+          if (selectedLead) updateStatus(selectedLead.id, stage);
+        }}
+      />
+
+      {/* Import — bulk-add jobs from an Excel file; defaults to importing as
+          Leads (this page's kind), so Stage / Developer / Notes are offered. */}
+      <ImportJobsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => loadLeads(queryKey)}
+        defaultKind="lead"
+        profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
+        stages={stages.map((s) => ({ id: s.id, name: s.name }))}
       />
     </div>
-  )
+  );
 }

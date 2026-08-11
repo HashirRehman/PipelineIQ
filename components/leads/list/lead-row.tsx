@@ -3,31 +3,37 @@
 import { Calendar, Check, MapPin, MessageSquare } from "lucide-react"
 import { Avatar } from "@/components/avatar"
 import { TintedBadge } from "@/components/tinted-badge"
-import { LeadStatusSelect } from "@/components/leads/lead-status-select"
+import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
 import type { Lead } from "@/components/leads/types"
-import { LEAD_STATUS_DONE, WORK_TYPE_COLOR, type LeadStatus } from "@/lib/constants"
+import { WORK_TYPE_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export function LeadRow({
   lead,
   bdName,
+  stages,
+  doneStage,
   onToggleDone,
   onStatusChange,
   onOpen,
 }: {
   lead: Lead
   bdName?: string
+  stages: StageOption[]
+  doneStage: string | null
   onToggleDone: (id: string) => void
-  onStatusChange: (id: string, status: LeadStatus) => void
+  onStatusChange: (id: string, status: string) => void
   onOpen: (lead: Lead) => void
 }) {
-  const isDone = lead.status === LEAD_STATUS_DONE
+  const isDone = doneStage !== null && lead.status === doneStage
 
   return (
+    // content-visibility: with up to a hundred rows, off-screen rows skip
+    // layout/paint until scrolled into view (rendering-content-visibility).
     <div
       className={cn(
-        "group flex items-center gap-3 border-b border-border bg-background px-5 py-1.5 transition-colors hover:bg-accent/40",
+        "group flex items-center gap-3 border-b border-border bg-background px-5 py-1.5 transition-colors hover:bg-accent/40 [content-visibility:auto] [contain-intrinsic-size:auto_52px]",
         isDone && "opacity-55",
       )}
     >
@@ -124,6 +130,7 @@ export function LeadRow({
       <div className="shrink-0" onClick={e => e.stopPropagation()}>
         <LeadStatusSelect
           value={lead.status}
+          stages={stages}
           onChange={status => onStatusChange(lead.id, status)}
         />
       </div>

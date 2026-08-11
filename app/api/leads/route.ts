@@ -37,6 +37,10 @@ export interface ApiLead {
   notes: string;
   parser: string;
   applyUrl: string;
+  /** Raw jobs.parsed_data (jsonb) — includes the manual/imported extras
+   * (budget, source, developer, salaryRange) so the job drawer can show
+   * everything that was added. */
+  parsedData: unknown | null;
 }
 
 export interface ApiLeadUser {
@@ -62,6 +66,7 @@ type LeadRow = {
     company_location: string | null;
     is_remote: boolean | null;
     apply_url: string;
+    parsed_data: unknown;
     scrapers: { name: string } | null;
   } | null;
   profiles: { full_name: string; user_id: string | null } | null;
@@ -85,6 +90,7 @@ function toApiLead(row: LeadRow): ApiLead {
     notes: row.notes ?? "",
     parser: row.jobs?.scrapers?.name ?? "",
     applyUrl: row.jobs?.apply_url ?? "",
+    parsedData: row.jobs?.parsed_data ?? null,
   };
 }
 
@@ -120,6 +126,9 @@ export async function GET(request: Request) {
   const pageSize = parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
   const search = (searchParams.get("search") ?? "").trim().toLowerCase();
   const status = searchParams.get("status") ?? "";
+  // Country filter — a country name from lib/countries, matched as a
+  // case-insensitive substring of the job's company_location.
+  const country = (searchParams.get("country") ?? "").trim().toLowerCase();
   const profileId = searchParams.get("profileId") ?? "";
   const userId = searchParams.get("userId") ?? "";
   // Explicit date window (Friday–Thursday weeks / calendar months, computed
@@ -131,7 +140,7 @@ export async function GET(request: Request) {
     supabase
       .from("leads")
       .select(
-        "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
+        "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
       )
       .eq("organization_id", organizationId)
       .is("deleted_at", null),
@@ -181,8 +190,18 @@ export async function GET(request: Request) {
     const matchStatus = !status || stageName === status;
     const matchProfile = !profileId || row.profile_id === profileId;
     const matchUser = !userId || row.user_id === userId;
+    const matchCountry =
+      !country ||
+      (row.jobs?.company_location ?? "").toLowerCase().includes(country);
     const matchDate = isWithinWindow(row.applied_at, dateWindow);
-    return matchSearch && matchStatus && matchProfile && matchUser && matchDate;
+    return (
+      matchSearch &&
+      matchStatus &&
+      matchProfile &&
+      matchUser &&
+      matchCountry &&
+      matchDate
+    );
   });
 
   const companyOf = (row: LeadRow) => (row.jobs?.company_name ?? "").toLowerCase();

@@ -45,16 +45,27 @@ function DrawerOverlay({
   )
 }
 
-function DrawerContent({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+const DrawerContent = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<typeof DrawerPrimitive.Content>
+>(function DrawerContent(
+  { className, children, style, ...props },
+  ref,
+) {
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
+        ref={ref}
         data-slot="drawer-content"
+        // Vaul injects `will-change: transform` on [data-vaul-drawer], which
+        // turns the drawer into a containing block for fixed-position
+        // descendants. Popups portaled INTO the drawer (the lead stage
+        // select) are then positioned relative to the drawer's origin instead
+        // of the viewport — right-anchored drawers push the popup far right.
+        // Neutralize the hint (it only affects compositing, not the slide
+        // animation) so fixed positioning stays viewport-relative.
+        style={{ willChange: "auto", ...style }}
         className={cn(
           "group/drawer-content fixed z-50 flex h-auto flex-col bg-popover text-sm text-popover-foreground data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80vh] data-[vaul-drawer-direction=bottom]:rounded-t-xl data-[vaul-drawer-direction=bottom]:border-t data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:rounded-r-xl data-[vaul-drawer-direction=left]:border-r data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:rounded-l-xl data-[vaul-drawer-direction=right]:border-l data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-xl data-[vaul-drawer-direction=top]:border-b data-[vaul-drawer-direction=left]:sm:max-w-sm data-[vaul-drawer-direction=right]:sm:max-w-sm",
           className
@@ -66,7 +77,7 @@ function DrawerContent({
       </DrawerPrimitive.Content>
     </DrawerPortal>
   )
-}
+})
 
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
