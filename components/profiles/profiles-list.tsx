@@ -3,8 +3,11 @@
 import { useMemo, useState } from "react";
 import { MapPin, UserRound } from "lucide-react";
 import { NewEditProfileDialog } from "./new-edit-profile-dialog";
+import { ProfilesListView } from "./profiles-list-view";
 import { GooeyInput } from "@/components/ui/gooey-input";
+import { ViewToggle } from "@/components/jobs/view-toggle";
 import { ResultsCount } from "@/components/results-count";
+import { usePersistedView } from "@/hooks/use-persisted-view";
 
 export type ProfileListItem = {
   id: string;
@@ -22,7 +25,7 @@ export type ProfileListItem = {
 type StatusFilter = "all" | "active" | "inactive";
 type SeniorityLevel = { id: string; name: string };
 
-function getInitials(name: string) {
+export function getInitials(name: string) {
   return name
     .split(" ")
     .filter(Boolean)
@@ -31,7 +34,7 @@ function getInitials(name: string) {
     .join("");
 }
 
-function formatRate(profile: ProfileListItem) {
+export function formatRate(profile: ProfileListItem) {
   if (profile.rateExpectation === null) {
     return "Rate not set";
   }
@@ -54,6 +57,7 @@ export function ProfilesList({
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [view, setView] = usePersistedView("profiles");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -116,6 +120,7 @@ export function ProfilesList({
             ))}
           </div>
         </div>
+        <ViewToggle view={view} onChange={setView} />
         {canManage && onProfileCreated && (
           <NewEditProfileDialog
             seniorityLevels={seniorityLevels}
@@ -143,7 +148,13 @@ export function ProfilesList({
                 label={filtered.length === 1 ? "candidate" : "candidates"}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {view === "list" ? (
+              <ProfilesListView
+                profiles={filtered}
+                onSelectProfile={onSelectProfile}
+              />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((profile) => (
               <button
                 key={profile.id}
@@ -200,7 +211,8 @@ export function ProfilesList({
                 </div>
               </button>
             ))}
-            </div>
+              </div>
+            )}
           </>
         )}
       </div>

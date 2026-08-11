@@ -5,7 +5,10 @@ import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { GooeyInput } from "@/components/ui/gooey-input"
 import { FilterOption } from "@/components/jobs/filter-option"
 import { JobCard } from "@/components/jobs/job-card"
+import { JobListView } from "@/components/jobs/job-list-view"
 import { Pagination } from "@/components/jobs/pagination"
+import { ViewToggle } from "@/components/jobs/view-toggle"
+import { useJobView } from "@/hooks/use-job-view"
 import JobDrawer, { type Job } from "@/components/job-drawer"
 import { ProfileUserFilters } from "@/components/leads/profile-user-filters"
 import { ResultsCount } from "@/components/results-count"
@@ -36,7 +39,7 @@ import {
 import { cn } from "@/lib/utils"
 import { apiPost, withOrgId } from "@/lib/api/client"
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 20
 
 // Lead visibility on the applied feed. Default: jobs already in the leads
 // pipeline are hidden; "in_leads" shows only those; "all" shows both.
@@ -143,6 +146,7 @@ export default function AppliedJobsTab() {
   const [addToLeadPending, setAddToLeadPending] = useState(false)
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
+  const [view, setView] = useJobView()
   // Bumped after a job action (add-to-leads / dismiss) so the feed silently
   // re-fetches and reflects the updated per-profile state.
   const [refreshKey, setRefreshKey] = useState(0)
@@ -284,19 +288,22 @@ export default function AppliedJobsTab() {
             placeholder="Search pipeline by title, company, or location..."
             expandedWidth={576}
           />
-          <button
-            type="button"
-            onClick={() => setFiltersOpen(open => !open)}
-            className={cn(
-              "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer",
-              filtersOpen
-                ? "border-border bg-accent text-foreground"
-                : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <SlidersHorizontal className="size-3.5" />
-            Filters
-          </button>
+          <div className="flex items-center gap-2">
+            <ViewToggle view={view} onChange={setView} />
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(open => !open)}
+              className={cn(
+                "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer",
+                filtersOpen
+                  ? "border-border bg-accent text-foreground"
+                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <SlidersHorizontal className="size-3.5" />
+              Filters
+            </button>
+          </div>
         </div>
 
         {/* Jobs grid + pagination */}
@@ -325,15 +332,19 @@ export default function AppliedJobsTab() {
               <div className="flex items-center pb-3">
                 <ResultsCount count={totalCount} label="applied" />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {jobs.map(job => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    onClick={() => setSelectedJob(job)}
-                  />
-                ))}
-              </div>
+              {view === "list" ? (
+                <JobListView jobs={jobs} onClick={setSelectedJob} />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {jobs.map(job => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      onClick={() => setSelectedJob(job)}
+                    />
+                  ))}
+                </div>
+              )}
 
               {totalPages > 1 && (
                 <Pagination page={page} totalPages={totalPages} onChange={setPage} className="mt-6" />

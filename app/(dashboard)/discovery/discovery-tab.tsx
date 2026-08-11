@@ -7,7 +7,10 @@ import { RunDiscoveryButton } from "@/components/run-discovery-button";
 import { ResultsCount } from "@/components/results-count";
 import { FilterOption } from "@/components/jobs/filter-option";
 import { JobCard } from "@/components/jobs/job-card";
+import { JobListView } from "@/components/jobs/job-list-view";
 import { Pagination } from "@/components/jobs/pagination";
+import { ViewToggle } from "@/components/jobs/view-toggle";
+import { useJobView } from "@/hooks/use-job-view";
 import {
   DateRangeSection,
   SortSection,
@@ -26,7 +29,7 @@ import JobDrawer, { type Job } from "@/components/job-drawer";
 import { apiPost, withOrgId } from "@/lib/api/client";
 
 const REGIONS = ["Global", "US Only"];
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
 
 const REGION_TO_PARAM: Record<string, string> = {
   Global: "",
@@ -89,6 +92,7 @@ export default function DiscoveryTab() {
   const [dismissReason, setDismissReason] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [markAppliedPending, setMarkAppliedPending] = useState(false);
+  const [view, setView] = useJobView();
   // Bumped after a job action (mark-applied / dismiss) so the feed silently
   // re-fetches and reflects the updated per-profile state.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -219,6 +223,7 @@ export default function DiscoveryTab() {
           />
           <div className="flex items-center gap-2">
             <RunDiscoveryButton />
+            <ViewToggle view={view} onChange={setView} />
             <button
               type="button"
               onClick={() => setFiltersOpen((open) => !open)}
@@ -269,15 +274,19 @@ export default function DiscoveryTab() {
                   label={totalCount === 1 ? "job" : "jobs"}
                 />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {jobs.map((job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    onClick={() => setSelectedJob(job)}
-                  />
-                ))}
-              </div>
+              {view === "list" ? (
+                <JobListView jobs={jobs} onClick={setSelectedJob} />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {jobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      onClick={() => setSelectedJob(job)}
+                    />
+                  ))}
+                </div>
+              )}
 
               {totalPages > 1 && (
                 <Pagination

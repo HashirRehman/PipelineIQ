@@ -35,7 +35,14 @@ export function RunDiscoveryButton() {
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={handleRun} disabled={isPending}>
+      <Button
+        type="button"
+        variant="outline"
+        size="default"
+        onClick={handleRun}
+        disabled={isPending}
+        className="h-9 rounded-md px-3 text-xs font-medium"
+      >
         {isPending ? "Running discovery… (can take up to ~30s)" : "Run Discovery Now"}
       </Button>
 
