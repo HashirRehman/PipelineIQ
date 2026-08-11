@@ -6,13 +6,13 @@ import { LoginForm } from "./login-form"
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; message?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect("/")
 
-  const { error } = await searchParams
+  const { error, message } = await searchParams
 
   return (
     <div className="min-h-screen bg-page-bg flex items-center justify-center px-4">
@@ -30,6 +30,12 @@ export default async function LoginPage({
               Enter your email and password to continue.
             </p>
           </div>
+
+          {message && !error && (
+            <div className="mb-4 rounded-md bg-success border border-success-foreground/20 px-3 py-2">
+              <p className="text-xs text-success-foreground">{decodeURIComponent(message)}</p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">

@@ -178,10 +178,18 @@ export async function POST(request: Request) {
 
   const adminClient = createAdminClient();
 
+  // Fall back to the request's own origin: an unset NEXT_PUBLIC_SITE_URL would
+  // otherwise send every invite to a literal "undefined/auth/confirm". Note the
+  // target must also be in the project's Auth redirect allow list, or Supabase
+  // silently falls back to site_url and the invite lands on the login page.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
+    new URL(request.url).origin;
+
   const { data: inviteData, error: inviteError } =
     await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: name },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
+      redirectTo: `${siteUrl}/auth/confirm`,
     });
 
   if (inviteError) {
