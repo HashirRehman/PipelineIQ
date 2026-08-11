@@ -1,94 +1,53 @@
 "use client"
-import { useCallback, useEffect, useState } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ProfilesListApiResponse } from "@/app/api/profiles/route"
 import type { ProfileDetailApiResponse } from "@/app/api/profiles/[profileId]/route"
 import { ProfileDetailSheet } from "@/components/profiles/profile-detail-sheet"
 import { ProfilesList } from "@/components/profiles/profiles-list"
 import { Skeleton } from "@/components/ui/skeleton"
-import { withOrgId } from "@/lib/api/client"
+import { cvParseState } from "@/components/profiles/profile-cv-details"
+import { ApiError, apiGet } from "@/lib/api/client"
+import { queryKeys } from "@/lib/api/query-keys"
 import { Loader2 } from "lucide-react"
 
+// A freshly uploaded CV is parsed in the background, and nothing pushes the
+// result to the browser.
+const PARSE_POLL_INTERVAL_MS = 3000
+
 export default function ProfilesTab() {
-  const [listData, setListData] = useState<ProfilesListApiResponse | null>(null)
+  const queryClient = useQueryClient()
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
-  const [detailData, setDetailData] = useState<ProfileDetailApiResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [accessDenied, setAccessDenied] = useState(false)
-  const [detailError, setDetailError] = useState<string | null>(null)
 
-  const loadProfiles = useCallback(async (signal?: AbortSignal, options?: { silent?: boolean }) => {
-    try {
-      const res = await fetch(withOrgId("/api/profiles"), { signal, cache: "no-store" })
-      if (res.status === 403) {
-        setAccessDenied(true)
-        return
-      }
-      if (!res.ok) throw new Error("Failed to load profiles.")
-      setListData(await res.json() as ProfilesListApiResponse)
-      setError(null)
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return
-      setError("Unable to load candidate profiles.")
-    } finally {
-      if (!signal?.aborted && !options?.silent) setLoading(false)
-    }
-  }, [])
+  const list = useQuery({
+    queryKey: queryKeys.profiles.list(),
+    queryFn: ({ signal }) => apiGet<ProfilesListApiResponse>("/api/profiles", signal),
+  })
 
-  useEffect(() => {
-    const ctrl = new AbortController()
-    async function loadInitial() {
-      await loadProfiles(ctrl.signal)
-    }
-    loadInitial()
-    return () => ctrl.abort()
-  }, [loadProfiles])
+  const detail = useQuery({
+    queryKey: queryKeys.profiles.detail(selectedProfileId ?? "none"),
+    queryFn: ({ signal }) =>
+      apiGet<ProfileDetailApiResponse>(
+        `/api/profiles/${encodeURIComponent(selectedProfileId!)}`,
+        signal,
+      ),
+    enabled: selectedProfileId !== null,
+    refetchInterval: (query) =>
+      query.state.data?.cvs.some((cv) => cvParseState(cv) === "parsing")
+        ? PARSE_POLL_INTERVAL_MS
+        : false,
+  })
 
-  const fetchDetail = useCallback(async (profileId: string): Promise<ProfileDetailApiResponse> => {
-    const res = await fetch(withOrgId(`/api/profiles/${encodeURIComponent(profileId)}`), { cache: "no-store" })
-    if (!res.ok) throw new Error("Failed to load profile.")
-    return res.json()
-  }, [])
+  const listData = list.data
+  const detailData = selectedProfileId ? detail.data : undefined
 
-  const selectProfile = async (profileId: string) => {
-    setSelectedProfileId(profileId)
-    setDetailData(null)
-    setDetailError(null)
-    setDetailLoading(true)
-    try {
-      setDetailData(await fetchDetail(profileId))
-    } catch {
-      setDetailError("Unable to load the selected profile.")
-    } finally {
-      setDetailLoading(false)
-    }
-  }
+  // 403 = role may not see profiles; a real answer, not a failure.
+  const accessDenied = list.error instanceof ApiError && list.error.status === 403
 
-  const refreshAfterMutation = async () => {
-    if (!selectedProfileId) {
-      await loadProfiles(undefined, { silent: true })
-      return
-    }
-    const [, detailResult] = await Promise.allSettled([
-      loadProfiles(undefined, { silent: true }),
-      fetchDetail(selectedProfileId),
-    ])
-    if (detailResult.status === "fulfilled") {
-      setDetailData(detailResult.value)
-      setDetailError(null)
-    } else {
-      setDetailError("Unable to refresh profile.")
-    }
-  }
+  const refreshAfterMutation = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all() })
 
-  const closeDetail = () => {
-    setSelectedProfileId(null)
-    setDetailData(null)
-    setDetailError(null)
-  }
-
-  if (loading) {
+  if (list.isPending) {
     return (
       <div className="flex flex-1 flex-col gap-3 p-6">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -117,11 +76,11 @@ export default function ProfilesTab() {
     )
   }
 
-  if (error || !listData) {
+  if (list.error || !listData) {
     return (
       <div className="p-8">
         <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error ?? "Unable to load profiles."}
+          Unable to load candidate profiles.
         </div>
       </div>
     )
@@ -133,16 +92,16 @@ export default function ProfilesTab() {
         profiles={listData.profiles}
         canManage={listData.canManage}
         seniorityLevels={listData.seniorityLevels}
-        onSelectProfile={selectProfile}
+        onSelectProfile={setSelectedProfileId}
         onProfileCreated={async (profileId) => {
-          setLoading(true)
-          await loadProfiles()
-          await selectProfile(profileId)
+          await refreshAfterMutation()
+          setSelectedProfileId(profileId)
         }}
       />
 
-      {/* Loading overlay */}
-      {detailLoading && selectedProfileId && (
+      {/* Loading overlay — only before the first load of a profile; a cached
+          one opens straight away. */}
+      {selectedProfileId && detail.isPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/20">
           <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-lg">
             <Loader2 className="size-4 animate-spin text-primary" />
@@ -151,22 +110,20 @@ export default function ProfilesTab() {
         </div>
       )}
 
-      {/* Detail error toast */}
-      {detailError && (
+      {selectedProfileId && detail.error && (
         <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-md border border-destructive/30 bg-background px-4 py-3 text-sm text-destructive shadow-lg">
-          {detailError}
+          Unable to load the selected profile.
         </div>
       )}
 
-      {/* Detail sheet */}
       <ProfileDetailSheet
-        open={detailData !== null}
+        open={detailData != null}
         profile={detailData?.profile ?? null}
-        seniorityLevels={listData?.seniorityLevels ?? []}
-        assignableUsers={listData?.assignableUsers ?? []}
+        seniorityLevels={listData.seniorityLevels}
+        assignableUsers={listData.assignableUsers}
         cvs={detailData?.cvs ?? []}
-        canManage={listData?.canManage ?? false}
-        onClose={closeDetail}
+        canManage={listData.canManage}
+        onClose={() => setSelectedProfileId(null)}
         onChanged={refreshAfterMutation}
       />
     </>

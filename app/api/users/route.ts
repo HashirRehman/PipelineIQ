@@ -25,6 +25,14 @@ export interface ApiRole {
   name: string;
 }
 
+export interface UsersApiResponse {
+  users: ApiAppUser[];
+  roles: ApiRole[];
+  currentUser: ApiAppUser | null;
+  isAdmin: boolean;
+  canInvite: boolean;
+}
+
 
 async function findRoleById(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -117,16 +125,17 @@ export async function GET(request: Request) {
     joinedAt: new Date().toISOString().split("T")[0],
   };
 
-  // GET is gated above (Admin + BD Manager). isAdmin gates the row actions
-  // (edit / deactivate / delete — admin-only); canInvite gates the invite
-  // button (also admin-only). BD Managers see the roster but nothing else.
-  return NextResponse.json({
+  // isAdmin gates row actions; canInvite gates the invite button. BD Managers
+  // see the roster only.
+  const response: UsersApiResponse = {
     users,
     roles,
     currentUser: currentUserObj,
     isAdmin: perms.isAdmin,
     canInvite: perms.canInviteUsers,
-  });
+  };
+
+  return NextResponse.json(response);
 }
 
 export async function POST(request: Request) {

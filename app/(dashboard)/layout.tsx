@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Sidebar from "./sidebar";
 import { TopBar } from "@/components/top-bar";
 import { OrganizationProvider } from "@/components/organization-provider";
-import { getCachedOrganizationId, getCachedUser, getCachedUserRole } from "@/lib/supabase/server";
+import { QueryProvider } from "@/components/query-provider";
+import {
+  getCachedOrganizationId,
+  getCachedUser,
+  getCachedUserRole,
+} from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: {
@@ -33,28 +38,31 @@ export default async function DashboardLayout({
     "User";
 
   return (
+    // OrganizationProvider outermost: query keys are org-scoped.
     <OrganizationProvider organizationId={organizationId}>
-      <div className="flex h-screen overflow-hidden bg-page-bg text-foreground">
-        <Sidebar
-          user={{
-            name,
-            email: user?.email ?? "",
-            role: role ? role.toLowerCase() : null,
-          }}
-        />
-        <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
-          <TopBar
+      <QueryProvider>
+        <div className="flex h-screen overflow-hidden bg-page-bg text-foreground">
+          <Sidebar
             user={{
               name,
               email: user?.email ?? "",
               role: role ? role.toLowerCase() : null,
             }}
           />
-          <main className="flex flex-1 min-w-0 flex-col overflow-hidden">
-            {children}
-          </main>
+          <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+            <TopBar
+              user={{
+                name,
+                email: user?.email ?? "",
+                role: role ? role.toLowerCase() : null,
+              }}
+            />
+            <main className="flex flex-1 min-w-0 flex-col overflow-hidden">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </QueryProvider>
     </OrganizationProvider>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   List,
   LayoutDashboard,
@@ -30,7 +31,8 @@ import {
   type DateRange,
   type SortOption,
 } from "@/lib/constants";
-import { apiPatch, withOrgId } from "@/lib/api/client";
+import { apiGet, apiPatch } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
 import { getDateWindow } from "@/lib/date-window";
 import JobDrawer, { type Job } from "@/components/job-drawer";
 import dynamic from "next/dynamic";
@@ -110,15 +112,7 @@ function toLead(a: ApiLead): Lead {
 }
 
 export default function LeadsTab() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [stages, setStages] = useState<LeadsResponse["pipelineStages"]>([]);
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [canManageLeadNotes, setCanManageLeadNotes] = useState(false);
+  const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -132,17 +126,11 @@ export default function LeadsTab() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
-  const [appliedKey, setAppliedKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   // Stage each lead sat in before its checkbox was ticked, so unticking
   // returns it there rather than dumping everything back into the first stage.
   const [stageBeforeDone, setStageBeforeDone] = useState<Record<string, string>>({});
 
-  // The terminal stage — the last one in the ordered pipeline. Marking a lead
-  // "done" moves it here; unticking returns it to its previous stage.
-  const doneStage = stages.length > 0 ? stages[stages.length - 1].name : null;
-
-  const queryKey = buildQueryKey({
+  const params = buildQueryKey({
     search,
     status: statusFilter,
     country: countryFilter,
@@ -151,33 +139,36 @@ export default function LeadsTab() {
     dateRange,
     sort,
   });
-  const loading = appliedKey !== queryKey;
+  const leadsKey = queryKeys.leads.list(params);
 
-  const loadLeads = (key: string) => {
-    fetch(withOrgId(`/api/leads?${key}`))
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load leads");
-        return res.json() as Promise<LeadsResponse>;
-      })
-      .then((json) => {
-        setLeads(json.leads.map(toLead));
-        setUsers(json.users);
-        setProfiles(json.profiles);
-        setStages(json.pipelineStages);
-        setCurrentUser(json.currentUser);
-        setCanManageLeadNotes(json.canManageLeadNotes ?? false);
-        setError(null);
-      })
-      .catch((err) => {
-        console.error("Failed to load leads:", err);
-        setError("Failed to load leads");
-      })
-      .finally(() => setAppliedKey(key));
+  const { data, isPending, error } = useQuery({
+    queryKey: leadsKey,
+    queryFn: ({ signal }) => apiGet<LeadsResponse>(`/api/leads?${params}`, signal),
+  });
+
+  const leads = useMemo(() => (data?.leads ?? []).map(toLead), [data]);
+  const users: AppUser[] = data?.users ?? [];
+  const profiles: Profile[] = data?.profiles ?? [];
+  const stages = data?.pipelineStages ?? [];
+  const currentUser = data?.currentUser ?? null;
+  const canManageLeadNotes = data?.canManageLeadNotes ?? false;
+
+  // The terminal stage — the last one in the ordered pipeline. Marking a lead
+  // "done" moves it here; unticking returns it to its previous stage.
+  const doneStage = stages.length > 0 ? stages[stages.length - 1].name : null;
+
+  /** Optimistic write into this filter's cached page. */
+  const patchCachedLead = (id: string, patch: Partial<ApiLead>) => {
+    queryClient.setQueryData<LeadsResponse>(leadsKey, (current) =>
+      current
+        ? { ...current, leads: current.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) }
+        : current,
+    );
   };
 
-  useEffect(() => {
-    loadLeads(queryKey);
-  }, [queryKey]);
+  // Other filter combinations are cached too, and status is exactly what some
+  // of them filter on, so every write invalidates the whole leads area.
+  const refreshLeads = () => queryClient.invalidateQueries({ queryKey: queryKeys.leads.all() });
 
   const changeSearch = (v: string) => setSearch(v);
   const changeStatus = (v: string | null) => setStatusFilter(v ?? "all");
@@ -211,9 +202,7 @@ export default function LeadsTab() {
     const stageId = stageIdFor(status);
     if (!stageId) return;
     // Optimistic update — the status select / board drag should feel instant.
-    setLeads((current) =>
-      current.map((lead) => (lead.id === id ? { ...lead, status } : lead)),
-    );
+    patchCachedLead(id, { status });
     setSelectedLead((current) =>
       current?.id === id ? { ...current, status } : current,
     );
@@ -223,7 +212,8 @@ export default function LeadsTab() {
       });
     } catch (err) {
       console.error("Failed to update lead status:", err);
-      loadLeads(queryKey); // resync
+    } finally {
+      await refreshLeads();
     }
   };
 
@@ -257,9 +247,7 @@ export default function LeadsTab() {
       (currentUser.id !== lead.assignedTo && !canManageLeadNotes)
     )
       return;
-    setLeads((current) =>
-      current.map((l) => (l.id === id ? { ...l, notes } : l)),
-    );
+    patchCachedLead(id, { notes });
     setSelectedLead((current) =>
       current?.id === id ? { ...current, notes } : current,
     );
@@ -267,7 +255,8 @@ export default function LeadsTab() {
       await apiPatch<{ success: boolean }>(`/api/leads/${id}`, { notes });
     } catch (err) {
       console.error("Failed to save note:", err);
-      loadLeads(queryKey);
+    } finally {
+      await refreshLeads();
     }
   };
 
@@ -372,13 +361,13 @@ export default function LeadsTab() {
 
         {/* Content */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          {loading ? (
+          {isPending ? (
             <div className="flex flex-1 items-center justify-center text-muted-foreground">
               <Loader2 className="size-5 animate-spin text-primary" />
             </div>
           ) : error ? (
             <div className="flex-1 py-10 text-center text-sm text-destructive">
-              {error}
+              Failed to load leads
             </div>
           ) : view === "list" ? (
             <LeadsListView
@@ -496,7 +485,7 @@ export default function LeadsTab() {
       <ImportJobsDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImported={() => loadLeads(queryKey)}
+        onImported={refreshLeads}
         defaultKind="lead"
         profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
         stages={stages.map((s) => ({ id: s.id, name: s.name }))}
