@@ -459,61 +459,66 @@ export default function SettingsTab() {
         {/* TAB 1: PROFILE & ACCOUNT */}
         {activeTab === "profile" && (
           <div className="max-w-2xl space-y-6">
-            <form onSubmit={handleUpdateProfile} className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-sm">
-              <div className="flex items-center gap-2 border-b border-border pb-3">
-                <User className="size-4 text-primary" />
-                <h2 className="text-sm font-bold text-foreground">Personal Information</h2>
+            <form onSubmit={handleUpdateProfile} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+                <User className="size-4.5 text-primary" />
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Personal Information</h2>
+                  <p className="text-caption text-muted-foreground mt-0.5">Update your display name and view account details.</p>
+                </div>
               </div>
 
               {profileSuccess && (
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
                   <ShieldCheck className="size-4 shrink-0" />
                   <span>{profileSuccess}</span>
                 </div>
               )}
 
               {profileError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive flex items-center gap-2">
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
                   <AlertCircle className="size-4 shrink-0" />
                   <span>{profileError}</span>
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Full Name</label>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="max-w-md h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Email Address</label>
-                <Input
-                  value={email}
-                  readOnly
-                  disabled
-                  className="max-w-md h-9 text-sm bg-muted/50 cursor-not-allowed opacity-70"
-                />
-                <p className="text-caption text-muted-foreground">
-                  Email address is linked to your organization account and cannot be changed directly.
-                </p>
-              </div>
-
-              {userRole && (
-                <div className="space-y-1.5 pt-1">
-                  <label className="text-xs font-semibold text-foreground block">Assigned Role</label>
-                  <Badge variant="outline" className="capitalize text-xs px-2.5 py-0.5">
-                    {userRole}
-                  </Badge>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">Full Name</label>
+                  <Input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full max-w-xl h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                  />
                 </div>
-              )}
 
-              <div className="pt-3 border-t border-border flex justify-end">
-                <Button type="submit" disabled={savingProfile || !name.trim()} className="h-9 px-5 text-xs font-semibold">
-                  {savingProfile && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">Email Address</label>
+                  <Input
+                    value={email}
+                    readOnly
+                    disabled
+                    className="w-full max-w-xl h-10 text-sm bg-muted/40 cursor-not-allowed opacity-75 border-border/60"
+                  />
+                  <p className="text-caption text-muted-foreground">
+                    Email address is managed by your organization account and cannot be modified directly.
+                  </p>
+                </div>
+
+                {userRole && (
+                  <div className="space-y-2 pt-1">
+                    <label className="text-xs font-semibold text-foreground/90 block">Assigned Role</label>
+                    <Badge variant="outline" className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary border-primary/20 rounded-md">
+                      {userRole}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-border/70 flex justify-end">
+                <Button type="submit" disabled={savingProfile || !name.trim()} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                  {savingProfile && <Loader2 className="size-3.5 animate-spin mr-2" />}
                   Save Profile Name
                 </Button>
               </div>
@@ -524,64 +529,71 @@ export default function SettingsTab() {
         {/* TAB 2: SECURITY & PASSWORD */}
         {activeTab === "security" && (
           <div className="max-w-2xl space-y-6">
-            <form onSubmit={handleUpdatePassword} className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-sm">
-              <div className="flex items-center gap-2 border-b border-border pb-3">
-                <KeyRound className="size-4 text-primary" />
-                <h2 className="text-sm font-bold text-foreground">Change Password</h2>
+            <form onSubmit={handleUpdatePassword} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+                <KeyRound className="size-4.5 text-primary" />
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Change Password</h2>
+                  <p className="text-caption text-muted-foreground mt-0.5">Ensure your account uses a strong, secure password.</p>
+                </div>
               </div>
 
               {passwordSuccess && (
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
                   <ShieldCheck className="size-4 shrink-0" />
                   <span>{passwordSuccess}</span>
                 </div>
               )}
 
               {passwordError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive flex items-center gap-2">
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
                   <AlertCircle className="size-4 shrink-0" />
                   <span>{passwordError}</span>
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">New Password</label>
-                <div className="relative max-w-md">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Enter new password (min. 8 characters)"
-                    className="h-9 text-sm pr-9"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">New Password</label>
+                  <div className="relative w-full max-w-xl">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (min. 8 characters)"
+                      className="w-full h-10 text-sm pr-10 px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">Confirm New Password</label>
+                  <div className="relative w-full max-w-xl">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="w-full h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-caption text-muted-foreground leading-relaxed pt-1">
+                  Ensure your password is at least 8 characters long and includes a combination of letters, numbers, and symbols for maximum security.
+                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Confirm New Password</label>
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className="max-w-md h-9 text-sm"
-                />
-              </div>
-
-              <p className="text-caption text-muted-foreground leading-relaxed">
-                Ensure your password is at least 8 characters long and includes a combination of letters, numbers, and symbols for high security.
-              </p>
-
-              <div className="pt-3 border-t border-border flex justify-end">
-                <Button type="submit" disabled={savingPassword || !newPassword || !confirmPassword} className="h-9 px-5 text-xs font-semibold">
-                  {savingPassword && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
+              <div className="pt-4 border-t border-border/70 flex justify-end">
+                <Button type="submit" disabled={savingPassword || !newPassword || !confirmPassword} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                  {savingPassword && <Loader2 className="size-3.5 animate-spin mr-2" />}
                   Update Password
                 </Button>
               </div>
