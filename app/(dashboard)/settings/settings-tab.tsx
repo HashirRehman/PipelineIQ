@@ -15,6 +15,8 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Building2,
+  Globe,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -191,12 +193,12 @@ export default function SettingsTab() {
   const searchParams = useSearchParams()
   const tabParam = searchParams?.get("tab")
 
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "appearance">(
-    tabParam === "appearance" ? "appearance" : tabParam === "security" ? "security" : "profile"
+  const [activeTab, setActiveTab] = useState<"profile" | "security" | "appearance" | "organization">(
+    tabParam === "appearance" ? "appearance" : tabParam === "security" ? "security" : tabParam === "organization" ? "organization" : "profile"
   )
 
   useEffect(() => {
-    if (tabParam === "appearance" || tabParam === "security" || tabParam === "profile") {
+    if (tabParam === "appearance" || tabParam === "security" || tabParam === "profile" || tabParam === "organization") {
       setActiveTab(tabParam)
     }
   }, [tabParam])
@@ -206,6 +208,7 @@ export default function SettingsTab() {
   const [email, setEmail] = useState<string>("")
   const [name, setName] = useState<string>("")
   const [userRole, setUserRole] = useState<string>("")
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Profile Form state
   const [savingProfile, setSavingProfile] = useState(false)
@@ -219,6 +222,13 @@ export default function SettingsTab() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordSuccess, setPasswordSuccess] = useState("")
   const [passwordError, setPasswordError] = useState("")
+
+  // Organization settings state (Admin only)
+  const [orgDomainMode, setOrgDomainMode] = useState<"restricted" | "any">("restricted")
+  const [orgDomainInput, setOrgDomainInput] = useState("recursolabs.com")
+  const [savingOrgSettings, setSavingOrgSettings] = useState(false)
+  const [orgSuccess, setOrgSuccess] = useState("")
+  const [orgError, setOrgError] = useState("")
 
   // Theme states
   const selectedId = useSyncExternalStore(
@@ -258,7 +268,20 @@ export default function SettingsTab() {
             const roleName = Array.isArray(rName) ? rName[0]?.name : rName?.name
             if (roleName) {
               setUserRole(roleName)
+              if (roleName.toLowerCase().includes("admin")) setIsAdmin(true)
             }
+          }
+        }
+
+        // Fetch Organization settings
+        const orgRes = await fetch(withOrgId("/api/organization/settings"))
+        if (orgRes.ok) {
+          const orgData = await orgRes.json()
+          if (orgData?.allowedEmailDomain) {
+            setOrgDomainMode("restricted")
+            setOrgDomainInput(orgData.allowedEmailDomain)
+          } else if (orgData?.allowedEmailDomain === null) {
+            setOrgDomainMode("any")
           }
         }
 
@@ -266,9 +289,13 @@ export default function SettingsTab() {
         const res = await fetch(withOrgId("/api/users"))
         if (res.ok) {
           const data = await res.json()
+          if (data.isAdmin !== undefined) {
+            setIsAdmin(Boolean(data.isAdmin))
+          }
           const current = data?.currentUser || (data?.users && user ? data.users.find((u: { id: string }) => u.id === user.id) : null)
           if (current) {
             const rawRole = (current.role || "").toLowerCase()
+            if (rawRole === "admin") setIsAdmin(true)
             const formattedRole =
               rawRole === "bd" ? "BD Manager" :
               rawRole === "admin" ? "Admin" :
@@ -284,6 +311,41 @@ export default function SettingsTab() {
     }
     loadUser()
   }, [])
+
+  const handleUpdateOrgSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setOrgError("")
+    setOrgSuccess("")
+
+    if (orgDomainMode === "restricted" && !orgDomainInput.trim()) {
+      setOrgError("Please enter a valid domain name (e.g. recursolabs.com).")
+      return
+    }
+
+    setSavingOrgSettings(true)
+
+    try {
+      const targetDomain = orgDomainMode === "any" ? null : orgDomainInput.trim()
+      const data = await apiRequest<{ success: boolean; allowedEmailDomain: string | null }>(
+        "/api/organization/settings",
+        "PATCH",
+        { allowedEmailDomain: targetDomain }
+      )
+
+      if (data.allowedEmailDomain) {
+        setOrgDomainMode("restricted")
+        setOrgDomainInput(data.allowedEmailDomain)
+      } else {
+        setOrgDomainMode("any")
+      }
+
+      setOrgSuccess("Organization email domain settings updated successfully!")
+    } catch (err) {
+      setOrgError(err instanceof Error ? err.message : "Failed to update organization settings.")
+    } finally {
+      setSavingOrgSettings(false)
+    }
+  }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -464,11 +526,133 @@ export default function SettingsTab() {
             <Palette className="size-3.5" />
             Appearance & Theme
           </button>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("organization")}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                activeTab === "organization"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Building2 className="size-3.5" />
+              Organization Domain
+            </button>
+          )}
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
+        {/* TAB 4: ORGANIZATION DOMAIN SETTINGS (ADMIN ONLY) */}
+        {activeTab === "organization" && isAdmin && (
+          <div className="max-w-2xl space-y-6">
+            <form onSubmit={handleUpdateOrgSettings} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+                <Building2 className="size-4.5 text-primary" />
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Organization Email Domain Policy</h2>
+                  <p className="text-caption text-muted-foreground mt-0.5">Control allowed email domains for member invitations across your organization.</p>
+                </div>
+              </div>
+
+              {orgSuccess && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  <span>{orgSuccess}</span>
+                </div>
+              )}
+
+              {orgError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{orgError}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div
+                  onClick={() => setOrgDomainMode("restricted")}
+                  className={cn(
+                    "rounded-xl border p-4 transition-all cursor-pointer flex items-start gap-3",
+                    orgDomainMode === "restricted"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border/70 bg-background/50 hover:border-border"
+                  )}
+                >
+                  <div className="mt-0.5">
+                    <input
+                      type="radio"
+                      name="orgDomainMode"
+                      checked={orgDomainMode === "restricted"}
+                      onChange={() => setOrgDomainMode("restricted")}
+                      className="size-4 text-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Restrict user invitations to a specific domain</p>
+                      <p className="text-caption text-muted-foreground mt-0.5">
+                        Only users with email addresses matching this domain can be invited.
+                      </p>
+                    </div>
+
+                    {orgDomainMode === "restricted" && (
+                      <div className="pt-2">
+                        <label className="text-xs font-semibold text-foreground/90 block mb-1">Allowed Email Domain</label>
+                        <div className="relative max-w-md">
+                          <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-medium">@</span>
+                          <Input
+                            value={orgDomainInput}
+                            onChange={e => setOrgDomainInput(e.target.value)}
+                            placeholder="e.g. recursolabs.com"
+                            className="w-full h-10 text-sm pl-7 px-3.5 rounded-lg border-border/80 bg-background transition-all"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setOrgDomainMode("any")}
+                  className={cn(
+                    "rounded-xl border p-4 transition-all cursor-pointer flex items-start gap-3",
+                    orgDomainMode === "any"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border/70 bg-background/50 hover:border-border"
+                  )}
+                >
+                  <div className="mt-0.5">
+                    <input
+                      type="radio"
+                      name="orgDomainMode"
+                      checked={orgDomainMode === "any"}
+                      onChange={() => setOrgDomainMode("any")}
+                      className="size-4 text-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-foreground">Allow invitations from ANY email domain</p>
+                    <p className="text-caption text-muted-foreground mt-0.5">
+                      Members with any valid email domain (Gmail, Yahoo, custom) can be invited.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border/70 flex justify-end">
+                <Button type="submit" disabled={savingOrgSettings} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                  {savingOrgSettings && <Loader2 className="size-3.5 animate-spin mr-2" />}
+                  Save Organization Settings
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
         {/* TAB 1: PROFILE & ACCOUNT */}
         {activeTab === "profile" && (
           <div className="max-w-2xl space-y-6">
