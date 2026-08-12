@@ -6,7 +6,15 @@ import { SetPasswordForm } from "./set-password-form"
 export default async function SetPasswordPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  // No session means the invite link was never confirmed (or has expired) —
+  // say so on the login page instead of dumping the user there silently.
+  if (!user) {
+    redirect(
+      `/login?error=${encodeURIComponent(
+        "Your invite link has expired or has already been used. Ask an admin to send a new one.",
+      )}`,
+    )
+  }
 
   return (
     <div className="min-h-screen bg-page-bg flex items-center justify-center px-4">

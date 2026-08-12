@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -178,10 +179,18 @@ export async function POST(request: Request) {
 
   const adminClient = createAdminClient();
 
+  // Fall back to the request's own origin: an unset NEXT_PUBLIC_SITE_URL would
+  // otherwise send every invite to a literal "undefined/auth/confirm". Note the
+  // target must also be in the project's Auth redirect allow list, or Supabase
+  // silently falls back to site_url and the invite lands on the login page.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
+    new URL(request.url).origin;
+
   const { data: inviteData, error: inviteError } =
     await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: name },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
+      redirectTo: `${siteUrl}/auth/confirm`,
     });
 
   if (inviteError) {
@@ -217,6 +226,18 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  // Audit: an invitation was issued.
+  await logAudit({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    action: "invite_sent",
+    targetUserId: inviteData.user.id,
+    targetEmail: email,
+    metadata: { role: role.name },
+    request,
+  });
 
   const newUser: ApiAppUser = {
     id: inviteData.user.id,
@@ -324,6 +345,21 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
   }
 
+  // Audit: what changed on the member row (name / status / role).
+  await logAudit({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    action: "user_updated",
+    targetUserId: userId,
+    metadata: {
+      ...(name !== undefined ? { name } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(role ? { role: role.name } : {}),
+    },
+    request,
+  });
+
   return NextResponse.json({ success: true });
 }
 
@@ -374,7 +410,7 @@ export async function DELETE(request: Request) {
   // admins see every row, so this lookup passes RLS).
   const { data: target, error: targetError } = await supabase
     .from("users")
-    .select("id")
+    .select("id, email")
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -418,6 +454,23 @@ export async function DELETE(request: Request) {
       { status: 500 },
     );
   }
+
+  // Audit: the member (and their auth identity) was permanently removed.
+  // The target's users row is already gone, so target_user_id must NOT be
+  // set — audit_logs.target_user_id is an FK and a new row can't reference
+  // a deleted user (on delete set null only protects existing rows).
+  // Identity is captured via the pre-delete email, with the id preserved
+  // in metadata so it isn't lost.
+  await logAudit({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    action: "user_deleted",
+    targetUserId: null,
+    targetEmail: target?.email,
+    metadata: { deletedUserId: userId },
+    request,
+  });
 
   return NextResponse.json({ success: true });
 }
