@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress"
 import { useMounted } from "@/hooks/use-mounted"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { apiRequest } from "@/lib/api/client"
+import { apiRequest, withOrgId } from "@/lib/api/client"
 import {
   applyPalette,
   DEFAULT_PALETTE_ID,
@@ -231,10 +231,26 @@ export default function SettingsTab() {
           setUserId(user.id)
           setEmail(user.email ?? "")
           setName(user.user_metadata?.full_name ?? user.user_metadata?.name ?? "")
+
+          // Direct DB query via Supabase client to fetch assigned role & name
+          const { data: dbUser } = await supabase
+            .from("users")
+            .select("full_name, roles(name)")
+            .eq("id", user.id)
+            .maybeSingle()
+
+          if (dbUser) {
+            if (dbUser.full_name) setName(dbUser.full_name)
+            const rName = (dbUser as unknown as { roles?: { name: string } | { name: string }[] }).roles
+            const roleName = Array.isArray(rName) ? rName[0]?.name : rName?.name
+            if (roleName) {
+              setUserRole(roleName)
+            }
+          }
         }
 
-        // Fetch DB user record for role & details
-        const res = await fetch("/api/users")
+        // Fetch DB user record for role & details with org scoping
+        const res = await fetch(withOrgId("/api/users"))
         if (res.ok) {
           const data = await res.json()
           const current = data?.currentUser || (data?.users && user ? data.users.find((u: { id: string }) => u.id === user.id) : null)
