@@ -12,6 +12,7 @@ import {
   ChevronsRight,
   ChevronsLeft,
   Search,
+  Settings,
   UserRound,
   Users,
 } from "lucide-react";
@@ -38,6 +39,12 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
     label: "Statistics",
     icon: BarChart3,
     href: "/statistics",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    href: "/settings",
   },
 ];
 
@@ -222,19 +229,21 @@ export default function Sidebar({ counts, user }: SidebarProps) {
               collapsed ? "justify-center px-0 py-1.5" : "gap-2.5 px-2 py-1.5",
             )}
           >
-            <Avatar name={user.name} size={26} />
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-item font-medium text-sidebar-foreground truncate leading-none">
-                  {user.name}
-                </p>
-                {user.role && (
-                  <p className="text-caption text-primary/80 mt-0.5 font-medium capitalize">
-                    {perms.label}
+            <Link href="/settings" title="Open Settings" className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
+              <Avatar name={user.name} size={26} />
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-item font-medium text-sidebar-foreground truncate leading-none">
+                    {user.name}
                   </p>
-                )}
-              </div>
-            )}
+                  {user.role && (
+                    <p className="text-caption text-primary/80 mt-0.5 font-medium capitalize">
+                      {perms.label}
+                    </p>
+                  )}
+                </div>
+              )}
+            </Link>
             {!collapsed && (
               <button
                 type="button"
