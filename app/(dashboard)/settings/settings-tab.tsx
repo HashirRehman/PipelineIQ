@@ -225,7 +225,7 @@ export default function SettingsTab() {
 
   // Organization settings state (Admin only)
   const [orgDomainMode, setOrgDomainMode] = useState<"restricted" | "any">("restricted")
-  const [orgDomainInput, setOrgDomainInput] = useState("recursolabs.com")
+  const [orgDomainInput, setOrgDomainInput] = useState("")
   const [savingOrgSettings, setSavingOrgSettings] = useState(false)
   const [orgSuccess, setOrgSuccess] = useState("")
   const [orgError, setOrgError] = useState("")
@@ -602,16 +602,16 @@ export default function SettingsTab() {
 
                     {orgDomainMode === "restricted" && (
                       <div className="pt-2">
-                        <label className="text-xs font-semibold text-foreground/90 block mb-1">Allowed Email Domain</label>
-                        <div className="relative max-w-md">
-                          <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-medium">@</span>
-                          <Input
-                            value={orgDomainInput}
-                            onChange={e => setOrgDomainInput(e.target.value)}
-                            placeholder="e.g. recursolabs.com"
-                            className="w-full h-10 text-sm pl-7 px-3.5 rounded-lg border-border/80 bg-background transition-all"
-                          />
-                        </div>
+                        <label className="text-xs font-semibold text-foreground/90 block mb-1">Allowed Domain Name</label>
+                        <Input
+                          value={orgDomainInput}
+                          onChange={e => setOrgDomainInput(e.target.value)}
+                          placeholder="company.com"
+                          className="w-full max-w-md h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background transition-all"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Specify the domain without @ (for example: company.com).
+                        </p>
                       </div>
                     )}
                   </div>
