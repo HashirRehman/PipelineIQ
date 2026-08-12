@@ -15,6 +15,8 @@ import {
   setProfileAssignmentSchema,
   updateProfileSchema,
   uploadProfileCvSchema,
+  UPDATABLE_PROFILE_FIELDS,
+  type UpdatableProfileField,
 } from "@/lib/validation/schemas";
 
 type Client = SupabaseClient<Database>;
@@ -131,16 +133,44 @@ export async function createProfile(
   return { success: true, profileId: data.id };
 }
 
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
+
+const PROFILE_COLUMN_BY_FIELD: Record<UpdatableProfileField, keyof ProfileUpdate> = {
+  fullName: "full_name",
+  email: "email",
+  phone: "phone",
+  location: "location",
+  seniorityLevelId: "seniority_level_id",
+  yearsExperience: "years_of_experience",
+  rateExpectation: "rate_expectation",
+  rateCurrency: "rate_currency",
+  summary: "summary",
+};
+
+// Keyed off the raw request keys, not the parsed output: parsed null means
+// "clear", which is indistinguishable from "absent" after the schema runs.
+function toProfileRowPatch(
+  rawInput: Record<string, unknown>,
+  parsed: Record<string, unknown>,
+): ProfileUpdate {
+  const row: ProfileUpdate = {};
+  for (const field of UPDATABLE_PROFILE_FIELDS) {
+    if (field in rawInput) {
+      (row as Record<string, unknown>)[PROFILE_COLUMN_BY_FIELD[field]] = parsed[field] ?? null;
+    }
+  }
+  return row;
+}
+
 export async function updateProfile(
   supabase: Client,
   profileId: string,
   organizationId: string,
   input: unknown,
 ): Promise<ProfileMutationResult> {
-  const parsed = updateProfileSchema.safeParse({
-    ...(typeof input === "object" && input !== null ? input : {}),
-    profileId,
-  });
+  const rawInput = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
+
+  const parsed = updateProfileSchema.safeParse({ ...rawInput, profileId });
 
   if (!parsed.success) {
     return invalidInput(parsed.error.issues[0]?.message);
@@ -151,9 +181,14 @@ export async function updateProfile(
     return gate.denied;
   }
 
+  const patch = toProfileRowPatch(rawInput, parsed.data as Record<string, unknown>);
+  if (Object.keys(patch).length === 0) {
+    return invalidInput("No fields to update.");
+  }
+
   const { data, error } = await supabase
     .from("profiles")
-    .update(toProfileRow(parsed.data))
+    .update(patch)
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .select("id");
