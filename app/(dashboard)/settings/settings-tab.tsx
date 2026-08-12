@@ -277,10 +277,10 @@ export default function SettingsTab() {
         const orgRes = await fetch(withOrgId("/api/organization/settings"))
         if (orgRes.ok) {
           const orgData = await orgRes.json()
-          if (orgData?.allowedEmailDomain) {
+          if (orgData?.allowedEmailDomain && typeof orgData.allowedEmailDomain === "string" && orgData.allowedEmailDomain.trim() !== "") {
             setOrgDomainMode("restricted")
             setOrgDomainInput(orgData.allowedEmailDomain)
-          } else if (orgData?.allowedEmailDomain === null) {
+          } else {
             setOrgDomainMode("any")
           }
         }
