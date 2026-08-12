@@ -4,7 +4,7 @@ import DiscoveryTab from "./discovery-tab";
 import { getCachedRolePermissions } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Discovery — PipelineIQ",
+  title: "Discovery",
 };
 
 export default async function DiscoveryPage() {

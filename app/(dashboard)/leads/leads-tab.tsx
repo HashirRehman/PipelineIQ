@@ -12,6 +12,7 @@ import {
 import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route";
 import { LeadsBoardView } from "@/components/leads/board/leads-board-view";
 import { LeadsListView } from "@/components/leads/list/leads-list-view";
+import { Button } from "@/components/ui/button";
 import type { AppUser, Lead, Profile } from "@/components/leads/types";
 import { FilterOption } from "@/components/jobs/filter-option";
 import { FilterSidebar } from "@/components/jobs/filter-sidebar";
@@ -308,20 +309,22 @@ export default function LeadsTab() {
           <GooeyInput
             value={search}
             onValueChange={changeSearch}
-            placeholder="Search leads..."
+            placeholder="Search leads…"
             expandedWidth={192}
           />
 
           {/* Right: Filters toggle + List / Board toggle + Import */}
           <div className="ml-auto flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1.5 h-7 rounded border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition cursor-pointer focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="rounded px-3 text-xs text-muted-foreground hover:bg-accent"
             >
               <Upload className="size-3.5" />
               Import
-            </button>
+            </Button>
             <div className="flex items-center rounded border border-border overflow-hidden">
               <button
                 type="button"
@@ -350,21 +353,20 @@ export default function LeadsTab() {
                 <LayoutDashboard className="size-3.5" />
                 Board
               </button>
-            </div>
-
-            <button
+            </div>            <Button
               type="button"
+              variant="outline"
               onClick={() => setFiltersOpen((open) => !open)}
               className={cn(
-                "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                "h-9 shrink-0 rounded-md px-3 text-xs font-medium hover:bg-accent",
                 filtersOpen
                   ? "border-border bg-accent text-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
               )}
             >
               <SlidersHorizontal className="size-3.5" />
               Filters
-            </button>
+            </Button>
           </div>
         </div>
 

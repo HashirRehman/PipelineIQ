@@ -1,12 +1,19 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import DashboardTab from "./dashboard-tab";
 import { getCachedRolePermissions } from "@/lib/supabase/server";
 
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
+
 /**
- * Legacy landing page — routes each role to the homeSection declared in the
- * ROLE_PERMISSIONS matrix (lib/auth/roles.ts), so adding a role or changing
- * its landing page is a one-line matrix edit.
+ * Root dashboard — the at-a-glance operational view. Every role lands here
+ * after login; Admin and BD Manager see the whole org, Business Developers
+ * see their own pipeline (scoped server-side by the leads API).
  */
 export default async function DashboardHomePage() {
   const perms = await getCachedRolePermissions();
-  redirect(perms.homeSection);
+  if (!perms.canAccessJobs) redirect("/users");
+  return <DashboardTab />;
 }

@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 function getPageItems(current: number, total: number): (number | "…")[] {
@@ -28,15 +29,17 @@ export function Pagination({
 
   return (
     <div className={cn("flex items-center justify-center gap-1", className)}>
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="icon"
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
+        className="size-8 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Previous page"
       >
         <ChevronLeft className="size-4" />
-      </button>
+      </Button>
 
       {items.map((item, i) =>
         item === "…" ? (
@@ -44,32 +47,35 @@ export function Pagination({
             …
           </span>
         ) : (
-          <button
+          <Button
             key={item}
             type="button"
+            variant="outline"
             onClick={() => onChange(item)}
             aria-current={item === page ? "page" : undefined}
             className={cn(
-              "flex size-8 items-center justify-center rounded border text-xs font-medium transition-colors cursor-pointer",
+              "size-8 rounded text-xs font-medium",
               item === page
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+                ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
             {item}
-          </button>
+          </Button>
         ),
       )}
 
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="icon"
         onClick={() => onChange(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 transition-colors cursor-pointer"
+        className="size-8 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Next page"
       >
         <ChevronRight className="size-4" />
-      </button>
+      </Button>
     </div>
   )
 }

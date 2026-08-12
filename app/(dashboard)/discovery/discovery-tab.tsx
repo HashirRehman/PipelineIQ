@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, Briefcase, SlidersHorizontal } from "lucide-react";
+import { Briefcase, SlidersHorizontal } from "lucide-react";
 import type { DiscoveryProfile } from "@/app/api/discovery/route";
+import { Button } from "@/components/ui/button";
 import { GooeyInput } from "@/components/ui/gooey-input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CountryCombobox } from "@/components/ui/country-combobox";
 import { RunDiscoveryButton } from "@/components/run-discovery-button";
 import { ResultsCount } from "@/components/results-count";
@@ -243,25 +245,26 @@ export default function DiscoveryTab() {
           <GooeyInput
             value={search}
             onValueChange={changeSearch}
-            placeholder="Search jobs by title, company, or location..."
+            placeholder="Search jobs by title, company, or location…"
             expandedWidth={300}
           />
           <div className="flex items-center gap-2">
             <RunDiscoveryButton />
             <ViewToggle view={view} onChange={setView} />
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setFiltersOpen((open) => !open)}
               className={cn(
-                "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer",
+                "h-9 shrink-0 rounded-md px-3 text-xs font-medium hover:bg-accent",
                 filtersOpen
                   ? "border-border bg-accent text-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
               )}
             >
               <SlidersHorizontal className="size-3.5" />
               Filters
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -275,9 +278,17 @@ export default function DiscoveryTab() {
               {error}
             </div>
           ) : loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Loader2 className="size-6 animate-spin text-primary mb-3" />
-              <span className="text-sm">Loading jobs...</span>
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
+                  <Skeleton className="size-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-6 w-16" />
+                </div>
+              ))}
             </div>
           ) : jobs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-dashed border-border">

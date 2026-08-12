@@ -207,7 +207,7 @@ export function NewJobDialog({
                 value={form.skills}
                 onChange={(e) => set("skills")(e.target.value)}
                 rows={2}
-                placeholder="Comma-separated — e.g. React, Node.js, PostgreSQL"
+                placeholder="Comma-separated (e.g. React, Node.js, PostgreSQL)"
               />
             </div>
 
@@ -279,7 +279,7 @@ export function NewJobDialog({
               </Select>
               <p className="text-xs text-muted-foreground">
                 {profiles.length === 1
-                  ? "Your only profile is selected — this job is added for it."
+                  ? "Your only profile is selected, so this job is added for it."
                   : "Picked for the profile this job is for; the rest of the team sees it as a suggestion."}
               </p>
             </div>
@@ -330,7 +330,7 @@ export function NewJobDialog({
                     value={form.comment}
                     onChange={(e) => set("comment")(e.target.value)}
                     rows={3}
-                    placeholder="Lead notes — e.g. the reply received, next step, deadline…"
+                    placeholder="Lead notes (e.g. reply received, next step, deadline…)"
                   />
                 </div>
               </>

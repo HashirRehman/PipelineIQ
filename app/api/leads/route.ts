@@ -120,6 +120,13 @@ export async function GET(request: Request) {
   if (!org.ok) return org.response;
   const organizationId = org.organizationId;
 
+  // Role scoping — the app-layer data boundary for this route: Admin and BD
+  // Manager see the whole org's pipeline; Business Developers see only leads
+  // currently assigned to them (the profile's current owner). Applied to the
+  // query, so every consumer of this route (Leads, Pipeline, Dashboard,
+  // Statistics) inherits it and the narrowed response lists stay consistent.
+  const scopedToSelf = perms.userRoleKey === "bd";
+
   const url = new URL(request.url);
   const searchParams = url.searchParams;
   const page = parsePositiveInt(searchParams.get("page"), 1, Number.MAX_SAFE_INTEGER);
@@ -136,14 +143,23 @@ export async function GET(request: Request) {
   const dateWindow = parseDateWindow(searchParams);
   const sort = parseSort(searchParams.get("sort"), LEAD_SORT_OPTIONS, "newest");
 
+  // BDs are scoped to their own leads via the embedded profile owner
+  // (profiles.user_id == the profile's CURRENT assigned user — the same
+  // column the response's assignedTo comes from), not the creation-time
+  // applier snapshot.
+  let leadsQuery = supabase
+    .from("leads")
+    .select(
+      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
+    )
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null);
+  if (scopedToSelf) {
+    leadsQuery = leadsQuery.eq("profiles.user_id", user.id);
+  }
+
   const [leadsRes, profilesRes, usersRes, stagesRes] = await Promise.all([
-    supabase
-      .from("leads")
-      .select(
-        "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
-      )
-      .eq("organization_id", organizationId)
-      .is("deleted_at", null),
+    leadsQuery,
     supabase
       .from("profiles")
       .select("id, full_name, user_id")
@@ -224,7 +240,14 @@ export async function GET(request: Request) {
   const offset = (page - 1) * pageSize;
   const paged = leads.slice(offset, offset + pageSize);
 
-  const profiles: { id: string; name: string; userId: string | null }[] = (profileRows ?? []).map((p) => ({
+  // BDs also only get THEIR OWN profiles in the dropdown lists (and their
+  // own user row) — "only see their own data" applies to the filter
+  // vocabulary too, not just the leads.
+  const visibleProfileRows = scopedToSelf
+    ? (profileRows ?? []).filter((p) => p.user_id === user.id)
+    : (profileRows ?? []);
+
+  const profiles: { id: string; name: string; userId: string | null }[] = visibleProfileRows.map((p) => ({
     id: p.id,
     name: p.full_name,
     // Current assigned user — couples the profile/user filters (picking a
@@ -233,14 +256,18 @@ export async function GET(request: Request) {
   }));
 
   const profileIdsByUser = new Map<string, string[]>();
-  for (const p of profileRows ?? []) {
+  for (const p of visibleProfileRows) {
     if (!p.user_id) continue;
     const list = profileIdsByUser.get(p.user_id) ?? [];
     list.push(p.id);
     profileIdsByUser.set(p.user_id, list);
   }
 
-  const users: ApiLeadUser[] = (userRows ?? []).map((u) => {
+  const visibleUserRows = scopedToSelf
+    ? (userRows ?? []).filter((u) => u.id === user.id)
+    : (userRows ?? []);
+
+  const users: ApiLeadUser[] = visibleUserRows.map((u) => {
     const roleName = (u.roles?.name ?? "").toLowerCase();
     const role: ApiLeadUser["role"] = roleName.includes("admin")
       ? "admin"
@@ -337,7 +364,7 @@ export async function POST(request: Request) {
 
   if (profileRows.some((p) => !p.user_id)) {
     return NextResponse.json(
-      { error: "This profile has no assigned user — assign one before adding leads." },
+      { error: "This profile has no assigned user. Assign one before adding leads." },
       { status: 400 },
     );
   }
@@ -398,7 +425,7 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!firstStage) {
     return NextResponse.json(
-      { error: "No pipeline stages configured — apply supabase/seed.sql first." },
+      { error: "No pipeline stages configured. Apply supabase/seed.sql first." },
       { status: 500 },
     );
   }

@@ -434,7 +434,7 @@ export function validateRow(
   } else {
     const match = matchProfileName(values.profileCell, profiles);
     if (!match) {
-      issues.profile = `No profile matches "${values.profileCell}" — pick one manually.`;
+      issues.profile = `No profile matches "${values.profileCell}". Pick one manually.`;
     } else {
       values.profileId = match.profile.id;
     }
@@ -446,11 +446,11 @@ export function validateRow(
   if (kind === "lead") {
     const stageCell = cellOf("stage");
     if (!stageCell) {
-      issues.stage = "Lead has no stage in this row — pick one.";
+      issues.stage = "Lead has no stage in this row. Pick one.";
     } else {
       const stageMatch = matchStage(stageCell, stages);
       if (!stageMatch) {
-        issues.stage = `Stage "${stageCell}" isn't a known stage — pick one.`;
+        issues.stage = `Stage "${stageCell}" isn't a known stage. Pick one.`;
       } else {
         values.stageId = stageMatch.id;
       }

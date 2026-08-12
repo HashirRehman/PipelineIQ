@@ -5,9 +5,12 @@ import type { ApiAppUser } from "@/app/api/users/route"
 import { apiPost, apiRequest, withOrgId } from "@/lib/api/client"
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
+import { Button } from "@/components/ui/button"
 import { GooeyInput } from "@/components/ui/gooey-input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ResultsCount } from "@/components/results-count"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { roleUserKey } from "@/lib/auth/roles"
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
@@ -60,8 +63,8 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
         const color = ROLE_COLOR[roleUserKey(r.name)]
         const sel = roleId === r.id
         return (
-          <button key={r.id} type="button" onClick={() => setRoleId(r.id)}
-            className="flex-1 h-9 rounded-md text-xs font-medium capitalize transition-colors cursor-pointer"
+          <Button key={r.id} type="button" onClick={() => setRoleId(r.id)}
+            className="flex-1 h-9 rounded-md text-xs capitalize"
             style={{
               background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
               border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
@@ -69,7 +72,7 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
               fontWeight: sel ? 700 : 400,
             }}>
             {r.name}
-          </button>
+          </Button>
         )
       })}
     </div>
@@ -91,7 +94,7 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
             </div>
             <p className="text-sm font-semibold text-foreground mb-1">Invitation sent!</p>
             <p className="text-xs text-muted-foreground mb-5">An invite email has been sent to {email}</p>
-            <button type="button" onClick={onClose} className="h-9 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground hover:opacity-90 cursor-pointer">Done</button>
+            <Button type="button" onClick={onClose} className="h-9 rounded-md px-5 hover:bg-primary/90">Done</Button>
           </div>
         ) : (
           <div className="p-5 flex flex-col gap-4">
@@ -120,12 +123,12 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
               </div>
             )}
             <div className="flex gap-2.5 pt-1">
-              <button type="button" onClick={onClose} className="flex-1 h-9 rounded-md border border-border text-sm text-foreground hover:bg-accent transition-colors cursor-pointer">Cancel</button>
-              <button type="button" onClick={handleSubmit} disabled={!canSubmit || loading}
-                className="flex-[2] inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-9 rounded-md hover:bg-accent">Cancel</Button>
+              <Button type="button" onClick={handleSubmit} disabled={!canSubmit || loading}
+                className="flex-[2] h-9 gap-1.5 rounded-md font-semibold hover:bg-primary/90">
                 {loading && <Loader2 className="size-3.5 animate-spin" />}
                 {isInvite ? "Send Invite" : "Save Changes"}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -272,10 +275,17 @@ export default function UsersTab() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin text-primary" />
-          Loading team...
+      <div className="flex flex-1 flex-col gap-4 p-6">
+        <div className="grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-[76px] rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-8 w-40" />
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-11 rounded-lg" />
+          ))}
         </div>
       </div>
     )
@@ -294,9 +304,15 @@ export default function UsersTab() {
       {actionError && (
         <div className="mx-6 mb-0 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <span>{actionError}</span>
-          <button onClick={() => setActionError("")} className="text-destructive/70 hover:text-destructive cursor-pointer">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setActionError("")}
+            aria-label="Dismiss error"
+            className="size-6 text-destructive/70 hover:bg-transparent hover:text-destructive"
+          >
             <X size={14} />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -309,38 +325,38 @@ export default function UsersTab() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-background shrink-0 flex-wrap">
-        <GooeyInput value={search} onValueChange={setSearch} placeholder="Search by name or email..." expandedWidth={300} />
-        <select
-          value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value)}
-          className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
-          aria-label="Filter by role"
-        >
-          <option value="all">All Roles</option>
-          {roles.map(r => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/50"
-          aria-label="Filter by status"
-        >
-          <option value="all">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+        <GooeyInput value={search} onValueChange={setSearch} placeholder="Search by name or email…" expandedWidth={300} />
+        <Select value={roleFilter} onValueChange={(v) => { if (v) setRoleFilter(v) }} name="roleFilter">
+          <SelectTrigger size="sm" aria-label="Filter by role" className="h-8 rounded-lg bg-background text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            {roles.map(r => (
+              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={(v) => { if (v) setStatusFilter(v) }} name="statusFilter">
+          <SelectTrigger size="sm" aria-label="Filter by status" className="h-8 rounded-lg bg-background text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
 
         {canInvite && (
-          <button
+          <Button
             type="button"
             onClick={() => setShowInvite(true)}
-            className="ml-auto inline-flex items-center gap-1.5 h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
+            className="ml-auto h-9 rounded-md px-3 hover:bg-primary/90"
           >
             <Plus className="size-4" />
             Invite Member
-          </button>
+          </Button>
         )}
       </div>
 
@@ -392,7 +408,7 @@ export default function UsersTab() {
                       <td className="px-4 py-3">
                         <span className="rounded-md px-2 py-0.5 text-meta font-medium capitalize"
                           style={{ background: `color-mix(in srgb, ${roleColor} 9%, transparent)`, color: roleColor }}>
-                          {roles.find(r => r.id === user.roleId)?.name ?? user.role ?? "—"}
+                          {roles.find(r => r.id === user.roleId)?.name ?? user.role ?? "N/A"}
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
@@ -403,30 +419,34 @@ export default function UsersTab() {
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell">
                         <span className="text-xs text-muted-foreground">
-                          {user.joinedAt ? formatDate(user.joinedAt) : "—"}
+                          {user.joinedAt ? formatDate(user.joinedAt) : "N/A"}
                         </span>
                       </td>
                       {(isAdmin || isSelf) && (
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => setEditingUser(user)}
-                              className="flex size-7 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                              className="size-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
                               title="Edit"
                             >
                               <Pencil className="size-3.5" />
-                            </button>
+                            </Button>
                             {isAdmin && !isSelf && (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => toggleStatus(user.id)}
                                 disabled={updatingId === user.id}
                                 className={[
-                                  "flex h-7 items-center rounded px-2 text-meta font-medium transition-colors disabled:opacity-50 cursor-pointer",
+                                  "h-7 rounded px-2 text-meta font-medium",
                                   user.status === "active"
-                                    ? "text-status-red hover:bg-status-red/10"
-                                    : "text-status-emerald hover:bg-status-emerald/10",
+                                    ? "text-status-red hover:bg-status-red/10 hover:text-status-red"
+                                    : "text-status-emerald hover:bg-status-emerald/10 hover:text-status-emerald",
                                 ].join(" ")}
                               >
                                 {updatingId === user.id ? (
@@ -436,17 +456,19 @@ export default function UsersTab() {
                                 ) : (
                                   "Activate"
                                 )}
-                              </button>
+                              </Button>
                             )}
                             {isAdmin && !isSelf && (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={() => { setDeleteError(""); setDeletingUser(user) }}
-                                className="flex size-7 items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                className="size-7 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                 title="Delete permanently"
                               >
                                 <Trash2 className="size-3.5" />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -507,22 +529,23 @@ export default function UsersTab() {
                 profiles. Their leads and profile data are kept. This cannot be undone.
               </p>
               <div className="flex gap-2.5 pt-1">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setDeletingUser(null)}
-                  className="flex-1 h-9 rounded-md border border-border text-sm text-foreground hover:bg-accent transition-colors cursor-pointer"
+                  className="flex-1 h-9 rounded-md hover:bg-accent"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleDeleteUser}
                   disabled={deletePending}
-                  className="flex-[2] inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-destructive text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                  className="flex-[2] h-9 gap-1.5 rounded-md bg-destructive font-semibold text-white hover:bg-destructive/90"
                 >
                   {deletePending && <Loader2 className="size-3.5 animate-spin" />}
                   Delete Permanently
-                </button>
+                </Button>
               </div>
             </div>
           </DialogContent>

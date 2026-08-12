@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, MessageSquare, Pencil, Trash2 } from "lucide-react";
 
 import { Avatar } from "@/components/avatar";
+import { Button } from "@/components/ui/button";
 import type { JobCommentDto } from "@/app/api/jobs/[jobId]/comments/route";
 import { apiDelete, apiPatch, apiPost, withOrgId } from "@/lib/api/client";
 import { createClient } from "@/lib/supabase/client";
@@ -84,21 +85,24 @@ function CommentRow({
               />
               {error && <p className="text-meta text-destructive mb-1">{error}</p>}
               <div className="flex gap-2">
-                <button
+                <Button
                   type="button"
+                  size="sm"
                   onClick={saveEdit}
                   disabled={busy || !draft.trim()}
-                  className="rounded-md bg-primary px-3 h-7 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                  className="rounded-md px-3 text-xs hover:bg-primary/90"
                 >
                   {busy ? "Saving…" : "Save"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={() => { setEditing(false); setDraft(comment.body) }}
-                  className="rounded-md border border-border px-3 h-7 text-xs text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+                  className="rounded-md px-3 text-xs text-muted-foreground hover:bg-accent"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </>
           ) : (
@@ -107,20 +111,24 @@ function CommentRow({
               <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{comment.body}</p>
               {isOwn && (
                 <div className="flex items-center gap-1 mt-1.5">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setEditing(true)}
-                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-meta text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                    className="h-auto gap-1 rounded px-1.5 py-0.5 text-meta text-muted-foreground hover:bg-accent"
                   >
                     <Pencil className="size-3" /> Edit
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={remove}
-                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-meta text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                    className="h-auto gap-1 rounded px-1.5 py-0.5 text-meta text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="size-3" /> Delete
-                  </button>
+                  </Button>
                 </div>
               )}
             </>
@@ -203,15 +211,16 @@ export function JobComments({ jobId }: { jobId: string }) {
       />
       {error && <p className="text-meta text-destructive mb-1">{error}</p>}
       <div className="flex justify-end mb-3">
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={post}
           disabled={posting || !draft.trim()}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 h-7 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
+          className="gap-1.5 rounded-md px-3 text-xs hover:bg-primary/90"
         >
           <MessageSquare className="size-3.5" />
           {posting ? "Posting…" : "Comment"}
-        </button>
+        </Button>
       </div>
 
       {/* Thread (flat) */}
@@ -221,7 +230,7 @@ export function JobComments({ jobId }: { jobId: string }) {
         </div>
       ) : comments.length === 0 ? (
         <p className="text-meta text-muted-foreground text-center py-4">
-          No comments yet — start the discussion.
+          No comments yet. Start the discussion.
         </p>
       ) : (
         <div className="flex flex-col">

@@ -1,12 +1,13 @@
 export type UserRole = "admin" | "lead" | "bd";
 
 export type TabId =
+  | "dashboard"
+  | "statistics"
   | "profiles"
   | "discovery"
   | "applied-jobs"
   | "leads"
   | "users"
-  | "statistics"
   | "settings";
 
 /* Filter vocabulary shared by the job list pages (Discovery, Pipeline) */
@@ -97,6 +98,20 @@ export const STAGE_PALETTE = [
 export function stageColor(index: number): string {
   return STAGE_PALETTE[index % STAGE_PALETTE.length] ?? STATUS.slate;
 }
+
+/** Professional categorical palette for per-user / per-profile chart series.
+ * Distinct, muted-professional hues (blue, emerald, amber, red, sky, teal,
+ * navy, slate) that stay readable on both light and dark surfaces. */
+export const SERIES_PALETTE = [
+  BRAND.blue,
+  STATUS.emerald,
+  STATUS.amber,
+  STATUS.red,
+  BRAND.sky,
+  STATUS.green,
+  BRAND.navy,
+  STATUS.slate,
+] as const;
 
 export const WORK_TYPE_COLOR: Record<string, string> = {
   remote: STATUS.green,

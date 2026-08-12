@@ -25,7 +25,7 @@ export default async function LoginPage({
         {/* Card */}
         <div className="bg-background rounded-xl border border-border shadow-sm px-8 py-8">
           <div className="mb-6">
-            <h1 className="text-base font-semibold text-foreground">Sign in to your account</h1>
+            <h1 className="font-heading text-base font-semibold tracking-tight text-foreground">Sign in to your account</h1>
             <p className="text-xs text-muted-foreground mt-1">
               Enter your email and password to continue.
             </p>
@@ -41,7 +41,7 @@ export default async function LoginPage({
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          PipelineIQ &mdash; Recurso Labs
+          PipelineIQ · Recurso Labs
         </p>
       </div>
     </div>

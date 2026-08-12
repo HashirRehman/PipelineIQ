@@ -112,7 +112,7 @@ export async function extractCvText(
   if (text.length < MIN_USABLE_TEXT_CHARS) {
     throw new CvExtractionError(
       "no_text",
-      "No readable text found in this file — it's likely a scanned image rather than a text document.",
+      "No readable text found in this file. It's likely a scanned image rather than a text document.",
     );
   }
 

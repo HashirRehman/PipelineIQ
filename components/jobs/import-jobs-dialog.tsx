@@ -65,12 +65,12 @@ const KIND_OPTIONS: readonly { value: ImportKind; label: string; hint: string }[
   {
     value: "applied",
     label: "Applied jobs",
-    hint: "Every row imports as an Applied job — no stage, notes, or developer.",
+    hint: "Every row imports as an Applied job. No stage, notes, or developer.",
   },
   {
     value: "lead",
     label: "Leads",
-    hint: "Every row imports as a Lead — each row needs a stage and can carry notes.",
+    hint: "Every row imports as a Lead. Each row needs a stage and can carry notes.",
   },
 ];
 
@@ -182,14 +182,14 @@ export function ImportJobsDialog({
   async function handleFile(file: File) {
     setError(null);
     if (!/\.(xlsx|xls)$/i.test(file.name)) {
-      setError("That doesn't look like an Excel file — choose a .xlsx file.");
+      setError("That doesn't look like an Excel file. Choose a .xlsx file.");
       return;
     }
     try {
       const buffer = await file.arrayBuffer();
       const parsed = parseWorkbook(buffer);
       if (parsed.sheetNames.length === 0) {
-        setError("No sheets with columns and data were found — check the file.");
+        setError("No sheets with columns and data were found. Check the file.");
         return;
       }
       setFileName(file.name);
@@ -199,7 +199,7 @@ export function ImportJobsDialog({
       setStep("map");
     } catch (err) {
       console.error("import: parse failed", err);
-      setError("Couldn't read that file — make sure it's a valid Excel workbook.");
+      setError("Couldn't read that file. Make sure it's a valid Excel workbook.");
     }
   }
 
@@ -437,7 +437,7 @@ export function ImportJobsDialog({
           <DialogTitle>Import jobs</DialogTitle>
           <DialogDescription>
             Upload an Excel file, map its columns to job fields, review the
-            resolved rows — only fully-valid rows are imported.
+            resolved rows. Only fully-valid rows are imported.
           </DialogDescription>
         </DialogHeader>
 
@@ -503,8 +503,9 @@ export function ImportJobsDialog({
                   </span>
                 </div>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -512,7 +513,7 @@ export function ImportJobsDialog({
                   const file = e.dataTransfer.files?.[0];
                   if (file) void handleFile(file);
                 }}
-                className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 px-6 py-14 text-center transition-colors hover:border-primary/50 hover:bg-muted/50 focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="h-auto w-full flex-col gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 px-6 py-14 text-center hover:border-primary/50 hover:bg-muted/50"
               >
                 <UploadCloud className="size-10 text-muted-foreground" />
                 <div className="text-sm font-medium">
@@ -522,7 +523,7 @@ export function ImportJobsDialog({
                   .xlsx or .xls · pick the tab to import on the next step · the
                   first row with content becomes the column headers
                 </div>
-              </button>
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -627,26 +628,28 @@ export function ImportJobsDialog({
                               </div>
                             )}
                           </div>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => toggleExclude(header)}
                             title={isExcluded ? "Include column" : "Exclude column"}
                             aria-label={isExcluded ? "Include column" : "Exclude column"}
                             className={cn(
-                              "flex size-5 shrink-0 items-center justify-center rounded-full text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                              "size-5 shrink-0 rounded-full text-xs",
                               isExcluded
                                 ? "bg-accent text-foreground"
                                 : "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
                             )}
                           >
                             {isExcluded ? "＋" : "×"}
-                          </button>
+                          </Button>
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Columns you exclude (×) are skipped entirely — no data from
+                    Columns you exclude (×) are skipped entirely. No data from
                     them is imported.
                   </p>
                 </div>
@@ -697,15 +700,17 @@ export function ImportJobsDialog({
                                 <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
                                   {assigned}
                                 </span>
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
                                   onClick={() => assign(assigned, null)}
                                   title="Remove mapping"
                                   aria-label="Remove mapping"
-                                  className="rounded text-muted-foreground hover:text-destructive cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                  className="size-5 rounded text-muted-foreground hover:bg-transparent hover:text-destructive"
                                 >
                                   <Trash2 className="size-3.5" />
-                                </button>
+                                </Button>
                               </span>
                             ) : (
                               <span className="text-sm text-muted-foreground">
@@ -742,8 +747,8 @@ export function ImportJobsDialog({
                   <p className="text-xs text-muted-foreground">
                     One column can feed only one field.{" "}
                     {isLead
-                      ? "Every row will import as a Lead — map a Stage column, or pick a stage per row in Review."
-                      : "Every row will import as an Applied job — no stage, notes, or developer."}
+                      ? "Every row will import as a Lead. Map a Stage column, or pick a stage per row in Review."
+                      : "Every row will import as an Applied job. No stage, notes, or developer."}
                   </p>
                 </div>
               </div>
@@ -782,7 +787,7 @@ export function ImportJobsDialog({
                           {count > 1 && (
                             <span className="text-muted-foreground/70">
                               {" "}
-                              — {count} rows
+                              · {count} rows
                             </span>
                           )}
                         </li>
@@ -1002,7 +1007,7 @@ export function ImportJobsDialog({
                                   }}
                                 >
                                   <SelectTrigger size="sm" className="w-40">
-                                    <SelectValue placeholder="—" />
+                                    <SelectValue placeholder="Not set" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {stages.map((stage) => (
@@ -1081,8 +1086,8 @@ export function ImportJobsDialog({
               </div>
               {result.failed > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  {result.failed} row{result.failed === 1 ? "" : "s"} failed —
-                  check the pipeline and add those by hand.
+                  {result.failed} row{result.failed === 1 ? "" : "s"} failed.
+                  Check the pipeline and add those by hand.
                 </p>
               )}
               <Button type="button" onClick={close} className="mt-2">

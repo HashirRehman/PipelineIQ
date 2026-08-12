@@ -14,13 +14,14 @@
    ════════════════════════════════════════════════════════════════════════ */
 
 /* ── Font families ───────────────────────────────────────────────────────
-   `--font-sans` / `--font-mono` are set as CSS variables by next/font
-   (Inter / JetBrains Mono) in app/layout.tsx. These tokens wire them into
-   Tailwind utilities: font-sans, font-mono, font-heading. */
+   `--font-sans` / `--font-mono` / `--font-heading` are set as CSS variables
+   by next/font (Inter / JetBrains Mono / Archivo) in app/layout.tsx. These
+   tokens wire them into Tailwind utilities: font-sans, font-mono,
+   font-heading. Archivo is the display face — titles only, never body text. */
 @theme inline {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
 }
 
 /* ── Font weights ────────────────────────────────────────────────────────

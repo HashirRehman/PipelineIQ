@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { PaletteApplier } from "@/components/theme/palette-applier";
 import { PatternApplier } from "@/components/theme/pattern-applier";
@@ -17,11 +17,17 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+// Display face for titles only (top bar page names, page headers, drawer
+// and dialog titles, auth heading). Geometric grotesk with an industrial,
+// instrument-like voice — deliberately not used for body text.
+const archivo = Archivo({
+  variable: "--font-heading",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: {
-    default: "PipelineIQ",
-    template: "%s — PipelineIQ",
-  },
+  title: "PipelineIQ",
   description: "Internal profile placement and BD tracking platform",
 };
 
@@ -45,7 +51,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased bg-background`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${archivo.variable} h-full antialiased bg-background`}
     >
       <body className="min-h-full flex flex-col">
         {/* Re-applies the saved palette/pattern before first paint, like

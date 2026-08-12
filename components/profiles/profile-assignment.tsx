@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, UserRound } from "lucide-react";
 import { setProfileAssignmentRequest } from "@/lib/api/profiles-client";
 import type { AssignableUser } from "@/app/api/profiles/route";
 import { Avatar } from "@/components/avatar";
@@ -113,8 +113,8 @@ export function ProfileAssignment({
               {displayUserId && currentUser ? (
                 <Avatar name={currentUser.name} size={28} />
               ) : (
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-caption font-bold text-muted-foreground uppercase">
-                  —
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <UserRound className="size-3.5" />
                 </span>
               )}
               <span className="min-w-0 flex-1">
@@ -165,8 +165,8 @@ export function ProfileAssignment({
                       {user ? (
                         <Avatar name={user.name} size={22} />
                       ) : (
-                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-muted text-micro font-bold text-muted-foreground uppercase">
-                          —
+                        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                          <UserRound className="size-3" />
                         </span>
                       )}
                       <span className="flex min-w-0 flex-1 flex-col">

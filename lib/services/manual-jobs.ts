@@ -88,7 +88,7 @@ export async function loadManualJobRefs(
   if (!scraper) {
     return {
       message:
-        "The Manual job source is not configured — apply the latest migration first.",
+        "The Manual job source is not configured. Apply the latest migration first.",
       status: 500,
     };
   }
@@ -127,7 +127,7 @@ export function prepareManualJob(
   if (input.state === "lead" && !profile.user_id) {
     return {
       message:
-        "This profile has no assigned user — assign one before creating a lead.",
+        "This profile has no assigned user. Assign one before creating a lead.",
       status: 400,
     };
   }

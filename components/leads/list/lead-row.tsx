@@ -2,6 +2,7 @@
 
 import { Calendar, Check, MapPin, MessageSquare } from "lucide-react"
 import { Avatar } from "@/components/avatar"
+import { Button } from "@/components/ui/button"
 import { TintedBadge } from "@/components/tinted-badge"
 import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
 import type { Lead } from "@/components/leads/types"
@@ -38,26 +39,29 @@ export function LeadRow({
       )}
     >
       {/* Done / completion circle */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         onClick={() => onToggleDone(lead.id)}
         aria-pressed={isDone}
         aria-label={isDone ? `Reopen: ${lead.jobTitle}` : `Close: ${lead.jobTitle}`}
         className={cn(
-          "flex size-[17px] shrink-0 items-center justify-center rounded-full border-2 transition-all cursor-pointer",
+          "size-[17px] shrink-0 rounded-full border-2 p-0",
           isDone
             ? "border-transparent bg-status-green text-white"
-            : "border-border/70 hover:border-primary text-transparent",
+            // The default border token is dark-on-dark in dark mode — use the
+            // stronger line token there so the empty circle stays visible.
+            : "border-border/70 hover:border-primary dark:border-border-strong text-transparent",
         )}
       >
         <Check className="size-2.5" strokeWidth={3} />
-      </button>
+      </Button>
 
       {/* Main clickable area */}
-      <button
-        type="button"
+      <div
         onClick={() => onOpen(lead)}
-        className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer text-left"
+        className="cursor-pointer h-auto flex-1 min-w-0 items-center gap-3 rounded-none p-0 text-left hover:bg-transparent"
       >
         {/* Job title + company + profile + location */}
         <div className="min-w-0 flex-1">
@@ -84,7 +88,7 @@ export function LeadRow({
             </span>
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Right-side meta */}
       <div className="hidden lg:flex items-center gap-4 shrink-0">

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import { SlidersHorizontal } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 /**
@@ -48,13 +49,15 @@ export function FilterSidebar({
             <SlidersHorizontal className="size-3.5" /> Filters
           </span>
           {clearable && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={onClear}
-              className="text-meta text-primary hover:underline cursor-pointer"
+              className="h-auto p-0 text-meta text-primary hover:bg-transparent hover:underline"
             >
               Clear
-            </button>
+            </Button>
           )}
         </div>
         {children}
