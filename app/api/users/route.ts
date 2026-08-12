@@ -209,7 +209,7 @@ export async function POST(request: Request) {
     });
 
   if (inviteError) {
-    if (inviteError.code === "email_exists") {
+    if (inviteError.code === "email_exists" || inviteError.message?.toLowerCase().includes("already registered") || inviteError.message?.toLowerCase().includes("already exists")) {
       return NextResponse.json(
         { error: "An account with this email already exists." },
         { status: 400 },
@@ -217,8 +217,8 @@ export async function POST(request: Request) {
     }
     console.error("api/users: inviteUserByEmail failed", inviteError);
     return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 },
+      { error: inviteError.message || "Failed to send invitation email. Please check the email address and try again." },
+      { status: 400 },
     );
   }
 
