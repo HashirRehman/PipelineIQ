@@ -429,6 +429,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          allowed_email_domain: string | null
           created_at: string
           deleted_at: string | null
           id: string
@@ -437,6 +438,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allowed_email_domain?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -445,6 +447,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allowed_email_domain?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string

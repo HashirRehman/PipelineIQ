@@ -63,13 +63,18 @@ export async function GET(request: Request) {
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  const [usersRes, rolesRes] = await Promise.all([
+  const [usersRes, rolesRes, orgRes] = await Promise.all([
     supabase
       .from("users")
       .select("id, email, full_name, is_active, created_at, role_id, roles(name, id)")
       .eq("organization_id", org.organizationId)
       .order("created_at", { ascending: false }),
     supabase.from("roles").select("id, name").order("name"),
+    supabase
+      .from("organizations")
+      .select("allowed_email_domain")
+      .eq("id", org.organizationId)
+      .maybeSingle(),
   ]);
 
   if (usersRes.error) {
@@ -124,6 +129,7 @@ export async function GET(request: Request) {
     currentUser: currentUserObj,
     isAdmin: perms.isAdmin,
     canInvite: perms.canInviteUsers,
+    allowedEmailDomain: orgRes.data?.allowed_email_domain ?? null,
   });
 }
 
@@ -163,6 +169,24 @@ export async function POST(request: Request) {
   }
 
   const { name, email, roleId } = parsed.data;
+
+  // Validate Organization Allowed Email Domain dynamically
+  const { data: orgData } = await supabase
+    .from("organizations")
+    .select("allowed_email_domain")
+    .eq("id", org.organizationId)
+    .maybeSingle();
+
+  const domainSetting = orgData?.allowed_email_domain?.trim().toLowerCase();
+  if (domainSetting) {
+    const domainSuffix = domainSetting.startsWith("@") ? domainSetting : `@${domainSetting}`;
+    if (!email.trim().toLowerCase().endsWith(domainSuffix)) {
+      return NextResponse.json(
+        { error: `Only ${domainSuffix} email domain is allowed for user invitations.` },
+        { status: 400 },
+      );
+    }
+  }
 
   const roleResult = await findRoleById(supabase, roleId);
   if (!roleResult.ok) {

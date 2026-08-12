@@ -1,16 +1,8 @@
 import { z } from "zod";
 
-export const ALLOWED_EMAIL_DOMAIN = "@recursolabs.com";
-
 export const createUserSchema = z.object({
   name: z.string().trim().min(1, "Full name is required."),
-  email: z
-    .string()
-    .trim()
-    .email("Enter a valid email address.")
-    .refine((val) => val.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN), {
-      message: `Only ${ALLOWED_EMAIL_DOMAIN} email domain is allowed.`,
-    }),
+  email: z.string().trim().email("Enter a valid email address."),
   roleId: z.uuid("Select a role."),
 });
 
