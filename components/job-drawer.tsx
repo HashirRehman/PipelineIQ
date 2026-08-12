@@ -97,7 +97,7 @@ function RelevanceMatch({ profiles, job }: { profiles: ActiveProfile[]; job: Job
             : `Matches across ${profiles.length} profiles`}
         </div>
         <div className="text-xs text-muted-foreground">
-          No match yet — this job hasn&apos;t been scored against{" "}
+          No match yet. This job hasn&apos;t been scored against{" "}
           {profiles.length <= 1 ? "this profile" : "these profiles"}
           &apos; CVs.
         </div>
@@ -417,15 +417,17 @@ export default function JobDrawer({
       >
         {/* Top bar */}
         <div className="flex items-center justify-end gap-2 px-5 py-2.5 border-b border-border bg-card shrink-0">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-sm"
             disabled
             title="Save (coming soon)"
             aria-label="Save job (coming soon)"
-            className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+            className="size-7 rounded-md text-muted-foreground"
           >
             <Bookmark className="size-3.5" />
-          </button>
+          </Button>
           <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="size-4" />
           </Button>
@@ -434,7 +436,7 @@ export default function JobDrawer({
         <div className="flex flex-1 min-h-0">
           {/* Left column — white */}
           <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6">
-            <h2 className="text-lg font-bold text-foreground mb-1.5 mt-0">{displayJob.title}</h2>
+            <h2 className="font-heading text-lg font-bold tracking-tight text-foreground mb-1.5 mt-0">{displayJob.title}</h2>
             <div className="flex items-center gap-1.5 flex-wrap mb-4">
               <span className="text-sm font-semibold text-foreground">{displayJob.company}</span>
               <span className="text-border">·</span>
@@ -658,7 +660,7 @@ export default function JobDrawer({
                 <dd className="text-xs text-foreground capitalize">
                   {displayJob.workType}
                   {displayJob.workType === "remote" && displayJob.remoteRegion
-                    ? ` — ${displayJob.remoteRegion}`
+                    ? ` · ${displayJob.remoteRegion}`
                     : null}
                 </dd>
               </div>

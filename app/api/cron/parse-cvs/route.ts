@@ -13,6 +13,7 @@
 // until someone makes it.
 import { NextResponse } from "next/server";
 import { GroqAiClient } from "@/lib/ai/groq-client";
+import { isCronAuthorized } from "@/lib/api/cron-auth";
 import { parseAndStoreCv } from "@/lib/cv-parsing/parse-cv";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -24,8 +25,7 @@ export const maxDuration = 300;
 const MAX_CVS_PER_RUN = 20;
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

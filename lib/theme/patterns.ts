@@ -39,7 +39,7 @@ export const STYLE_ID = "pipelineiq-pattern-style"
 const DEFAULT_PATTERN: ThemePattern = {
   id: DEFAULT_PATTERN_ID,
   name: "Dots",
-  description: "The default PipelineIQ texture — a quiet dot grid with a soft brand glow.",
+  description: "The default PipelineIQ texture. A quiet dot grid with a soft brand glow.",
   css: "var(--pattern-dots), var(--pattern-fade-to-page), var(--pattern-glow-blue), var(--pattern-glow-navy), var(--page-bg)",
 }
 
@@ -55,7 +55,7 @@ const GRID: ThemePattern = {
 const STRIPES: ThemePattern = {
   id: "stripes",
   name: "Stripes",
-  description: "Low-contrast 45° hairline stripes — subtle but energetic.",
+  description: "Low-contrast 45° hairline stripes. Subtle but energetic.",
   css: "var(--pattern-stripes), var(--pattern-fade-to-page), var(--page-bg)",
 }
 
@@ -63,7 +63,7 @@ const STRIPES: ThemePattern = {
 const BUSINESS: ThemePattern = {
   id: "business",
   name: "Business",
-  description: "Clean outlined business icons — briefcases, buildings, documents and more.",
+  description: "Clean outlined business icons. Briefcases, buildings, documents and more.",
   css: "var(--pattern-icon-business), var(--page-bg)",
 }
 
@@ -71,7 +71,7 @@ const BUSINESS: ThemePattern = {
 const FOOD: ThemePattern = {
   id: "food",
   name: "Food",
-  description: "Neat outlined food icons — coffee, pizza, burgers and fruit.",
+  description: "Neat outlined food icons. Coffee, pizza, burgers and fruit.",
   css: "var(--pattern-icon-food), var(--page-bg)",
 }
 
@@ -79,7 +79,7 @@ const FOOD: ThemePattern = {
 const CHARTS: ThemePattern = {
   id: "charts",
   name: "Board & Charts",
-  description: "Outlined presentation boards and analytics charts — pie, line, bar and gauges.",
+  description: "Outlined presentation boards and analytics charts. Pie, line, bar and gauges.",
   css: "var(--pattern-icon-charts), var(--page-bg)",
 }
 

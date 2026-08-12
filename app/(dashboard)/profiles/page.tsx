@@ -4,7 +4,7 @@ import ProfilesTab from "./profiles-tab"
 import { getCachedRolePermissions } from "@/lib/supabase/server"
 
 export const metadata: Metadata = {
-  title: "Profiles — PipelineIQ",
+  title: "Profiles",
 }
 
 export default async function ProfilesPage() {

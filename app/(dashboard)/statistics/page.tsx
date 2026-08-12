@@ -4,11 +4,16 @@ import StatisticsTab from "./statistics-tab";
 import { getCachedRolePermissions } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Statistics — PipelineIQ",
+  title: "Statistics",
 };
 
+/**
+ * Statistics — the filterable analytics explorer (date ranges, granularity,
+ * user/profile filters, trend charts). Admin and BD Manager see the whole
+ * org; Business Developers see only their own data (scoped server-side by
+ * the leads API).
+ */
 export default async function StatisticsPage() {
-  // Job pages are open to every role (Admin / BD Manager / Business Developer).
   const perms = await getCachedRolePermissions();
   if (!perms.canAccessJobs) redirect("/users");
   return <StatisticsTab />;

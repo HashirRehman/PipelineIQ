@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setProfileActiveRequest } from "@/lib/api/profiles-client";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 export function ProfileActiveToggle({
   profileId,
@@ -55,25 +55,14 @@ export function ProfileActiveToggle({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={displayActive}
-        aria-label={displayActive ? "Deactivate profile" : "Activate profile"}
-        onClick={handleToggle}
+      <Switch
+        checked={displayActive}
+        onCheckedChange={handleToggle}
         disabled={isPending}
-        className={cn(
-          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-          displayActive ? "bg-primary" : "bg-muted dark:bg-white/40",
-        )}
-      >
-        <span
-          className={cn(
-            "pointer-events-none block size-4 rounded-full bg-primary-foreground shadow-sm transition-transform",
-            displayActive ? "translate-x-4" : "translate-x-0",
-          )}
-        />
-      </button>
+        aria-label={displayActive ? "Deactivate profile" : "Activate profile"}
+        className="h-5 w-9 data-[unchecked]:bg-muted dark:data-[unchecked]:bg-white/40"
+        thumbClassName="size-4 data-[checked]:translate-x-4"
+      />
       {error && (
         <p role="alert" className="max-w-40 text-right text-xs text-destructive">
           {error}

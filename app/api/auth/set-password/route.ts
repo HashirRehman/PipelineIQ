@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
-import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/api/rate-limit";
+import {
+  createClient,
+  getCachedOrganizationId,
+  getCachedUser,
+} from "@/lib/supabase/server";
 import { setPasswordSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +39,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // Burst cap per IP plus a tighter per-user cap — a stolen/leaked session
+  // can't be used to grind through password guesses, and a misbehaving
+  // client can't hammer updateUser (defense-in-depth, see lib/api/rate-limit.ts).
+  const ipLimit = checkRateLimit(`set-password:ip:${clientIp(request)}`, 15, 60_000);
+  if (!ipLimit.allowed) return rateLimitResponse(ipLimit.retryAfterMs);
+
+  const userLimit = checkRateLimit(`set-password:user:${user.id}`, 5, 60_000);
+  if (!userLimit.allowed) return rateLimitResponse(userLimit.retryAfterMs);
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.updateUser({
@@ -47,6 +62,42 @@ export async function POST(request: Request) {
     );
   }
 
-  await supabase.auth.signOut();
+  // Revoke every OTHER session for this user (password-change session
+  // revocation — the Supabase equivalent of Better Auth's
+  // revokeSessionsOnPasswordReset). A password change should invalidate
+  // sessions on devices the user isn't on right now: anyone holding an
+  // old refresh token must re-authenticate with the new password.
+  //
+  // scope: 'others' deliberately keeps THIS session — it was established by
+  // confirming the invite link (or belongs to the signed-in user), so the
+  // user lands straight on the dashboard with the password they just chose,
+  // no redundant re-login.
+  const { error: signOutError } = await supabase.auth.signOut({
+    scope: "others",
+  });
+  if (signOutError) {
+    // The password change succeeded; a failed revocation means older
+    // sessions linger until they expire. Log loudly rather than fail the
+    // request — the user has already set their password.
+    console.error(
+      "api/auth/set-password: could not revoke other sessions",
+      signOutError,
+    );
+  }
+
+  // Audit: password set / changed (best-effort; skips only if the org
+  // couldn't be resolved).
+  const organizationId = await getCachedOrganizationId();
+  if (organizationId) {
+    await logAudit({
+      supabase,
+      organizationId,
+      actorUserId: user.id,
+      action: "password_set",
+      targetEmail: user.email ?? undefined,
+      request,
+    });
+  }
+
   return NextResponse.json({ success: true });
 }

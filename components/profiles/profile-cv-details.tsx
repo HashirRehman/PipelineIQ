@@ -8,6 +8,7 @@
 // deliberately has no separate in-flight status — see the note on that
 // function.
 import { AlertTriangle, FileSearch, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { ProfileCvEntry } from "@/app/api/profiles/[profileId]/route";
 import type { ParsedCv } from "@/lib/cv-parsing/parsed-cv";
 
@@ -189,7 +190,7 @@ function ParsedCvBody({ parsed }: { parsed: ParsedCv }) {
                     "Qualification"}
                 </span>
                 <span className="text-muted-foreground">
-                  {entry.institution ? ` — ${entry.institution}` : ""}
+                  {entry.institution ? ` · ${entry.institution}` : ""}
                   {dateRange(entry.start_date, entry.end_date, false)
                     ? ` (${dateRange(entry.start_date, entry.end_date, false)})`
                     : ""}
@@ -206,7 +207,7 @@ function ParsedCvBody({ parsed }: { parsed: ParsedCv }) {
             {parsed.certifications.map((cert, index) => (
               <li key={`${cert.name ?? "cert"}-${index}`} className="text-muted-foreground">
                 <span className="text-foreground">{cert.name}</span>
-                {cert.issuer ? ` — ${cert.issuer}` : ""}
+                {cert.issuer ? ` · ${cert.issuer}` : ""}
                 {cert.issued_date ? ` (${formatMonth(cert.issued_date)})` : ""}
               </li>
             ))}
@@ -218,8 +219,8 @@ function ParsedCvBody({ parsed }: { parsed: ParsedCv }) {
         <Field label="Languages">
           <span className="text-muted-foreground">
             {parsed.languages
-              .map((lang) => [lang.name, lang.proficiency].filter(Boolean).join(" — "))
-              .join(" · ")}
+              .map((lang) => [lang.name, lang.proficiency].filter(Boolean).join(" · "))
+              .join(", ")}
           </span>
         </Field>
       )}
@@ -231,7 +232,7 @@ function ParsedCvBody({ parsed }: { parsed: ParsedCv }) {
               <li key={`${project.name ?? "project"}-${index}`}>
                 <span className="text-foreground">{project.name}</span>
                 {project.description && (
-                  <span className="text-muted-foreground"> — {project.description}</span>
+                  <span className="text-muted-foreground"> · {project.description}</span>
                 )}
               </li>
             ))}
@@ -252,16 +253,18 @@ function ParseActionButton({
   disabled: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       onClick={onClick}
       disabled={disabled}
       // self-start so the flex-col parent doesn't stretch it to full width.
-      className="inline-flex w-fit cursor-pointer items-center gap-1.5 self-start rounded border border-border px-2 py-1 text-xs text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+      className="h-auto w-fit gap-1.5 self-start rounded px-2 py-1 text-xs hover:bg-accent"
     >
       <RefreshCw className="size-3" />
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -283,7 +286,7 @@ export function ProfileCvDetails({
       {state === "parsing" && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin text-primary" />
-          Reading this CV — details will appear here in a moment.
+          Reading this CV. Details will appear here in a moment.
         </div>
       )}
 

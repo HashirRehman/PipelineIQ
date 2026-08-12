@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import { Calendar, Flag, MessageSquare, Plus } from "lucide-react"
 import { Avatar } from "@/components/avatar"
+import { Button } from "@/components/ui/button"
 import type { AppUser, Lead } from "@/components/leads/types"
 import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
 import { stageColor } from "@/lib/constants"
@@ -159,13 +160,15 @@ function BoardColumn({
         <span className="size-[7px] rounded-full shrink-0" style={{ background: col.color }} />
         <span className="text-item font-semibold text-foreground">{col.name}</span>
         <span className="text-xs text-muted-foreground tabular-nums">{col.leads.length}</span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           aria-label={`Add to ${col.name}`}
-          className="ml-auto flex size-5 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="ml-auto size-5 rounded text-muted-foreground/40 hover:bg-accent hover:text-muted-foreground"
         >
           <Plus className="size-3.5" />
-        </button>
+        </Button>
       </div>
 
       {/* Cards area */}

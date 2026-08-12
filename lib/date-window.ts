@@ -24,13 +24,20 @@ function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-/** Most recent Friday at 00:00 local (today is Friday when it is Friday). */
-function startOfThisWeek(now: Date): Date {
-  const day = now.getDay(); // 0=Sun … 5=Fri
+/** The Friday (00:00 local) that starts the business week containing `d` —
+ * weeks run Friday morning → Thursday night everywhere in the app (filters,
+ * date labels, and the statistics weekly buckets all anchor here). */
+export function businessWeekStart(d: Date): Date {
+  const day = d.getDay(); // 0=Sun … 5=Fri
   const daysSinceFriday = (day + 2) % 7; // Fri→0, Sat→1, …, Thu→6
-  const start = startOfDay(now);
+  const start = startOfDay(d);
   start.setDate(start.getDate() - daysSinceFriday);
   return start;
+}
+
+/** Most recent Friday at 00:00 local (today is Friday when it is Friday). */
+function startOfThisWeek(now: Date): Date {
+  return businessWeekStart(now);
 }
 
 export function getDateWindow(range: DateRange, now: Date = new Date()): DateWindow | null {
