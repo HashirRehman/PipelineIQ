@@ -25,11 +25,12 @@ interface UserModalProps {
   roles: RoleOption[]
   user?: ApiAppUser // edit only
   isSelf?: boolean // edit only
+  allowedDomain?: string | null
   onClose: () => void
   onSubmit: (values: { name: string; email: string; roleId: string | null }) => Promise<void>
 }
 
-function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: UserModalProps) {
+function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, onSubmit }: UserModalProps) {
   const isInvite = mode === "invite"
   const [name, setName] = useState(user?.name ?? "")
   const [email, setEmail] = useState(user?.email ?? "")
@@ -38,10 +39,18 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
 
+  const domainSuffix = allowedDomain?.trim()
+    ? (allowedDomain.trim().startsWith("@") ? allowedDomain.trim() : `@${allowedDomain.trim()}`)
+    : null
+
   const canSubmit = isInvite ? Boolean(name && email && roleId) : Boolean(name.trim())
 
   const handleSubmit = async () => {
     if (!canSubmit || loading) return
+    if (isInvite && domainSuffix && !email.trim().toLowerCase().endsWith(domainSuffix.toLowerCase())) {
+      setError(`Only ${domainSuffix} email domain is allowed.`)
+      return
+    }
     setLoading(true); setError("")
     try {
       await onSubmit({ name: name.trim(), email: email.trim(), roleId })
@@ -107,9 +116,14 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
                 className={isInvite ? inputClass : `${inputClass} opacity-60 cursor-not-allowed`}
                 value={email}
                 onChange={isInvite ? e => setEmail(e.target.value) : undefined}
-                placeholder={isInvite ? "jane@company.com" : undefined}
+                placeholder={isInvite ? (domainSuffix ? `jane${domainSuffix}` : "jane@company.com") : undefined}
                 readOnly={!isInvite}
               />
+              {isInvite && domainSuffix && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Only <b>{domainSuffix}</b> email domain is allowed.
+                </p>
+              )}
             </div>
             {isSelf && !isInvite ? (
               <p className="text-caption text-muted-foreground">You cannot change your own role.</p>
@@ -141,6 +155,7 @@ export default function UsersTab() {
   const [activeUser, setActiveUser] = useState<ApiAppUser | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [canInvite, setCanInvite] = useState(false)
+  const [allowedDomain, setAllowedDomain] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState("")
@@ -173,6 +188,7 @@ export default function UsersTab() {
         setActiveUser(json.currentUser ?? null)
         setIsAdmin(json.isAdmin ?? false)
         setCanInvite(json.canInvite ?? false)
+        setAllowedDomain(json.allowedEmailDomain ?? null)
         setError(null)
       })
       .catch(err => {
@@ -465,6 +481,7 @@ export default function UsersTab() {
         <UserModal
           mode="invite"
           roles={roles}
+          allowedDomain={allowedDomain}
           onClose={() => setShowInvite(false)}
           onSubmit={async ({ name, email, roleId }) => {
             const data = await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", { name, email, roleId })

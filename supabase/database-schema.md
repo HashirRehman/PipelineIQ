@@ -57,6 +57,7 @@ The company/tenant scope for every business entity.
 |---|---|---|
 | id | uuid | PK |
 | name | text | NOT NULL |
+| allowed_email_domain | text | DEFAULT `'recursolabs.com'` — NULL or empty allows any domain |
 | is_active | boolean | NOT NULL, default `true` |
 | created_at / updated_at | timestamptz | NOT NULL, default `now()` |
 | deleted_at | timestamptz | |
