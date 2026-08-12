@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +77,8 @@ export async function PATCH(request: Request) {
     }
   }
 
-  const { error } = await supabase
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
     .from("organizations")
     .update({
       allowed_email_domain: cleanedDomain,
