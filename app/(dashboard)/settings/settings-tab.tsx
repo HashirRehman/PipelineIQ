@@ -666,7 +666,7 @@ export default function SettingsTab() {
                       </p>
 
                       <div className="flex items-center gap-2.5 pt-0.5">
-                        {paletteSwatches(palette[mode]).map(s => (
+                        {mounted && paletteSwatches(palette[mode]).map(s => (
                           <Swatch key={s.label} color={s.color} label={s.label} />
                         ))}
                       </div>
@@ -682,7 +682,7 @@ export default function SettingsTab() {
                 <span className="text-caption text-muted-foreground">
                   — textures for the app shell
                 </span>
-                {!isPatternDefault && (
+                {mounted && !isPatternDefault && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -747,7 +747,7 @@ export default function SettingsTab() {
               </div>
 
               <div className="sticky top-0 space-y-3">
-                <PreviewShell palette={preview} mode={mode} />
+                {mounted && <PreviewShell palette={preview} mode={mode} />}
 
                 {/* Pattern preview */}
                 <div className="rounded-lg border border-border bg-card p-3.5">
@@ -769,16 +769,18 @@ export default function SettingsTab() {
                 </div>
 
                 {/* Swatch legend */}
-                <div className="rounded-lg border border-border bg-card p-3.5">
-                  <p className="text-caption font-semibold text-foreground mb-2">
-                    {preview.name} — {mode === "dark" ? "Dark" : "Light"} tokens
-                  </p>
-                  <div className="flex items-center gap-2.5">
-                    {paletteSwatches(preview[mode]).map(s => (
-                      <Swatch key={s.label} color={s.color} label={s.label} />
-                    ))}
+                {mounted && (
+                  <div className="rounded-lg border border-border bg-card p-3.5">
+                    <p className="text-caption font-semibold text-foreground mb-2">
+                      {preview.name} — {mode === "dark" ? "Dark" : "Light"} tokens
+                    </p>
+                    <div className="flex items-center gap-2.5">
+                      {paletteSwatches(preview[mode]).map(s => (
+                        <Swatch key={s.label} color={s.color} label={s.label} />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
