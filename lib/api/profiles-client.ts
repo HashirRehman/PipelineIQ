@@ -50,6 +50,15 @@ export function updateProfileRequest(
   );
 }
 
+export type ProfileFieldPatch = Partial<Record<keyof ProfileCoreFieldsPayload, string | null>>;
+
+/** Patches one or two fields; the route writes only what's sent. */
+export function updateProfileFieldsRequest(profileId: string, patch: ProfileFieldPatch) {
+  return toResult(
+    apiPatch<ProfileMutationResponse>(profilePath(profileId), patch),
+  );
+}
+
 export function setProfileActiveRequest(profileId: string, isActive: boolean) {
   return toResult(
     apiPatch<ProfileMutationResponse>(`${profilePath(profileId)}/status`, {

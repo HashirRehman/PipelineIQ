@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { ProfilesListApiResponse } from "@/app/api/profiles/route"
 import type { ProfileDetailApiResponse } from "@/app/api/profiles/[profileId]/route"
 import { ProfileDetailSheet } from "@/components/profiles/profile-detail-sheet"
@@ -10,6 +10,10 @@ import { Loader2 } from "lucide-react"
 export default function ProfilesTab() {
   const [listData, setListData] = useState<ProfilesListApiResponse | null>(null)
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  // The drawer's open state is derived from detailData, so a refetch that
+  // resolves after it closed would reopen it. Read the live selection to drop
+  // those late results.
+  const selectedIdRef = useRef<string | null>(null)
   const [detailData, setDetailData] = useState<ProfileDetailApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -51,28 +55,33 @@ export default function ProfilesTab() {
   }, [])
 
   const selectProfile = async (profileId: string) => {
+    selectedIdRef.current = profileId
     setSelectedProfileId(profileId)
     setDetailData(null)
     setDetailError(null)
     setDetailLoading(true)
     try {
-      setDetailData(await fetchDetail(profileId))
+      const detail = await fetchDetail(profileId)
+      if (selectedIdRef.current !== profileId) return
+      setDetailData(detail)
     } catch {
-      setDetailError("Unable to load the selected profile.")
+      if (selectedIdRef.current === profileId) setDetailError("Unable to load the selected profile.")
     } finally {
       setDetailLoading(false)
     }
   }
 
   const refreshAfterMutation = async () => {
-    if (!selectedProfileId) {
+    const profileId = selectedProfileId
+    if (!profileId) {
       await loadProfiles(undefined, { silent: true })
       return
     }
     const [, detailResult] = await Promise.allSettled([
       loadProfiles(undefined, { silent: true }),
-      fetchDetail(selectedProfileId),
+      fetchDetail(profileId),
     ])
+    if (selectedIdRef.current !== profileId) return
     if (detailResult.status === "fulfilled") {
       setDetailData(detailResult.value)
       setDetailError(null)
@@ -82,6 +91,7 @@ export default function ProfilesTab() {
   }
 
   const closeDetail = () => {
+    selectedIdRef.current = null
     setSelectedProfileId(null)
     setDetailData(null)
     setDetailError(null)
