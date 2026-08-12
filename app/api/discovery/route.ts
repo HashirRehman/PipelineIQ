@@ -266,6 +266,10 @@ export async function GET(request: NextRequest) {
   const parser = searchParams.get("parser") ?? "";
   const search = (searchParams.get("search") ?? "").trim();
   const region = searchParams.get("region") ?? "";
+  // Country filter — a country name from lib/countries. Matched as a
+  // case-insensitive substring of company_location (locations are free
+  // text like "Lahore, Pakistan"), same as the search term.
+  const country = (searchParams.get("country") ?? "").trim();
   const sort = parseSort(searchParams.get("sort"), DISCOVERY_SORT_OPTIONS, "relevance");
 
   // Feed the jobs are returned as. Defaults to the discovery feed ("new").
@@ -316,7 +320,7 @@ export async function GET(request: NextRequest) {
     .order("is_active", { ascending: false })
     .order("created_at", { ascending: true });
 
-  const [{ data: profileRows }, { data: stateRows }, { data: scraperRows }, { data: leadRows }, { data: userRows }] =
+  const [{ data: profileRows }, { data: stateRows }, { data: scraperRows }, { data: leadRows }, { data: userRows }, { data: stageRows }] =
     await Promise.all([
       profileQuery,
       supabase
@@ -347,6 +351,12 @@ export async function GET(request: NextRequest) {
         .eq("organization_id", organizationId)
         .is("deleted_at", null)
         .order("full_name"),
+      // Lead stages for the New Job dialog (the DB list) — the stage the
+      // job lands on when added as a lead.
+      supabase
+        .from("pipeline_stages")
+        .select("id, name, order_index")
+        .order("order_index"),
     ]);
 
   // The full roster stays in the response so the filter dropdowns keep every
@@ -438,6 +448,11 @@ export async function GET(request: NextRequest) {
 
   if (parser && parser !== "All Sources") {
     query = query.eq("scrapers.name", parser);
+  }
+
+  if (country) {
+    const term = country.replace(/'/g, "''");
+    query = query.ilike("company_location", `%${term}%`);
   }
 
   if (search) {
@@ -554,5 +569,10 @@ export async function GET(request: NextRequest) {
     pageSize,
     totalPages,
     parsers,
+    pipelineStages: (stageRows ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      orderIndex: s.order_index,
+    })),
   });
 }

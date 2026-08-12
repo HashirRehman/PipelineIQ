@@ -2,36 +2,35 @@
 
 import type { ReactNode } from "react"
 import { ChevronDown, Plus } from "lucide-react"
-import { LEAD_STATUS_COLOR, type LeadStatus } from "@/lib/constants"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export function LeadStatusSection({
   status,
+  color,
   count,
   collapsed,
   onToggle,
   children,
 }: {
-  status: LeadStatus
+  status: string
+  /** Stage color — derived from the stage's position in the ordered list. */
+  color: string
   count: number
   collapsed: boolean
   onToggle: () => void
   children: ReactNode
 }) {
-  const color = LEAD_STATUS_COLOR[status]
 
   return (
     <section>
       {/* Section header row — matches the reference Tasks list group row */}
-      <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-muted/60">
-        <button
-          type="button"
+      <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-muted/60 hover:bg-transparent  cursor-pointer">
+        <div
           onClick={onToggle}
           aria-expanded={!collapsed}
           aria-label={`${collapsed ? "Expand" : "Collapse"} ${status}`}
-          className={cn(
-            "flex flex-1 items-center gap-2 cursor-pointer text-left",
-          )}
+          className="h-auto flex-1 flex items-center justify-start gap-2 rounded p-0 text-left"
         >
           <ChevronDown
             className={cn(
@@ -44,11 +43,9 @@ export function LeadStatusSection({
             className="size-[7px] rounded-full shrink-0"
             style={{ background: color }}
           />
-          {/* Status label */}
-          <span
-            className="text-item font-semibold"
-            style={{ color }}
-          >
+          {/* Status label — always foreground; the dot + count carry the
+              stage color (the first stage's navy is unreadable on dark). */}
+          <span className="text-item font-semibold text-foreground">
             {status}
           </span>
           {/* Count pill */}
@@ -58,16 +55,7 @@ export function LeadStatusSection({
           >
             {count}
           </span>
-        </button>
-
-        {/* Add button */}
-        <button
-          type="button"
-          aria-label={`Add lead to ${status}`}
-          className="flex size-6 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors cursor-pointer"
-        >
-          <Plus className="size-3.5" />
-        </button>
+        </div>
       </div>
 
       {!collapsed && <div>{children}</div>}

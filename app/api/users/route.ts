@@ -213,7 +213,7 @@ export async function POST(request: Request) {
   if (usersError) {
     console.error("api/users: users insert failed", usersError);
     return NextResponse.json(
-      { error: "User invited, but account setup failed — contact an administrator." },
+      { error: "User invited, but account setup failed. Contact an administrator." },
       { status: 500 },
     );
   }

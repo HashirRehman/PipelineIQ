@@ -2,7 +2,7 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 16 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 17 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
 - **Last updated:** 2026-08-11
 
@@ -43,6 +43,7 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 14 | `20260810150000_bd_manager_access.sql` | `is_bd_manager()` helper; `users_select` widened so BD Managers can read the team roster (view-only — updates/deletes/invites stay admin-only) — `db push`, no reset |
 | 15 | `20260810160000_bd_manager_full_access.sql` | widens business-table RLS so BD Managers mirror Admins everywhere except user management: `is_bd_manager()` added to profiles / profile_cvs / job_profile_matches / job_profile_states / leads / job_comments_update policies; `users` policies unchanged (roster read + own-name edit only, invites/management stay Admin-only) — `db push`, no reset |
 | 16 | `20260810170000_leads_profile_owner.sql` | leads ownership follows the PROFILE, not the creation-time snapshot: `leads_select` / `leads_update` owner branch widened to the profile's current assigned user (`exists profiles p where p.id = profile_id and p.user_id = auth.uid()`), snapshot branch kept for the original applier — so leads created by an admin, or whose applier was deleted/reassigned, still land on the assigned developer — `db push`, no reset |
+| 17 | `20260811120000_manual_jobs.sql` | seeds the `Manual` scraper (idempotent — only when no `Manual` row exists); `jobs_insert` RLS policy pinning `organization_id` to the caller's own `users` row, so any org member can add a job by hand — `db push`, no reset |
 
 ---
 
@@ -266,6 +267,8 @@ Job postings ingested from external sources via scrapers.
 
 The `UNIQUE (scraper_id, external_job_id)` constraint prevents duplicate ingest of the same posting.
 
+**Manually added jobs** (the Pipeline page's "New Job" flow, POST `/api/jobs`) reuse this table: `scraper_id` points at the seeded `Manual` scraper (the typed source text lives on `parsed_data.source`), `external_job_id` is a random uuid the scrapers can never produce — so the AI cron's upsert (keyed on `scraper_id` + `external_job_id`) can never collide with or overwrite them. `is_globally_open` is set `true` at insert so the job surfaces in everyone's Discovery; the chosen profile's `job_profile_states` row carries the applied/dismissed state and the applied-on date (`created_at`), and every other profile has no row at all = suggested. `apply_url` is `''` when no URL was given. The manual extras (skills, budget, exp. compensation, source, developer) live on `parsed_data` — the `ParsedJobData` type in `lib/ai/client.ts` gained optional `budget` / `source` / `developer` fields for them.
+
 ### 3.11 `leads` — old DB: `leads`
 
 **A lead is an applied job that received an employer reply.** It carries the pipeline position of that reply.
@@ -456,7 +459,7 @@ jobs 1─N job_comments, users 1─N job_comments  (authors)
 5. **`profiles.user_id` is nullable.** A profile may exist without a user, and a user may have zero profiles. Confirm the intended direction — specifically whether external candidates (no login) should still be representable.
 6. **`users.organization_id` is NOT NULL.** An organization row must exist before any user/profile can be inserted. Addressed by the seed data (`seed.sql` creates the `Recurso Labs` organization).
 7. **Duplicate-lead rule.** Enforced in the API (POST `/api/leads` returns the existing live lead for the pair). A partial unique index could harden it at the DB level later.
-8. **Re-application atomicity.** When lead creation returns, updating/creating the `job_profile_states` row and the lead must be atomic — today mark-applied is a single table INSERT/UPDATE, so nothing spans tables yet. Remaining gap: `reassign` has no fresh equivalent yet (Phase 3 — profile reassignment is a plain `profiles.user_id` update today).
+8. **Re-application atomicity.** When lead creation returns, updating/creating the `job_profile_states` row and the lead must be atomic — today mark-applied is a single table INSERT/UPDATE, so nothing spans tables yet. Remaining gap: `reassign` has no fresh equivalent yet (Phase 3 — profile reassignment is a plain `profiles.user_id` update today). POST `/api/jobs` (manual job creation) is the first multi-table write: job + state row + (for "lead" state) a lead, inserted sequentially — every failure-prone input (profile, Manual scraper, stage) is validated before the first insert, so a mid-flight failure is a transient DB error, but a transaction/RPC would still be the hardening move.
 9. **Soft-deleted state rows referenced by leads.** A lead can point to a state row that is later soft-deleted — lead queries must not filter the joined state by `deleted_at IS NULL`.
 10. **`rate_currency char(3)`** pads values with spaces in Postgres; comparisons need trimming. Inherited from the old schema — consider `text` + length check if it causes friction.
 11. **`cv_id` cross-table integrity.** Nothing enforces that a `job_profile_matches.cv_id` or `job_profile_states.cv_id` belongs to the same profile as the row's `profile_id` — needs app-level validation (a composite FK doesn't fit cleanly).
@@ -469,7 +472,7 @@ jobs 1─N job_comments, users 1─N job_comments  (authors)
 
 | Source | What it seeds |
 |---|---|
-| `supabase/seed.sql` (runs automatically on `supabase db reset` via `[db.seed]` in `config.toml`) | Data-API grants (`anon` read, `authenticated`/`service_role` full + enum usage), `Recurso Labs` organization, `Admin`/`User` roles, seniority levels (`Lead`/`Senior`/`Mid`/`Junior`), pipeline stages (`Applied` → `Closed` — matches `LEAD_STATUSES` in `lib/constants.ts`), `Jsearch` scraper, 2 profiles (`Saad Mumtaz`, `Hashir Rehman`), 1 CV for each profile (dummy paths), 2 jobs (YO AI Labs, Mercor). Idempotent — fixed UUIDs + `ON CONFLICT DO NOTHING` |
+| `supabase/seed.sql` (runs automatically on `supabase db reset` via `[db.seed]` in `config.toml`) | Data-API grants (`anon` read, `authenticated`/`service_role` full + enum usage), `Recurso Labs` organization, `Admin`/`User` roles, seniority levels (`Lead`/`Senior`/`Mid`/`Junior`), pipeline stages (`Applied` → `Closed`; the frontend reads these dynamically, so their names/order are the UI source of truth — the last one is the terminal "done" stage), `Jsearch` scraper, 2 profiles (`Saad Mumtaz`, `Hashir Rehman`), 1 CV for each profile (dummy paths), 2 jobs (YO AI Labs, Mercor). Idempotent — fixed UUIDs + `ON CONFLICT DO NOTHING` |
 | `scripts/createUser.cjs` (`npm run seed:user`) | The admin auth user (Fareed Zafar) via the service-role admin API — auth identities cannot be created from SQL — plus the matching `users` row with a single `Admin` role via `users.role_id`, and links the `Saad Mumtaz` profile to the user (ownership). Idempotent; requires migrations + `seed.sql` applied first |
 
 **Not yet built:**

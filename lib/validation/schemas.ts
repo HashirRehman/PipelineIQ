@@ -179,6 +179,59 @@ export const markAppliedSchema = z.object({
 // mark-applied — each lead wraps one (job, profile) pair.
 export const addToLeadsSchema = markAppliedSchema;
 
+// Whether a "YYYY-MM-DD" string is a REAL calendar date. The format regex
+// alone admits impossible dates (Feb 31, month 13), which new Date() would
+// silently roll over (Feb 31 → Mar 2) or throw on (month 13 → RangeError in
+// the route's toISOString()). Reconstructing via Date.UTC and comparing the
+// components catches both — and gets leap years right (Feb 29 only in leap
+// years).
+function isRealCalendarDate(value: string): boolean {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+// Manually add a job from the Pipeline page's "New Job" flow. Creates the
+// job (visible as a suggestion to every other profile), an applied/dismissed
+// state row for the chosen profile, and — when state is "lead" — a lead row
+// with a pipeline stage and the lead comment. date is the applied-on date
+// (required for every job).
+export const createManualJobSchema = z
+  .object({
+    title: z.string().trim().min(1, "Title is required.").max(300),
+    company: z.string().trim().min(1, "Company is required.").max(200),
+    location: optionalTrimmedText,
+    url: optionalTrimmedText,
+    // Applied-on date ("YYYY-MM-DD"), required for every manual job.
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date.")
+      .refine(isRealCalendarDate, { message: "Enter a valid date." }),
+    // Free-text source (e.g. LinkedIn, referral, email) — kept on
+    // jobs.parsed_data; jobs.scraper_id points at the Manual scraper.
+    source: optionalTrimmedText,
+    skills: z.array(z.string().trim().min(1)).max(100).optional(),
+    budget: optionalTrimmedText,
+    expCompensation: optionalTrimmedText,
+    developer: optionalTrimmedText,
+    profileId: z.uuid("Select a profile."),
+    // Which state the chosen profile gets: applied (Pipeline feed), lead
+    // (Pipeline + Leads with a stage), or dismissed. Everyone else's state
+    // row stays suggested.
+    state: z.enum(["applied", "lead", "dismissed"]),
+    // Lead stage — comes from pipeline_stages; required when state is lead.
+    pipelineStageId: z.uuid("Select a stage.").optional(),
+    comment: optionalTrimmedText,
+  })
+  .refine((data) => data.state !== "lead" || data.pipelineStageId !== undefined, {
+    message: "Select a stage for the lead.",
+    path: ["pipelineStageId"],
+  });
+
 export const updateLeadSchema = z
   .object({
     notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),

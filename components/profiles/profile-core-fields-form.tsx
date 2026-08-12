@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CountryCombobox } from "@/components/ui/country-combobox";
+import { CurrencyCombobox } from "@/components/ui/currency-combobox";
 import {
   Select,
   SelectContent,
@@ -44,6 +46,40 @@ const BLANK_VALUES: ProfileFieldValues = {
   rateCurrency: "USD",
   summary: "",
 };
+
+function SteppedNumberInput({
+  id,
+  name,
+  defaultValue,
+  min,
+}: {
+  id: string;
+  name: string;
+  defaultValue: string;
+  min?: number;
+}) {
+  const [value, setValue] = useState(defaultValue ?? "");
+
+  // Built-in browser spinners, stepping by whole numbers. When the current
+  // value is fractional (e.g. legacy "7.5 years" profiles), fall back to
+  // step="any" so the value stays valid — a hard step="1" would make those
+  // profiles a step-mismatch and block saving them. Typed decimals (0.5
+  // years, $12.50) always remain valid either way.
+  const step = Number.isInteger(Number(value)) ? "1" : "any";
+
+  return (
+    <Input
+      id={id}
+      name={name}
+      type="number"
+      inputMode="decimal"
+      min={min}
+      step={step}
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+    />
+  );
+}
 
 function readPayload(form: HTMLFormElement): ProfileCoreFieldsPayload {
   const formData = new FormData(form);
@@ -139,7 +175,17 @@ export function ProfileCoreFieldsForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="location">Location</Label>
-          <Input id="location" name="location" defaultValue={seedValues.location} />
+          {/* Country dropdown with search — the ISO list from lib/countries.
+              allowCustom keeps pre-existing free-text values ("Lahore,
+              Pakistan") intact until the user picks a country; the hidden
+              input submits the value with the form. */}
+          <CountryCombobox
+            id="location"
+            name="location"
+            defaultValue={seedValues.location}
+            placeholder="Select a country"
+            allowCustom
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="seniorityLevelId">Seniority level</Label>
@@ -163,33 +209,33 @@ export function ProfileCoreFieldsForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="yearsExperience">Years experience</Label>
-          <Input
+          <SteppedNumberInput
             id="yearsExperience"
             name="yearsExperience"
-            type="number"
-            step="0.1"
-            min="0"
             defaultValue={seedValues.yearsExperience}
+            min={0}
           />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="rateExpectation">Rate expectation</Label>
-          <Input
+          <SteppedNumberInput
             id="rateExpectation"
             name="rateExpectation"
-            type="number"
-            step="0.01"
-            min="0"
             defaultValue={seedValues.rateExpectation}
+            min={0}
           />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="rateCurrency">Rate currency</Label>
-          <Input
+          {/* Currency dropdown with search — the ISO 4217 list from
+              lib/currencies. Stores the 3-letter code (what the server
+              validates); allowCustom keeps legacy values intact. */}
+          <CurrencyCombobox
             id="rateCurrency"
             name="rateCurrency"
-            maxLength={3}
             defaultValue={seedValues.rateCurrency}
+            placeholder="Select a currency"
+            allowCustom
           />
         </div>
       </div>

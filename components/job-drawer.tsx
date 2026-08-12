@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Bookmark, Loader2, X } from "lucide-react"
 
 import { JobComments } from "@/components/job-comments"
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
+import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
 import { parseDescription, type DescBlock } from "@/lib/job-description"
 
 // Minimal shape — only profile.name is rendered; both the real discovery
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { scoreColor } from "@/lib/constants"
-import { timeAgo } from "@/lib/format"
+import { formatDate, timeAgo } from "@/lib/format"
 
 export interface CvMatch {
   matchId: string
@@ -53,6 +54,8 @@ export interface Job {
   parser: string
   status: "new" | "applied" | "dismissed"
   dismissReason?: string
+  /** Lead pipeline stage — set by the Leads drawer; absent on plain jobs. */
+  stage?: string | null
   description: string
   relevanceScore?: number
   cvMatches?: CvMatch[]
@@ -69,6 +72,11 @@ export interface Job {
     technologies?: string[]
     experienceYears?: number | null
     salaryRange?: string | null
+    /** Manual / imported extras — set by the Pipeline "New Job" and Import
+     * flows; absent on AI-enriched rows. */
+    budget?: string | null
+    source?: string | null
+    developer?: string | null
   } | null
 }
 
@@ -89,7 +97,7 @@ function RelevanceMatch({ profiles, job }: { profiles: ActiveProfile[]; job: Job
             : `Matches across ${profiles.length} profiles`}
         </div>
         <div className="text-xs text-muted-foreground">
-          No match yet — this job hasn&apos;t been scored against{" "}
+          No match yet. This job hasn&apos;t been scored against{" "}
           {profiles.length <= 1 ? "this profile" : "these profiles"}
           &apos; CVs.
         </div>
@@ -327,6 +335,10 @@ interface Props {
   setDismissReason?: (r: string) => void
   dismissOpen?: boolean
   setDismissOpen?: (v: boolean) => void
+  // Lead stage editor — when both are provided, the Details column's Stage
+  // row becomes a dropdown backed by the database's pipeline_stages.
+  stages?: StageOption[]
+  onStageChange?: (stage: string) => void
 }
 
 export default function JobDrawer({
@@ -334,7 +346,12 @@ export default function JobDrawer({
   onApply, onMarkApplied, markAppliedPending = false, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
   commentsJobId, notes, onNotesSave, canEditNotes = true,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
+  stages, onStageChange,
 }: Props) {
+  // The drawer content node — the lead stage select portals its popup into
+  // it so the dialog's focus trap (vaul is modal) doesn't blink it shut.
+  const contentRef = useRef<HTMLDivElement | null>(null)
+
   const [lastJob, setLastJob] = useState<Job | null>(job)
   const [lastNotes, setLastNotes] = useState(notes)
   const [prevJob, setPrevJob] = useState<Job | null>(job)
@@ -395,19 +412,22 @@ export default function JobDrawer({
   return (
     <Drawer direction="right" open={open} onOpenChange={(isOpen) => { if (!isOpen) { onClose(); setPendingAction(null) } }}>
       <DrawerContent
+        ref={contentRef}
         className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground"
       >
         {/* Top bar */}
         <div className="flex items-center justify-end gap-2 px-5 py-2.5 border-b border-border bg-card shrink-0">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-sm"
             disabled
             title="Save (coming soon)"
             aria-label="Save job (coming soon)"
-            className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+            className="size-7 rounded-md text-muted-foreground"
           >
             <Bookmark className="size-3.5" />
-          </button>
+          </Button>
           <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="size-4" />
           </Button>
@@ -416,12 +436,27 @@ export default function JobDrawer({
         <div className="flex flex-1 min-h-0">
           {/* Left column — white */}
           <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6">
-            <h2 className="text-lg font-bold text-foreground mb-1.5 mt-0">{displayJob.title}</h2>
+            <h2 className="font-heading text-lg font-bold tracking-tight text-foreground mb-1.5 mt-0">{displayJob.title}</h2>
             <div className="flex items-center gap-1.5 flex-wrap mb-4">
               <span className="text-sm font-semibold text-foreground">{displayJob.company}</span>
               <span className="text-border">·</span>
               <span className="text-xs text-muted-foreground">{displayJob.location}</span>
             </div>
+
+            {/* Stage — editable on the lead drawer, right under the title. */}
+            {stages && onStageChange && displayJob.stage && (
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">
+                  Stage
+                </span>
+                <LeadStatusSelect
+                  value={displayJob.stage}
+                  stages={stages}
+                  onChange={onStageChange}
+                  container={contentRef}
+                />
+              </div>
+            )}
 
             {/* Profile-dependent actions can't run without a profile — the
                 API requires the acting user's assigned profile id (RLS
@@ -625,10 +660,17 @@ export default function JobDrawer({
                 <dd className="text-xs text-foreground capitalize">
                   {displayJob.workType}
                   {displayJob.workType === "remote" && displayJob.remoteRegion
-                    ? ` — ${displayJob.remoteRegion}`
+                    ? ` · ${displayJob.remoteRegion}`
                     : null}
                 </dd>
               </div>
+
+              {displayJob.stage && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Stage</dt>
+                  <dd className="text-xs text-foreground font-medium">{displayJob.stage}</dd>
+                </div>
+              )}
 
               {displayJob.parsedData?.experienceYears && (
                 <div className="flex items-center justify-between gap-3">
@@ -639,8 +681,22 @@ export default function JobDrawer({
 
               {displayJob.parsedData?.salaryRange && (
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Est. Salary</dt>
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Exp. Compensation</dt>
                   <dd className="text-xs text-foreground font-medium">{displayJob.parsedData.salaryRange}</dd>
+                </div>
+              )}
+
+              {displayJob.parsedData?.budget && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Budget</dt>
+                  <dd className="text-xs text-foreground font-medium text-right">{displayJob.parsedData.budget}</dd>
+                </div>
+              )}
+
+              {displayJob.parsedData?.developer && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Developer</dt>
+                  <dd className="text-xs text-foreground font-medium text-right">{displayJob.parsedData.developer}</dd>
                 </div>
               )}
 
@@ -655,12 +711,46 @@ export default function JobDrawer({
 
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Source</dt>
-                <dd className="text-xs text-foreground">{displayJob.parser}</dd>
+                <dd className="text-xs text-foreground">
+                  {displayJob.parsedData?.source || displayJob.parser}
+                </dd>
               </div>
 
+              {(() => {
+                // Who this job is tied to — the profile(s) it was applied
+                // for (applied feed) or, on a lead, the lead's profile.
+                const appliedNames = (displayJob.profiles ?? [])
+                  .filter((p) => p.status === "applied" || p.isLead)
+                  .map((p) => p.profileName)
+                const names =
+                  appliedNames.length > 0
+                    ? appliedNames
+                    : displayJob.isLead && profiles[0]?.name
+                      ? [profiles[0].name]
+                      : []
+                if (names.length === 0) return null
+                return (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">
+                      Profile
+                    </dt>
+                    <dd className="text-xs text-foreground font-medium text-right">
+                      {names.join(", ")}
+                    </dd>
+                  </div>
+                )
+              })()}
+
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Posted</dt>
-                <dd className="text-xs text-foreground font-mono">{timeAgo(displayJob.postedAt)}</dd>
+                <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">
+                  {displayJob.status === "applied" || displayJob.isLead
+                    ? "Applied"
+                    : "Posted"}
+                </dt>
+                <dd className="text-xs text-foreground font-mono text-right">
+                  {formatDate(displayJob.appliedAt ?? displayJob.postedAt)}{" "}
+                  <span className="text-muted-foreground">· {timeAgo(displayJob.appliedAt ?? displayJob.postedAt)}</span>
+                </dd>
               </div>
 
               <div className="flex items-center justify-between gap-3">

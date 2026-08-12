@@ -37,8 +37,10 @@ insert into public.seniority_level (id, name) values
 on conflict (name) do nothing;
 
 -- Pipeline stages (lead pipeline after an employer reply) --------
--- Names/order must match LEAD_STATUSES in lib/constants.ts — the leads UI
--- renders these verbatim (status select, board columns, list sections).
+-- The frontend reads these dynamically (status select, board columns, list
+-- sections, filters) — the order below drives both the UI order and the
+-- stage colors, so keep it meaningful. The LAST stage is the terminal one
+-- (the "mark done" target).
 insert into public.pipeline_stages (id, name, order_index) values
   ('10000000-0000-4000-8000-000000000040', 'Applied',                1),
   ('10000000-0000-4000-8000-000000000041', 'Assessment Received',    2),

@@ -8,6 +8,7 @@ import {
   BarChart3,
   Briefcase,
   CheckCircle2,
+  LayoutDashboard,
   LogOut,
   ChevronsRight,
   ChevronsLeft,
@@ -17,12 +18,19 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { PipelineIQLogo, RecursoMark } from "@/components/pipelineiq-logo";
+import { Button } from "@/components/ui/button";
 import { apiPost } from "@/lib/api/client";
 import { getRolePermissionsByKey } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 import type { TabId } from "@/lib/constants";
 
 const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    href: "/",
+  },
   { id: "profiles", label: "Profiles", icon: UserRound, href: "/profiles" },
   { id: "discovery", label: "Discovery", icon: Search, href: "/discovery" },
   {
@@ -33,7 +41,7 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
   },
   { id: "leads", label: "Leads", icon: Briefcase, href: "/leads" },
   { id: "users", label: "Users", icon: Users, href: "/users" },
-  {
+    {
     id: "statistics",
     label: "Statistics",
     icon: BarChart3,
@@ -60,7 +68,7 @@ const readCollapsed = () =>
   window.localStorage.getItem(COLLAPSED_KEY) === "1";
 
 function getActiveTab(pathname: string): TabId | null {
-  if (pathname === "/") return "profiles";
+  if (pathname === "/") return "dashboard";
   const segment = pathname.split("/")[1];
   return NAV.some((item) => item.id === segment)
     ? (segment as TabId)
@@ -129,19 +137,21 @@ export default function Sidebar({ counts, user }: SidebarProps) {
         )}
       >
         {collapsed ? <RecursoMark size={16} /> : <PipelineIQLogo />}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute right-0 z-50 flex size-6 translate-x-[50%] items-center justify-center rounded-full bg-white text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground cursor-pointer dark:bg-background"
+          className="absolute right-0 z-50 translate-x-[50%] rounded-full bg-white text-muted-foreground/80 hover:bg-accent hover:text-foreground dark:bg-background"
         >
           {collapsed ? (
-            <ChevronsLeft className="size-4" />
-          ) : (
             <ChevronsRight className="size-4" />
+          ) : (
+            <ChevronsLeft className="size-4" />
           )}
-        </button>
+        </Button>
       </div>
 
       {/* Navigation */}
@@ -236,14 +246,16 @@ export default function Sidebar({ counts, user }: SidebarProps) {
               </div>
             )}
             {!collapsed && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={handleSignOut}
                 aria-label="Log out"
-                className="flex size-6 items-center justify-center rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                className="size-6 rounded text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100"
               >
                 <LogOut className="size-3.5" />
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -251,14 +263,15 @@ export default function Sidebar({ counts, user }: SidebarProps) {
         {/* Log out — icon-only action for the collapsed rail (expanded uses
             the hover action on the user row above) */}
         {collapsed && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={handleSignOut}
             title="Log out"
-            className="flex w-full items-center justify-center rounded-lg py-2 text-muted-foreground transition-colors cursor-pointer hover:bg-destructive/10 hover:text-destructive"
+            className="h-auto w-full rounded-lg py-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           >
             <LogOut className="size-4 shrink-0" strokeWidth={1.8} />
-          </button>
+          </Button>
         )}
       </div>
     </aside>

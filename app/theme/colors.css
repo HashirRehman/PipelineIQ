@@ -124,13 +124,15 @@
   --primary: #60a5fa;               /* lighter dracula blue                 */
   --primary-foreground: #282a36;
   --ring: #60a5fa;
-  --accent: #44475a;
+  /* Blue-tinted fills — dark-mode mirrors of the light theme's soft blue
+     accent (#dbeafe), so hover/active states read as blue here too. */
+  --accent: #2b3753;
   --accent-foreground: #93c5fd;
 
   /* Neutral fills */
-  --secondary: #343746;
+  --secondary: #333d54;
   --secondary-foreground: #f8f8f2;
-  --muted: #343746;
+  --muted: #333d54;
   --muted-foreground: #a3a6bd;
 
   /* Lines */
@@ -149,10 +151,14 @@
   --destructive-foreground: oklch(1 0 0);  --sidebar-foreground: #f8f8f2;
   --sidebar-primary: #60a5fa;
   --sidebar-primary-foreground: #282a36;
-  --sidebar-accent: #44475a;
+  --sidebar-accent: #2b3753;
   --sidebar-accent-foreground: #93c5fd;
   --sidebar-border: #44475a;
   --sidebar-ring: #60a5fa;
+
+  /* Brand palette — light-mode navy (#44475a) is dark-on-dark here; lift it
+     so the first pipeline stage and brand accents stay readable. */
+  --brand-navy: #99a1b8;
   }
 
 /* System dark preference (pre-hydration / no explicit class) */
@@ -174,11 +180,11 @@
     --primary: #60a5fa;
     --primary-foreground: #282a36;
     --ring: #60a5fa;
-    --accent: #44475a;
+    --accent: #2b3753;
     --accent-foreground: #93c5fd;
-    --secondary: #343746;
+    --secondary: #333d54;
     --secondary-foreground: #f8f8f2;
-    --muted: #343746;
+    --muted: #333d54;
     --muted-foreground: #a3a6bd;
     --border: #44475a;
     --border-strong: #565b71;
@@ -194,10 +200,11 @@
     --sidebar-foreground: #f8f8f2;
     --sidebar-primary: #60a5fa;
     --sidebar-primary-foreground: #282a36;
-    --sidebar-accent: #44475a;
+    --sidebar-accent: #2b3753;
     --sidebar-accent-foreground: #93c5fd;
     --sidebar-border: #44475a;
     --sidebar-ring: #60a5fa;
+    --brand-navy: #99a1b8;
   }
 }
 

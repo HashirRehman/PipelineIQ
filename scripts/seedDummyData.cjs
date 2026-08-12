@@ -120,20 +120,20 @@ const LEAD_NOTES = [
   '',
   '',
   '',
-  'Received a reply — asked for availability.',
+  'Received a reply. Asked for availability.',
   'Interview scheduled for next week.',
   'Assessment sent, due Friday.',
   'HR call went well.',
   'Client wants a follow-up call.',
-  'Offer stage — negotiating the rate.',
+  'Offer stage. Negotiating the rate.',
 ];
 
 const COMMENTS = [
-  'Strong match — the CV aligns with the required stack.',
+  'Strong match. The CV aligns with the required stack.',
   'Client replied fast on this one.',
   'Applied yesterday, awaiting a response.',
   'Good rate fit for a senior profile.',
-  'Rejected — required US work authorization.',
+  'Rejected. Required US work authorization.',
   'Salary band seems low for the seniority.',
   'Relevant experience, worth keeping an eye on.',
 ];
@@ -254,7 +254,7 @@ async function main() {
       rate_expectation: Number((15 + (i * 7) % 45).toFixed(2)),
       rate_currency: 'USD',
       rate_unit: 'hourly',
-      summary: `${name} — ${SKILLS_BY_SENIORITY[seniority]}`,
+      summary: `${name} · ${SKILLS_BY_SENIORITY[seniority]}`,
       is_active: i % 7 !== 3, // a couple inactive for variety
     };
     profileRows.push(profile);

@@ -1,11 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, Briefcase, SlidersHorizontal } from "lucide-react";
+import { Briefcase, SlidersHorizontal } from "lucide-react";
 import type { DiscoveryProfile } from "@/app/api/discovery/route";
+import { Button } from "@/components/ui/button";
 import { GooeyInput } from "@/components/ui/gooey-input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CountryCombobox } from "@/components/ui/country-combobox";
 import { RunDiscoveryButton } from "@/components/run-discovery-button";
 import { ResultsCount } from "@/components/results-count";
 import { FilterOption } from "@/components/jobs/filter-option";
+import { FilterSidebar } from "@/components/jobs/filter-sidebar";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobListView } from "@/components/jobs/job-list-view";
 import { Pagination } from "@/components/jobs/pagination";
@@ -16,9 +20,7 @@ import {
   SortSection,
 } from "@/components/jobs/filter-sections";
 import {
-  PARSERS,
   WORK_TYPES,
-  PARSER_COLOR,
   WORK_TYPE_COLOR,
   type DateRange,
   type SortOption,
@@ -42,6 +44,7 @@ const buildQueryKey = (opts: {
   parser: string;
   search: string;
   region: string;
+  country: string;
   dateRange: DateRange;
   sort: SortOption;
 }) => {
@@ -52,6 +55,7 @@ const buildQueryKey = (opts: {
     parser: opts.parser === "All Sources" ? "" : opts.parser,
     search: opts.search,
     region: REGION_TO_PARAM[opts.region] ?? "",
+    country: opts.country,
     dateRange: opts.dateRange,
     sort: opts.sort,
   });
@@ -71,6 +75,8 @@ interface DiscoveryResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  /** Actual parsers/scrapers from the database (e.g. Jsearch). */
+  parsers?: string[];
 }
 
 export default function DiscoveryTab() {
@@ -80,6 +86,7 @@ export default function DiscoveryTab() {
   const [parserFilter, setParserFilter] = useState("All Sources");
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types");
   const [regionFilter, setRegionFilter] = useState("Global");
+  const [countryFilter, setCountryFilter] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [sort, setSort] = useState<SortOption>("relevance");
   const [page, setPage] = useState(1);
@@ -92,6 +99,9 @@ export default function DiscoveryTab() {
   const [dismissReason, setDismissReason] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [markAppliedPending, setMarkAppliedPending] = useState(false);
+  // Real parser/scraper list from the API (the scrapers table) — NOT a
+  // hardcoded list of platforms.
+  const [parsers, setParsers] = useState<string[]>(["All Sources"]);
   const [view, setView] = useJobView();
   // Bumped after a job action (mark-applied / dismiss) so the feed silently
   // re-fetches and reflects the updated per-profile state.
@@ -103,6 +113,7 @@ export default function DiscoveryTab() {
     parser: parserFilter,
     search,
     region: regionFilter,
+    country: countryFilter,
     dateRange,
     sort,
   });
@@ -120,6 +131,7 @@ export default function DiscoveryTab() {
         setProfiles(json.profiles);
         setTotalCount(json.totalCount);
         setTotalPages(json.totalPages);
+        setParsers(json.parsers ?? ["All Sources"]);
         if (page > json.totalPages) setPage(Math.max(1, json.totalPages));
         setAppliedKey(loadingKey);
         setError(null);
@@ -146,6 +158,10 @@ export default function DiscoveryTab() {
   };
   const changeRegion = (v: string) => {
     setRegionFilter(v);
+    setPage(1);
+  };
+  const changeCountry = (v: string) => {
+    setCountryFilter(v);
     setPage(1);
   };
   const changeDateRange = (v: DateRange) => {
@@ -206,8 +222,19 @@ export default function DiscoveryTab() {
     parserFilter !== "All Sources" ||
     workTypeFilter !== "All Types" ||
     regionFilter !== "Global" ||
+    countryFilter !== "" ||
     dateRange !== "all" ||
     sort !== "relevance";
+
+  const clearFilters = () => {
+    setParserFilter("All Sources");
+    setWorkTypeFilter("All Types");
+    setRegionFilter("Global");
+    setCountryFilter("");
+    setDateRange("all");
+    setSort("relevance");
+    setPage(1);
+  };
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -218,25 +245,26 @@ export default function DiscoveryTab() {
           <GooeyInput
             value={search}
             onValueChange={changeSearch}
-            placeholder="Search jobs by title, company, or location..."
+            placeholder="Search jobs by title, company, or location…"
             expandedWidth={300}
           />
           <div className="flex items-center gap-2">
             <RunDiscoveryButton />
             <ViewToggle view={view} onChange={setView} />
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setFiltersOpen((open) => !open)}
               className={cn(
-                "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer",
+                "h-9 shrink-0 rounded-md px-3 text-xs font-medium hover:bg-accent",
                 filtersOpen
                   ? "border-border bg-accent text-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
               )}
             >
               <SlidersHorizontal className="size-3.5" />
               Filters
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -250,9 +278,17 @@ export default function DiscoveryTab() {
               {error}
             </div>
           ) : loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Loader2 className="size-6 animate-spin text-primary mb-3" />
-              <span className="text-sm">Loading jobs...</span>
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
+                  <Skeleton className="size-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-6 w-16" />
+                </div>
+              ))}
             </div>
           ) : jobs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-dashed border-border">
@@ -302,40 +338,12 @@ export default function DiscoveryTab() {
       </div>
 
       {/* Right filter sidebar */}
-      <aside
-        className={cn(
-          "shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-          filtersOpen ? "w-[240px]" : "w-0",
-        )}
+      <FilterSidebar
+        open={filtersOpen}
+        clearable={isActiveFilter}
+        onClear={clearFilters}
+        widthClass="w-[240px]"
       >
-        <div
-          className={cn(
-            "flex h-full w-[240px] flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-200",
-            filtersOpen ? "opacity-100" : "opacity-0",
-          )}
-        >
-          <div className="flex items-center justify-between px-4 pt-4 pb-3">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <SlidersHorizontal className="size-3.5" /> Filters
-            </span>
-            {isActiveFilter && (
-              <button
-                type="button"
-                onClick={() => {
-                  setParserFilter("All Sources");
-                  setWorkTypeFilter("All Types");
-                  setRegionFilter("Global");
-                  setDateRange("all");
-                  setSort("relevance");
-                  setPage(1);
-                }}
-                className="text-meta text-primary hover:underline cursor-pointer"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
           {/* Work Type */}
           <div className="px-4 pb-4">
             <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">
@@ -357,19 +365,19 @@ export default function DiscoveryTab() {
             </div>
           </div>
 
-          {/* Source (disabled — not implemented yet) */}
+          {/* Parser — the scrapers that fetch jobs (e.g. Jsearch), from the
+              database's scrapers table. Job platforms like LinkedIn are
+              sources, not parsers. */}
           <div className="px-4 pb-4">
             <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">
-              Source
+              Parser
             </p>
             <div className="flex flex-col gap-0.5">
-              {PARSERS.map((p) => (
+              {parsers.map((p) => (
                 <FilterOption
                   key={p}
                   active={parserFilter === p}
                   onClick={() => changeParser(p)}
-                  disabled={p !== "All Sources"}
-                  dot={p !== "All Sources" ? PARSER_COLOR[p] : undefined}
                 >
                   {p}
                 </FilterOption>
@@ -395,11 +403,23 @@ export default function DiscoveryTab() {
             </div>
           </div>
 
+          {/* Country — searchable dropdown over the ISO country list */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">
+              Country
+            </p>
+            <CountryCombobox
+              value={countryFilter}
+              onValueChange={changeCountry}
+              placeholder="All Countries"
+              clearable
+            />
+          </div>
+
           {/* Time + Sort (shared with Pipeline) */}
           <DateRangeSection value={dateRange} onValueChange={changeDateRange} />
           <SortSection value={sort} onValueChange={changeSort} />
-        </div>
-      </aside>
+      </FilterSidebar>
 
       {/* Job detail drawer */}
       <JobDrawer

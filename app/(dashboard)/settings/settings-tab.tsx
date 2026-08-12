@@ -235,7 +235,7 @@ export default function SettingsTab() {
   const previewCaption = useMemo(() => {
     if (preview.id === DEFAULT_PALETTE_ID) return "Built-in look"
     if (preview.id === selectedId) return "Currently applied"
-    return "Hover preview — click to apply"
+    return "Hover to preview, click to apply"
   }, [preview, selectedId])
 
   // DEFAULT_PATTERN_ID is always in PATTERNS, so this is never undefined.
@@ -255,7 +255,7 @@ export default function SettingsTab() {
   const patternPreviewCaption = useMemo(() => {
     if (previewPattern.id === DEFAULT_PATTERN_ID) return "Built-in look"
     if (previewPattern.id === selectedPatternId) return "Currently applied"
-    return "Hover preview — click to apply"
+    return "Hover to preview, click to apply"
   }, [previewPattern, selectedPatternId])
 
   return (
@@ -287,7 +287,7 @@ export default function SettingsTab() {
               <Palette className="size-4 text-primary" />
               <h2 className="text-item font-semibold text-foreground">Color palettes</h2>
               <span className="text-caption text-muted-foreground">
-                — from Tailwind CSS, Radix UI, Nord, Dracula, Solarized, Catppuccin
+                from Tailwind CSS, Radix UI, Nord, Dracula, Solarized, Catppuccin
               </span>
             </div>
 
@@ -344,7 +344,7 @@ export default function SettingsTab() {
               <Layers className="size-4 text-primary" />
               <h2 className="text-item font-semibold text-foreground">Background patterns</h2>
               <span className="text-caption text-muted-foreground">
-                — textures for the app shell
+                textures for the app shell
               </span>
               {!isPatternDefault && (
                 <Button
@@ -440,7 +440,7 @@ export default function SettingsTab() {
               {/* Swatch legend for the previewing palette */}
               <div className="rounded-lg border border-border bg-card p-3.5">
                 <p className="text-caption font-semibold text-foreground mb-2">
-                  {preview.name} — {mode === "dark" ? "Dark" : "Light"} tokens
+                  {preview.name} · {mode === "dark" ? "Dark" : "Light"} tokens
                 </p>
                 <div className="flex items-center gap-2.5">
                   {paletteSwatches(preview[mode]).map(s => (
@@ -450,9 +450,9 @@ export default function SettingsTab() {
               </div>
 
               <p className="text-caption text-muted-foreground leading-relaxed">
-                Preview panels are scoped to this screen — hover a palette or pattern to see it,
-                click to apply it app-wide. Your choices are stored in localStorage and restored
-                on next visit.
+                Preview panels are scoped to this screen. Hover a palette or pattern to preview
+                it, then click to apply it app-wide. Your choices are stored in localStorage and
+                restored on next visit.
               </p>
             </div>
           </div>

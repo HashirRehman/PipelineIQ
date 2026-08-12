@@ -5,7 +5,10 @@ import { OrganizationProvider } from "@/components/organization-provider";
 import { getCachedOrganizationId, getCachedUser, getCachedUserRole } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: {
+    default: "Dashboard",
+    template: "%s · PipelineIQ",
+  },
 };
 
 /**

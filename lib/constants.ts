@@ -1,40 +1,23 @@
 export type UserRole = "admin" | "lead" | "bd";
 
 export type TabId =
+  | "dashboard"
+  | "statistics"
   | "profiles"
   | "discovery"
   | "applied-jobs"
   | "leads"
   | "users"
-  | "statistics"
   | "settings";
-
-export const LEAD_STATUSES = [
-  "Applied",
-  "Assessment Received",
-  "Assessment Submitted",
-  "HR Interview",
-  "Tech Interview 1",
-  "Tech Interview 2",
-  "Client Interview",
-  "Offer Received",
-  "Offer Accepted/Rejected",
-  "Closed",
-] as const;
-
-export type LeadStatus = (typeof LEAD_STATUSES)[number];
-
-export const LEAD_STATUS_DONE: LeadStatus = "Closed";
 
 /* Filter vocabulary shared by the job list pages (Discovery, Pipeline) */
 export const WORK_TYPES = ["All Types", "remote", "onsite"] as const;
 
-export const PARSERS = ["All Sources", "LinkedIn", "Indeed", "Greenhouse", "Lever", "Workday"] as const;
-
 /* Date-range and sort filters — shared by the Pipeline, Leads, and Discovery
-   pages. The UI components (components/jobs/date-range-filter.tsx,
-   sort-filter.tsx) and the server-side parsing (lib/api/job-filters.ts) read
-   from these, so a new option lands everywhere with one edit.
+   pages. The UI components (components/jobs/filter-sections.tsx's
+   DateRangeSection / SortSection) and the server-side parsing
+   (lib/api/job-filters.ts) read from these, so a new option lands everywhere
+   with one edit.
 
    Weeks are Friday-morning → Thursday-night (the business week, not
    Monday–Sunday); months and years are actual calendar periods — NOT rolling
@@ -98,40 +81,42 @@ export function scoreColor(score: number): string {
   return score >= 70 ? STATUS.green : score >= 40 ? STATUS.amber : STATUS.red;
 }
 
-// Lead pipeline: navy (early), blue (action taken), sky (final interview),
-// amber (pending), green (positive), slate (closed)
-export const LEAD_STATUS_COLOR: Record<string, string> = {
-  "Applied":                 BRAND.navy,  /* first touch */
-  "Assessment Received":     BRAND.navy,
-  "Assessment Submitted":    BRAND.blue,  /* action taken */
-  "HR Interview":            STATUS.amber, /* pending decision */
-  "Tech Interview 1":        BRAND.blue,
-  "Tech Interview 2":        BRAND.blue,
-  "Client Interview":        BRAND.sky,  /* final interview */
-  "Offer Received":          STATUS.green, /* positive outcome */
-  "Offer Accepted/Rejected": STATUS.green,
-  "Closed":                  STATUS.slate, /* terminal */
-};
+/* Lead-pipeline stage colors — stages come from the database
+   (pipeline_stages), so a stage's color is derived from its position in the
+   ordered list rather than its name. The palette walks navy (early) → blue
+   (action taken) → sky (final interview) → amber (pending) → green
+   (positive) → slate (terminal), then cycles. */
+export const STAGE_PALETTE = [
+  BRAND.navy,
+  BRAND.blue,
+  STATUS.amber,
+  BRAND.sky,
+  STATUS.green,
+  STATUS.slate,
+] as const;
 
-export const LEAD_STATUS_BG: Record<string, string> = Object.fromEntries(
-  Object.entries(LEAD_STATUS_COLOR).map(([status, color]) => [
-    status,
-    `color-mix(in srgb, ${color} 10%, transparent)`,
-  ]),
-);
+export function stageColor(index: number): string {
+  return STAGE_PALETTE[index % STAGE_PALETTE.length] ?? STATUS.slate;
+}
+
+/** Professional categorical palette for per-user / per-profile chart series.
+ * Distinct, muted-professional hues (blue, emerald, amber, red, sky, teal,
+ * navy, slate) that stay readable on both light and dark surfaces. */
+export const SERIES_PALETTE = [
+  BRAND.blue,
+  STATUS.emerald,
+  STATUS.amber,
+  STATUS.red,
+  BRAND.sky,
+  STATUS.green,
+  BRAND.navy,
+  STATUS.slate,
+] as const;
 
 export const WORK_TYPE_COLOR: Record<string, string> = {
   remote: STATUS.green,
   onsite: BRAND.blue,
   hybrid: STATUS.amber,
-};
-
-export const PARSER_COLOR: Record<string, string> = {
-  LinkedIn:   BRAND.blue,
-  Indeed:     BRAND.navy,
-  Greenhouse: BRAND.greenhouse,
-  Lever:      BRAND.sky,
-  Workday:    STATUS.amber,
 };
 
 export const ROLE_COLOR: Record<UserRole, string> = {

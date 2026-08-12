@@ -62,7 +62,7 @@ const DEFAULT_PALETTE: ThemePalette = {
   id: DEFAULT_PALETTE_ID,
   name: "Recurso Labs",
   source: "Built-in",
-  description: "The default PipelineIQ look — Dracula-inspired, but blue instead of purple.",
+  description: "The default PipelineIQ look. Dracula-inspired, but blue instead of purple.",
   light: {
     pageBg: "#f6f7fb",
     background: "#ffffff",
@@ -98,12 +98,14 @@ const DEFAULT_PALETTE: ThemePalette = {
     ring: "#60a5fa",
     accent: "#44475a",
     accentForeground: "#93c5fd",
-    secondary: "#343746",
-    muted: "#343746",
+    secondary: "#333d54",
+    muted: "#333d54",
     border: "#44475a",
     borderStrong: "#565b71",
     input: "#44475a",
-    brandNavy: "#44475a",
+    /* Light-mode navy (#44475a) is invisible on dark cards — lift it so the
+       first pipeline stage stays readable in dark mode. */
+    brandNavy: "#99a1b8",
     brandBlue: "#60a5fa",
     brandSky: "#93c5fd",
   },
@@ -230,7 +232,7 @@ const NORD: ThemePalette = {
   id: "nord",
   name: "Nord",
   source: "Nord Theme",
-  description: "Arctic blues — calm, muted, and easy on the eyes.",
+  description: "Arctic blues. Calm, muted, and easy on the eyes.",
   light: {
     pageBg: "#eceff4", background: "#f7f9fb", card: "#ffffff",
     sidebar: "#f7f9fb", popover: "#ffffff",

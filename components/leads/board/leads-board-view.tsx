@@ -3,47 +3,31 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import { Calendar, Flag, MessageSquare, Plus } from "lucide-react"
 import { Avatar } from "@/components/avatar"
+import { Button } from "@/components/ui/button"
 import type { AppUser, Lead } from "@/components/leads/types"
-import { LEAD_STATUS_COLOR, type LeadStatus } from "@/lib/constants"
+import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
+import { stageColor } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
-// ── Column definitions ────────────────────────────────────────────────────────
-const BOARD_COLUMNS: { id: string; label: string; statuses: LeadStatus[] }[] = [
-  {
-    id: "new",
-    label: "New / Applied",
-    statuses: ["Applied", "Assessment Received", "Assessment Submitted"],
-  },
-  {
-    id: "interviewing",
-    label: "Interviewing",
-    statuses: ["HR Interview", "Tech Interview 1", "Tech Interview 2", "Client Interview"],
-  },
-  {
-    id: "offer",
-    label: "Offer Stage",
-    statuses: ["Offer Received", "Offer Accepted/Rejected"],
-  },
-  {
-    id: "closed",
-    label: "Closed",
-    statuses: ["Closed"],
-  },
-]
-
-const COLUMN_DOT_COLOR = BOARD_COLUMNS.map(col => LEAD_STATUS_COLOR[col.statuses[0]])
-
 // ── Root component ────────────────────────────────────────────────────────────
+// One column per database stage (pipeline_stages, ordered by order_index) —
+// there is no hardcoded stage list anywhere in the board.
 export function LeadsBoardView({
   leads,
   users,
+  stages,
+  doneStage,
   onStatusChange,
   onOpen,
 }: {
   leads: Lead[]
   users: AppUser[]
-  onStatusChange: (id: string, status: LeadStatus) => void
+  /** Ordered pipeline stages from the API — the board's columns. */
+  stages: StageOption[]
+  /** The terminal stage (the last in the ordered list), if any. */
+  doneStage: string | null
+  onStatusChange: (id: string, status: string) => void
   onOpen: (lead: Lead) => void
 }) {
   const [dragOverColId, setDragOverColId] = useState<string | null>(null)
@@ -51,11 +35,13 @@ export function LeadsBoardView({
 
   const columns = useMemo(
     () =>
-      BOARD_COLUMNS.map(col => ({
-        ...col,
-        leads: leads.filter(l => (col.statuses as readonly string[]).includes(l.status)),
+      stages.map((stage, i) => ({
+        id: stage.id,
+        name: stage.name,
+        color: stageColor(i),
+        leads: leads.filter(l => l.status === stage.name),
       })),
-    [leads],
+    [leads, stages],
   )
 
   const handleDragStart = useCallback((leadId: string) => {
@@ -83,23 +69,16 @@ export function LeadsBoardView({
   )
 
   const handleColumnDrop = useCallback(
-    (e: React.DragEvent, col: (typeof BOARD_COLUMNS)[number]) => {
+    (e: React.DragEvent, col: (typeof columns)[number]) => {
       e.preventDefault()
       setDragOverColId(null)
       const id = draggingId.current
       if (!id) return
-      // Preserve the card's exact stage when it's dropped back into its own
-      // group; only fall back to the group's first status when it enters a
-      // new pipeline stage.
-      const currentStatus = leads.find(l => l.id === id)?.status
-      const target =
-        currentStatus && col.statuses.includes(currentStatus)
-          ? currentStatus
-          : col.statuses[0]
-      onStatusChange(id, target)
+      // Dropping a card onto a stage column moves it to that stage.
+      onStatusChange(id, col.name)
       draggingId.current = null
     },
-    [onStatusChange, leads],
+    [onStatusChange],
   )
 
   return (
@@ -110,9 +89,11 @@ export function LeadsBoardView({
           col={col}
           ci={ci}
           totalCols={columns.length}
-          dotColor={COLUMN_DOT_COLOR[ci]}
           isOver={dragOverColId === col.id}
           users={users}
+          doneStage={doneStage}
+          stages={stages}
+          onStatusChange={onStatusChange}
           onCardDragStart={handleDragStart}
           onCardDragEnd={handleDragEnd}
           onColDragOver={handleColumnDragOver}
@@ -130,9 +111,11 @@ function BoardColumn({
   col,
   ci,
   totalCols,
-  dotColor,
   isOver,
   users,
+  doneStage,
+  stages,
+  onStatusChange,
   onCardDragStart,
   onCardDragEnd,
   onColDragOver,
@@ -140,17 +123,19 @@ function BoardColumn({
   onColDrop,
   onOpen,
 }: {
-  col: (typeof BOARD_COLUMNS)[number] & { leads: Lead[] }
+  col: { id: string; name: string; color: string; leads: Lead[] }
   ci: number
   totalCols: number
-  dotColor: string
   isOver: boolean
   users: AppUser[]
+  doneStage: string | null
+  stages: StageOption[]
+  onStatusChange: (id: string, status: string) => void
   onCardDragStart: (id: string) => void
   onCardDragEnd: () => void
   onColDragOver: (e: React.DragEvent, colId: string) => void
   onColDragLeave: (e: React.DragEvent, el: HTMLDivElement | null) => void
-  onColDrop: (e: React.DragEvent, col: (typeof BOARD_COLUMNS)[number]) => void
+  onColDrop: (e: React.DragEvent, col: { id: string; name: string; color: string; leads: Lead[] }) => void
   onOpen: (lead: Lead) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -162,23 +147,28 @@ function BoardColumn({
       onDragLeave={e => onColDragLeave(e, ref.current)}
       onDrop={e => onColDrop(e, col)}
       className={cn(
-        "flex flex-col min-w-0 flex-1 transition-colors duration-100",
+        // Columns never shrink below a readable width — when the viewport is
+        // narrower than the stage count, the board scrolls horizontally
+        // (the wrapper is overflow-x-auto) instead of crushing the columns.
+        "flex flex-col min-w-[280px] flex-1 transition-colors duration-100",
         ci < totalCols - 1 && "border-r border-border",
         isOver && "bg-accent/50",
       )}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
-        <span className="size-[7px] rounded-full shrink-0" style={{ background: dotColor }} />
-        <span className="text-item font-semibold text-foreground">{col.label}</span>
+        <span className="size-[7px] rounded-full shrink-0" style={{ background: col.color }} />
+        <span className="text-item font-semibold text-foreground">{col.name}</span>
         <span className="text-xs text-muted-foreground tabular-nums">{col.leads.length}</span>
-        <button
+        <Button
           type="button"
-          aria-label={`Add to ${col.label}`}
-          className="ml-auto flex size-5 items-center justify-center rounded text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent transition-colors cursor-pointer"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`Add to ${col.name}`}
+          className="ml-auto size-5 rounded text-muted-foreground/40 hover:bg-accent hover:text-muted-foreground"
         >
           <Plus className="size-3.5" />
-        </button>
+        </Button>
       </div>
 
       {/* Cards area */}
@@ -188,6 +178,9 @@ function BoardColumn({
             key={lead.id}
             lead={lead}
             bdName={users.find(u => u.id === lead.assignedTo)?.name}
+            isDone={doneStage !== null && lead.status === doneStage}
+            stages={stages}
+            onStatusChange={onStatusChange}
             onDragStart={() => onCardDragStart(lead.id)}
             onDragEnd={onCardDragEnd}
             onOpen={onOpen}
@@ -211,18 +204,22 @@ function BoardColumn({
 function BoardCard({
   lead,
   bdName,
+  isDone,
+  stages,
+  onStatusChange,
   onDragStart,
   onDragEnd,
   onOpen,
 }: {
   lead: Lead
   bdName?: string
+  isDone: boolean
+  stages: StageOption[]
+  onStatusChange: (id: string, status: string) => void
   onDragStart: () => void
   onDragEnd: () => void
   onOpen: (lead: Lead) => void
 }) {
-  const statusColor = LEAD_STATUS_COLOR[lead.status]
-  const isDone = lead.status === "Closed"
   const [isDragging, setIsDragging] = useState(false)
 
   return (
@@ -243,8 +240,11 @@ function BoardCard({
       tabIndex={0}
       onKeyDown={e => (e.key === "Enter" || e.key === " ") && onOpen(lead)}
       aria-label={`${lead.jobTitle} at ${lead.company}`}
+      // content-visibility: tall columns render only the cards in view
+      // (rendering-content-visibility); the size hint keeps the column
+      // scrollbar stable.
       className={cn(
-        "w-full rounded-md border border-border bg-card p-2.5 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing select-none",
+        "w-full rounded-md border border-border bg-card p-2.5 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing select-none [content-visibility:auto] [contain-intrinsic-size:auto_120px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
         isDragging && "opacity-40 scale-95 shadow-md",
         isDone && "opacity-50",
       )}
@@ -263,14 +263,15 @@ function BoardCard({
         )}
       </p>
 
-      <div className="mt-2">
-        <span
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium"
-          style={{ background: `color-mix(in srgb, ${statusColor} 10%, transparent)`, color: statusColor }}
-        >
-          <span className="size-[5px] rounded-full shrink-0" style={{ background: statusColor }} />
-          {lead.status}
-        </span>
+      {/* Stage selector — changing it moves the lead to that stage (same
+          action as dragging to another column). Click-stopped so it doesn't
+          open the drawer. */}
+      <div className="mt-2" onClick={e => e.stopPropagation()}>
+        <LeadStatusSelect
+          value={lead.status}
+          stages={stages}
+          onChange={status => onStatusChange(lead.id, status)}
+        />
       </div>
 
       <div className="mt-2 flex items-center gap-2 text-meta text-muted-foreground/60">

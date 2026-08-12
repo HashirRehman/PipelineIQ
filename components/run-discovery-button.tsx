@@ -48,7 +48,7 @@ export function RunDiscoveryButton() {
 
       {state.status === "skipped" && (
         <p role="status" className="text-sm text-muted-foreground">
-          Already running — try again shortly.
+          Already running. Try again shortly.
         </p>
       )}
 

@@ -84,7 +84,7 @@ export function ProfilesListView({
                     {profile.seniority}
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
+                  <span className="text-xs text-muted-foreground">N/A</span>
                 )}
               </td>
 
@@ -110,7 +110,7 @@ export function ProfilesListView({
                     {profile.assignedUserName}
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
+                  <span className="text-xs text-muted-foreground">N/A</span>
                 )}
               </td>
 

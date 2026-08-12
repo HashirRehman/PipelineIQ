@@ -4,6 +4,7 @@ import type { ProfilesListApiResponse } from "@/app/api/profiles/route"
 import type { ProfileDetailApiResponse } from "@/app/api/profiles/[profileId]/route"
 import { ProfileDetailSheet } from "@/components/profiles/profile-detail-sheet"
 import { ProfilesList } from "@/components/profiles/profiles-list"
+import { Skeleton } from "@/components/ui/skeleton"
 import { withOrgId } from "@/lib/api/client"
 import { Loader2 } from "lucide-react"
 
@@ -99,11 +100,16 @@ export default function ProfilesTab() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin text-primary" />
-          Loading profiles...
-        </div>
+      <div className="flex flex-1 flex-col gap-3 p-6">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+            <Skeleton className="size-9 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-1/3" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
@@ -150,7 +156,7 @@ export default function ProfilesTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/20">
           <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-lg">
             <Loader2 className="size-4 animate-spin text-primary" />
-            Loading profile...
+            Loading profile…
           </div>
         </div>
       )}

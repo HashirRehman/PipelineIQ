@@ -4,7 +4,7 @@ import UsersTab from "./users-tab";
 import { getCachedRolePermissions } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Team — PipelineIQ",
+  title: "Team",
 };
 
 export default async function UsersPage() {

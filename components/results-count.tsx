@@ -4,7 +4,7 @@
 export function ResultsCount({ count, label }: { count: number; label: string }) {
   return (
     <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
-      <span className="flex size-5 items-center justify-center rounded bg-accent font-semibold text-muted-foreground tabular-nums">
+      <span className="flex size-5 items-center justify-center rounded bg-accent font-mono font-semibold text-muted-foreground tabular-nums">
         {count}
       </span>
       {label}

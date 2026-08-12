@@ -1,9 +1,13 @@
 "use client"
 import { useEffect, useState } from "react"
-import { Loader2, Briefcase, SlidersHorizontal } from "lucide-react"
+import { Briefcase, SlidersHorizontal, Plus, Upload } from "lucide-react"
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
+import { Button } from "@/components/ui/button"
 import { GooeyInput } from "@/components/ui/gooey-input"
+import { Skeleton } from "@/components/ui/skeleton"
+import { CountryCombobox } from "@/components/ui/country-combobox"
 import { FilterOption } from "@/components/jobs/filter-option"
+import { FilterSidebar } from "@/components/jobs/filter-sidebar"
 import { JobCard } from "@/components/jobs/job-card"
 import { JobListView } from "@/components/jobs/job-list-view"
 import { Pagination } from "@/components/jobs/pagination"
@@ -24,7 +28,6 @@ import {
   SORT_OPTIONS,
   WORK_TYPES,
   WORK_TYPE_COLOR,
-  PARSER_COLOR,
   type DateRange,
   type SortOption,
 } from "@/lib/constants"
@@ -38,6 +41,18 @@ import {
 } from "@/lib/date-window"
 import { cn } from "@/lib/utils"
 import { apiPost, withOrgId } from "@/lib/api/client"
+import { NewJobDialog, type NewJobStage } from "@/components/jobs/new-job-dialog"
+import dynamic from "next/dynamic"
+
+// Loaded on demand — the Excel parser (SheetJS) is a ~330 KB chunk that
+// should never ship on a page load when the user isn't importing.
+const ImportJobsDialog = dynamic(
+  () =>
+    import("@/components/jobs/import-jobs-dialog").then(
+      m => m.ImportJobsDialog,
+    ),
+  { ssr: false },
+)
 
 const PAGE_SIZE = 20
 
@@ -65,6 +80,8 @@ interface AppliedJobsResponse {
   pageSize: number
   totalPages: number
   parsers?: string[]
+  /** Lead stages (the DB list) for the New Job dialog. */
+  pipelineStages?: { id: string; name: string; orderIndex: number }[]
 }
 
 const buildQueryKey = (opts: {
@@ -72,6 +89,7 @@ const buildQueryKey = (opts: {
   workType: string
   parser: string
   search: string
+  country: string
   dateRange: DateRange
   /** Selected month of THIS year (0–11), or null — exclusive with the others. */
   month: number | null
@@ -89,6 +107,7 @@ const buildQueryKey = (opts: {
     workType: opts.workType === "All Types" ? "" : opts.workType,
     parser: opts.parser === "All Sources" ? "" : opts.parser,
     search: opts.search,
+    country: opts.country,
     dateRange: opts.dateRange,
     month: opts.month === null ? "" : String(opts.month),
     year: opts.year === null ? "" : String(opts.year),
@@ -120,6 +139,7 @@ export default function AppliedJobsTab() {
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
+  const [countryFilter, setCountryFilter] = useState("")
   const [page, setPage] = useState(1)
   // Default: the current Friday–Thursday week (the business week), and the
   // applied feed is newest-first (by when jobs were applied).
@@ -137,6 +157,9 @@ export default function AppliedJobsTab() {
   const [userFilter, setUserFilter] = useState("all")
   const [users, setUsers] = useState<AppliedJobsResponse["users"]>([])
   const [canViewAllData, setCanViewAllData] = useState(false)
+  const [pipelineStages, setPipelineStages] = useState<NewJobStage[]>([])
+  const [newJobOpen, setNewJobOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [appliedKey, setAppliedKey] = useState<string | null>(null)
@@ -155,7 +178,7 @@ export default function AppliedJobsTab() {
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth()
 
-  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter })
+  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, country: countryFilter, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter })
   const loading = appliedKey !== loadingKey
 
   useEffect(() => {
@@ -170,6 +193,7 @@ export default function AppliedJobsTab() {
         setProfiles(json.profiles)
         setUsers(json.users ?? [])
         setCanViewAllData(json.canViewAllData ?? false)
+        setPipelineStages(json.pipelineStages ?? [])
         setTotalCount(json.totalCount)
         setTotalPages(json.totalPages)
         if (json.parsers?.length) setParsers(json.parsers)
@@ -188,6 +212,7 @@ export default function AppliedJobsTab() {
   const changeSearch = (v: string) => { setSearch(v); setPage(1) }
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
   const changeParser = (v: string) => { setParserFilter(v); setPage(1) }
+  const changeCountry = (v: string) => { setCountryFilter(v); setPage(1) }
   const changeDateRange = (v: DateRange) => {
     setDateRange(v)
     setMonthFilter(null)
@@ -224,6 +249,7 @@ export default function AppliedJobsTab() {
   const isActiveFilter =
     parserFilter !== "All Sources" ||
     workTypeFilter !== "All Types" ||
+    countryFilter !== "" ||
     dateRange !== "this_week" ||
     monthFilter !== null ||
     yearFilter !== null ||
@@ -235,6 +261,7 @@ export default function AppliedJobsTab() {
   const clearFilters = () => {
     setParserFilter("All Sources")
     setWorkTypeFilter("All Types")
+    setCountryFilter("")
     setDateRange("this_week")
     setMonthFilter(null)
     setYearFilter(null)
@@ -285,24 +312,44 @@ export default function AppliedJobsTab() {
           <GooeyInput
             value={search}
             onValueChange={changeSearch}
-            placeholder="Search pipeline by title, company, or location..."
-            expandedWidth={576}
+            placeholder="Search pipeline by title, company, or location…"
+            expandedWidth={300}
           />
           <div className="flex items-center gap-2">
-            <ViewToggle view={view} onChange={setView} />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+              className="rounded px-3 text-xs text-muted-foreground hover:bg-accent"
+            >
+              <Upload className="size-3.5" />
+              Import
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setNewJobOpen(true)}
+              className="rounded px-3 text-xs hover:bg-primary/90"
+            >
+              <Plus className="size-3.5" />
+              New Job
+            </Button>
+            <ViewToggle view={view} onChange={setView} />
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setFiltersOpen(open => !open)}
               className={cn(
-                "flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors cursor-pointer",
+                "h-9 shrink-0 rounded-md px-3 text-xs font-medium hover:bg-accent",
                 filtersOpen
                   ? "border-border bg-accent text-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                  : "border-border bg-background text-muted-foreground hover:text-foreground",
               )}
             >
               <SlidersHorizontal className="size-3.5" />
               Filters
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -313,9 +360,17 @@ export default function AppliedJobsTab() {
               {error}
             </div>
           ) : loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-              <Loader2 className="size-6 animate-spin text-primary mb-3" />
-              <span className="text-sm">Loading pipeline...</span>
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
+                  <Skeleton className="size-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-6 w-16" />
+                </div>
+              ))}
             </div>
           ) : jobs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-dashed border-border">
@@ -356,33 +411,12 @@ export default function AppliedJobsTab() {
 
       {/* Right filter sidebar — every filter lives here: Profile, User, Date,
           Work Type, Source, Leads visibility, Sort. */}
-      <aside
-        className={cn(
-          "shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-          filtersOpen ? "w-[260px]" : "w-0",
-        )}
+      <FilterSidebar
+        open={filtersOpen}
+        clearable={isActiveFilter}
+        onClear={clearFilters}
+        widthClass="w-[260px]"
       >
-        <div
-          className={cn(
-            "flex h-full w-[260px] flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-200",
-            filtersOpen ? "opacity-100" : "opacity-0",
-          )}
-        >
-          <div className="flex items-center justify-between px-4 pt-4 pb-3">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <SlidersHorizontal className="size-3.5" /> Filters
-            </span>
-            {isActiveFilter && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-meta text-primary hover:underline cursor-pointer"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
           {/* Profile + User (coupled) — manager/admin only */}
           {canViewAllData && (
             <div className="px-4 pb-4">
@@ -469,16 +503,26 @@ export default function AppliedJobsTab() {
             </div>
           </div>
 
-          {/* Source (from the configured scrapers) */}
+          {/* Country — searchable dropdown over the ISO country list */}
           <div className="px-4 pb-4">
-            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Source</p>
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Country</p>
+            <CountryCombobox
+              value={countryFilter}
+              onValueChange={changeCountry}
+              placeholder="All Countries"
+              clearable
+            />
+          </div>
+
+          {/* Parser — the scrapers that fetch jobs (from the scrapers table) */}
+          <div className="px-4 pb-4">
+            <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Parser</p>
             <div className="flex flex-col gap-0.5">
               {parsers.map(p => (
                 <FilterOption
                   key={p}
                   active={parserFilter === p}
                   onClick={() => changeParser(p)}
-                  dot={p !== "All Sources" ? PARSER_COLOR[p] : undefined}
                 >
                   {p}
                 </FilterOption>
@@ -518,8 +562,29 @@ export default function AppliedJobsTab() {
               ))}
             </div>
           </div>
-        </div>
-      </aside>
+      </FilterSidebar>
+
+      {/* New Job — manually add a job with a state for a chosen profile. Only
+          active profiles are offerable — a job added for an inactive profile
+          would be dead weight (nobody can act on it). */}
+      <NewJobDialog
+        open={newJobOpen}
+        onOpenChange={setNewJobOpen}
+        onCreated={() => setRefreshKey(k => k + 1)}
+        profiles={profiles.filter(p => p.status === "active").map(p => ({ id: p.id, name: p.name }))}
+        pipelineStages={pipelineStages}
+      />
+
+      {/* Import — bulk-add jobs from an Excel file: upload, map columns to
+          fields (drag-and-drop, live-validated), review and edit the resolved
+          rows, then submit. Reuses the same profiles/stages as New Job. */}
+      <ImportJobsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => setRefreshKey(k => k + 1)}
+        profiles={profiles.filter(p => p.status === "active").map(p => ({ id: p.id, name: p.name, location: p.location }))}
+        stages={pipelineStages.map(s => ({ id: s.id, name: s.name }))}
+      />
 
       {/* Job detail drawer */}
       <JobDrawer

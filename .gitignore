@@ -47,3 +47,6 @@ supabase/.temp/
 next-env.d.ts
 
 .env*.local
+
+# Freebuff desktop app runtime state (never real project files)
+.freebuff/

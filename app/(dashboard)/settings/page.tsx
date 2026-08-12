@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SettingsTab from "./settings-tab";
 
 export const metadata: Metadata = {
-  title: "Theme — PipelineIQ",
+  title: "Theme",
 };
 
 export default function SettingsPage() {

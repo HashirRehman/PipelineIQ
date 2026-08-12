@@ -31,6 +31,13 @@ export type ParsedJobData = {
   technologies: string[];
   experienceYears: number | null;
   salaryRange: string | null;
+  // Manual-entry extras — set only on jobs added by hand (the Pipeline page's
+  // "New Job" flow); absent on AI-enriched rows. The AI cron never touches
+  // manual jobs (their external_job_id is a uuid the scrapers can't produce),
+  // so these survive re-enrichment by construction.
+  budget?: string | null;
+  source?: string | null;
+  developer?: string | null;
 };
 
 export interface AiClient {

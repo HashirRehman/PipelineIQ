@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { deleteProfileCvRequest, parseProfileCvRequest } from "@/lib/api/profiles-client";
 import type { ProfileMutationResponse } from "@/lib/api/profiles-client";
+import { Button } from "@/components/ui/button";
 import type { ProfileCvEntry } from "@/app/api/profiles/[profileId]/route";
 import { ProfileCvDetails, cvParseState, type CvParseState } from "./profile-cv-details";
 
@@ -138,8 +139,10 @@ function DeleteCvButton({
         </p>
       )}
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={handleDelete}
         disabled={isPending}
         aria-label={
@@ -148,10 +151,10 @@ function DeleteCvButton({
             : `Delete ${cv.fileName}`
         }
         className={[
-          "flex size-7 items-center justify-center rounded transition-colors disabled:opacity-50 cursor-pointer",
+          "size-7 rounded",
           isConfirming
             ? "bg-destructive/10 text-destructive"
-            : "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+            : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
         ].join(" ")}
       >
         {isPending ? (
@@ -159,7 +162,7 @@ function DeleteCvButton({
         ) : (
           <Trash2 className="size-3.5" />
         )}
-      </button>
+      </Button>
       {isConfirming && !isPending && (
         <span className="text-xs font-medium text-destructive">Confirm?</span>
       )}
@@ -308,11 +311,12 @@ function CvRow({
         {/* The whole left side is the toggle, so clicking the file name opens
             its details — the download and delete controls sit outside it so a
             click on either doesn't also expand the row. */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={onToggle}
           aria-expanded={isExpanded}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+          className="h-auto min-w-0 flex-1 gap-3 rounded-none p-0 text-left hover:bg-transparent"
         >
           <FileText className="size-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
@@ -327,7 +331,7 @@ function CvRow({
               isExpanded ? "rotate-180" : ""
             }`}
           />
-        </button>
+        </Button>
 
         <div className="flex shrink-0 items-center gap-1">
           {cv.downloadUrl && (
