@@ -42,6 +42,10 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
 
   const handleSubmit = async () => {
     if (!canSubmit || loading) return
+    if (isInvite && !email.trim().toLowerCase().endsWith("@recursolabs.com")) {
+      setError("Only @recursolabs.com email domain is allowed.")
+      return
+    }
     setLoading(true); setError("")
     try {
       await onSubmit({ name: name.trim(), email: email.trim(), roleId })
@@ -107,9 +111,14 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
                 className={isInvite ? inputClass : `${inputClass} opacity-60 cursor-not-allowed`}
                 value={email}
                 onChange={isInvite ? e => setEmail(e.target.value) : undefined}
-                placeholder={isInvite ? "jane@company.com" : undefined}
+                placeholder={isInvite ? "jane@recursolabs.com" : undefined}
                 readOnly={!isInvite}
               />
+              {isInvite && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Only <b>@recursolabs.com</b> email domain is allowed.
+                </p>
+              )}
             </div>
             {isSelf && !isInvite ? (
               <p className="text-caption text-muted-foreground">You cannot change your own role.</p>
