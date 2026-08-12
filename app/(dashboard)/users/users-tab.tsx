@@ -183,7 +183,9 @@ export default function UsersTab() {
       })
       .then(json => {
         if (!json) return
-        setUsers(json.users ?? [])
+        const rawUsers: ApiAppUser[] = json.users ?? []
+        const uniqueUsers = Array.from(new Map(rawUsers.map(u => [u.id, u])).values())
+        setUsers(uniqueUsers)
         setRoles(json.roles ?? [])
         setActiveUser(json.currentUser ?? null)
         setIsAdmin(json.isAdmin ?? false)
@@ -387,12 +389,12 @@ export default function UsersTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
-                {filtered.map(user => {
+                {filtered.map((user, idx) => {
                   const roleColor = ROLE_COLOR[user.role ?? "bd"]
                   const statusColor = USER_STATUS_COLOR[user.status ?? "inactive"]
                   const isSelf = user.id === activeUser?.id
                   return (
-                    <tr key={user.id} className="bg-background transition-colors hover:bg-accent/40">
+                    <tr key={`${user.id}-${idx}`} className="bg-background transition-colors hover:bg-accent/40">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Avatar name={user.name} size={32} />
