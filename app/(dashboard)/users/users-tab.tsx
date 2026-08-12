@@ -41,7 +41,7 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
 
   const domainSuffix = allowedDomain?.trim()
     ? (allowedDomain.trim().startsWith("@") ? allowedDomain.trim() : `@${allowedDomain.trim()}`)
-    : "@recursolabs.com"
+    : null
 
   const canSubmit = isInvite ? Boolean(name && email && roleId) : Boolean(name.trim())
 
@@ -116,10 +116,10 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
                 className={isInvite ? inputClass : `${inputClass} opacity-60 cursor-not-allowed`}
                 value={email}
                 onChange={isInvite ? e => setEmail(e.target.value) : undefined}
-                placeholder={isInvite ? `jane${domainSuffix}` : undefined}
+                placeholder={isInvite ? (domainSuffix ? `jane${domainSuffix}` : "jane@company.com") : undefined}
                 readOnly={!isInvite}
               />
-              {isInvite && (
+              {isInvite && domainSuffix && (
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Only <b>{domainSuffix}</b> email domain is allowed.
                 </p>
