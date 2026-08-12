@@ -1,6 +1,16 @@
 import * as XLSX from "xlsx";
 
 /**
+ * SECURITY NOTE — dependency deferral (see security_best_practices_report.md,
+ * BP-005): the npm `xlsx` package is unmaintained and carries two HIGH
+ * advisories (prototype pollution GHSA-4r6h-8v6p-xvw6, ReDoS
+ * GHSA-5pgg-2g8v-p4x9) with NO fix available. It is kept because parsing
+ * happens exclusively client-side against a file the user picked themselves,
+ * so a crafted workbook only ever runs in the attacker's own tab — no
+ * cross-user or server impact. REVIEW DATE: 2026-11-12 (quarterly) — replace
+ * with a maintained parser (SheetJS CE from their CDN, or ExcelJS) if this
+ * ever moves server-side or starts parsing untrusted files.
+ *
  * Client-side engine for the bulk job import (Pipeline → Import). All of this
  * runs in the browser against the file the user picked; the server re-checks
  * everything at submit time. Split from the dialog so the matching and

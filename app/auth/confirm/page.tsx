@@ -1,26 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import type { EmailOtpType } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
 import { PipelineIQLogo } from "@/components/pipelineiq-logo";
-
-/** Types Supabase's `/auth/v1/verify` can hand us on an emailed link. */
-const OTP_TYPES: EmailOtpType[] = [
-  "invite",
-  "recovery",
-  "signup",
-  "magiclink",
-  "email_change",
-  "email",
-];
-
-function isOtpType(value: string | null): value is EmailOtpType {
-  return value !== null && (OTP_TYPES as string[]).includes(value);
-}
 
 /**
  * Catches the link from an invite (or recovery) email and turns it into a
@@ -28,15 +12,25 @@ function isOtpType(value: string | null): value is EmailOtpType {
  *
  * Supabase emits one of three link shapes depending on the project's email
  * template and flow type, so all three are handled — otherwise a template
- * change silently breaks the whole invite flow. Errors render in place rather
- * than redirecting to /login: bouncing to the login page is precisely what
- * made this hard to diagnose.
+ * change silently breaks the whole invite flow. The tokens are handed to a
+ * server route handler (/api/auth/confirm) that exchanges them server-side,
+ * so the session cookie can be HttpOnly (no document.cookie reads, no
+ * localStorage copies). Errors render in place rather than redirecting to
+ * /login: bouncing to the login page is precisely what made this hard to
+ * diagnose.
  */
 export default function ConfirmAuthPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  // StrictMode in dev mounts effects twice; the confirmation tokens are
+  // single-use, so the second run would exchange an already-consumed code
+  // and surface a spurious error before the redirect lands. Run once.
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const query = new URLSearchParams(window.location.search);
 
     const rawHash = window.location.hash.startsWith("#")
@@ -45,11 +39,11 @@ export default function ConfirmAuthPage() {
     const hash = new URLSearchParams(rawHash);
 
     // Supabase reports a rejected or expired link in either place.
-    const linkError =
-      query.get("error_description") ??
-      query.get("error") ??
-      hash.get("error_description") ??
-      hash.get("error");
+    const rejected =
+      query.get("error_description") !== null ||
+      query.get("error") !== null ||
+      hash.get("error_description") !== null ||
+      hash.get("error") !== null;
 
     const code = query.get("code");
     const tokenHash = query.get("token_hash") ?? query.get("token");
@@ -57,68 +51,69 @@ export default function ConfirmAuthPage() {
     const accessToken = hash.get("access_token");
     const refreshToken = hash.get("refresh_token");
 
-    const supabase = createClient();
+    // Drop tokens/codes from the address bar on failure so they don't linger
+    // in browser history or get re-submitted on a refresh. (Success already
+    // clears them via the router.replace below.)
+    const scrubUrl = () => {
+      window.history.replaceState({}, "", window.location.pathname);
+    };
 
     const establishSession = async () => {
-      // Supabase already rejected the link before we got here.
-      if (linkError) {
-        console.error("[confirm] link rejected by Supabase:", linkError);
-        return new Error("link_rejected");
+      // Exchange server-side so the session cookie can be HttpOnly. The
+      // route validates origin + shape and sets the cookies in its response.
+      const res = await fetch("/api/auth/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: code ?? undefined,
+          tokenHash: tokenHash ?? undefined,
+          type: type ?? undefined,
+          accessToken: accessToken ?? undefined,
+          refreshToken: refreshToken ?? undefined,
+          rejected: rejected || undefined,
+        }),
+        cache: "no-store",
+      });
+
+      let payload: { success?: boolean; error?: string };
+      try {
+        payload = (await res.json()) as typeof payload;
+      } catch {
+        throw new Error("bad_response");
       }
 
-      // 1. PKCE / server-side flow.
-      if (code) {
-        const { error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(code);
-        return exchangeError;
-      }
-
-      // 2. Hashed-token flow (?token_hash=…&type=invite).
-      if (tokenHash) {
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: isOtpType(type) ? type : "invite",
-        });
-        return verifyError;
-      }
-
-      // 3. Implicit flow — tokens arrive in the URL fragment.
-      if (accessToken && refreshToken) {
-        const { error: setSessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        return setSessionError;
-      }
-
-      return new Error("no_credentials");
+      if (res.ok && payload.success) return;
+      return payload.error ?? "exchange_failed";
     };
 
     establishSession()
-      .then((sessionError) => {
-        if (!sessionError) {
+      .then((errorCode) => {
+        if (!errorCode) {
           router.replace("/set-password");
           return;
         }
 
-        if (sessionError.message === "link_rejected") {
+        scrubUrl();
+
+        if (errorCode === "link_rejected") {
           setError(
             "Your invite link is no longer valid. Ask an admin to send a new one.",
           );
           return;
         }
 
-        if (sessionError.message === "no_credentials") {
+        if (errorCode === "no_credentials") {
           setError(
             "This link is missing its confirmation token. Open the link from your invite email directly, without copying only part of it.",
           );
           return;
         }
 
-        console.error("[confirm] could not establish a session:", sessionError);
+        console.error("[confirm] could not establish a session:", errorCode);
         setError("Your invite link has expired or has already been used.");
       })
       .catch((caughtError) => {
+        scrubUrl();
         console.error("[confirm] session setup threw:", caughtError);
         setError("Something went wrong confirming your link. Please try again.");
       });

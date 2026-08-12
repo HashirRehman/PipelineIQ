@@ -8,6 +8,7 @@ import {
   isBdManagerRole,
   type RolePermissionSet,
 } from "@/lib/auth/roles";
+import { supabaseCookieOptions } from "./cookie-options";
 import type { Database } from "./database.types";
 
 export async function createClient() {
@@ -17,6 +18,11 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // HttpOnly + SameSite=Lax + Secure-in-prod + bounded lifetime — see
+      // lib/supabase/cookie-options.ts. Everything that establishes or
+      // refreshes a session now runs server-side, so the tokens never need
+      // to be JavaScript-readable.
+      cookieOptions: supabaseCookieOptions,
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -54,27 +60,10 @@ export const getCachedUser = cache(async () => {
   return user;
 });
 
-// Reads is_admin from the JWT's claims (baked in by the
-// custom_access_token_hook migration) instead of a live
-// supabase.rpc("is_admin") round trip — the project's JWTs are ES256
-// (asymmetric), confirmed by decoding a real issued token, so
-// getClaims() verifies locally via cached JWKS with no per-call network
-// request, unlike the RPC it replaces. This is an app-layer convenience
-// only: every RLS policy still calls public.is_admin() directly, live,
-// at query time — that function is untouched and remains the real
-// access-control boundary, per this project's RLS-first rule. A missing
-// claim (hook not enabled somewhere) fails closed to false, never to
-// elevated access.
-export const getCachedIsAdmin = cache(async () => {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  return data?.claims?.is_admin === true;
-});
-
 // The display role name (e.g. "Admin", "User") baked into the JWT as the
 // user_role claim by custom_access_token_hook. Read locally via cached JWKS
-// (no per-call network request, same as getCachedIsAdmin). Returns null when
-// the claim is missing so callers can hide the label rather than guess.
+// (no per-call network request). Returns null when the claim is missing so
+// callers can hide the label rather than guess.
 export const getCachedUserRole = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
@@ -104,10 +93,12 @@ export const getCachedRolePermissions = cache(async (): Promise<RolePermissions>
 });
 
 // The acting user's organization id, resolved once per server request (same
-// memoization as getCachedUser). Mirrors the fallback used by the API routes
-// before org ids were passed explicitly: the user's own row first, then the
-// seeded "Recurso Labs" org by name. The dashboard layout uses this to hand
-// the org id down to the client, which forwards it on every API call.
+// memoization as getCachedUser). The dashboard layout uses this to hand the
+// org id down to the client, which forwards it on every API call. users
+// rows are created at invite with a NOT NULL organization_id, so the row
+// read is the whole lookup — the old by-name "Recurso Labs" fallback was
+// unreachable and is gone (it would also pin a user to the wrong org in a
+// multi-tenant deployment).
 export const getCachedOrganizationId = cache(async () => {
   const supabase = await createClient();
   const user = await getCachedUser();
@@ -118,12 +109,5 @@ export const getCachedOrganizationId = cache(async () => {
     .select("organization_id")
     .eq("id", user.id)
     .maybeSingle();
-  if (userRow?.organization_id) return userRow.organization_id;
-
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("id")
-    .eq("name", "Recurso Labs")
-    .maybeSingle();
-  return org?.id ?? null;
+  return userRow?.organization_id ?? null;
 });

@@ -8,10 +8,12 @@
 -- ============================================================
 
 -- API grants (formerly a standalone migration) -------------------
--- Grant the Data API roles table/type privileges so the app can
--- read and write through PostgREST. Idempotent. anon intentionally gets
--- nothing (old schema revoked everything from anon; hardening plan B5).
-grant select, insert, update, delete on all tables in schema public to authenticated;
+-- service_role keeps blanket CRUD (the admin/cron path, bypasses RLS).
+-- The authenticated role's per-table grants live in the migrations
+-- (20260812110000_trim_rls_to_tenant_tables.sql) — NOT here — because the
+-- seed runs after migrations on `supabase db reset` and a blanket grant
+-- here would undo the least-privilege trim (catalog tables read-only,
+-- organizations/cron_run_locks not reachable, tenant tables gated by RLS).
 grant select, insert, update, delete on all tables in schema public to service_role;
 grant usage on type public.application_status to authenticated, service_role;
 

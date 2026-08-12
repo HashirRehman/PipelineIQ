@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-const SUCCESS_MESSAGE = "Password set. Sign in with your new password."
-
 export function SetPasswordForm() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
@@ -35,9 +33,10 @@ export function SetPasswordForm() {
         password,
         confirmPassword,
       })
-      // The API signs the user out after updating the password, so they
-      // re-authenticate with the credentials they just chose.
-      window.location.href = `/login?message=${encodeURIComponent(SUCCESS_MESSAGE)}`
+      // The session survives the password change (see the route), so drop the
+      // user straight onto the dashboard — no re-login. A full page load also
+      // guarantees the fresh session cookies are used to fetch the dashboard.
+      window.location.href = "/"
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
       setIsPending(false)

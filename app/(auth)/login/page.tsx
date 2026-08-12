@@ -31,15 +31,19 @@ export default async function LoginPage({
             </p>
           </div>
 
+          {/* message/error arrive ALREADY URL-decoded (Next.js decodes
+              searchParams once) — decoding again would throw URIError on any
+              value containing a literal % and 500 the page. React escapes the
+              text, so there's no injection risk in rendering it as-is. */}
           {message && !error && (
             <div className="mb-4 rounded-md bg-success border border-success-foreground/20 px-3 py-2">
-              <p className="text-xs text-success-foreground">{decodeURIComponent(message)}</p>
+              <p className="text-xs text-success-foreground">{message}</p>
             </div>
           )}
 
           {error && (
             <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
-              <p className="text-xs text-destructive">{decodeURIComponent(error)}</p>
+              <p className="text-xs text-destructive">{error}</p>
             </div>
           )}
 

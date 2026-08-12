@@ -7,7 +7,6 @@ import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import type { JobCommentDto } from "@/app/api/jobs/[jobId]/comments/route";
 import { apiDelete, apiPatch, apiPost, withOrgId } from "@/lib/api/client";
-import { createClient } from "@/lib/supabase/client";
 import { timeAgo } from "@/lib/format";
 
 const inputClass =
@@ -170,11 +169,23 @@ export function JobComments({ jobId }: { jobId: string }) {
   }, [jobId]);
 
   useEffect(() => {
+    // Read the acting user's id from the server instead of supabase-js in
+    // the browser — the session cookie is HttpOnly, so the browser client
+    // can no longer (and should no longer) read it. A 401 here (no session)
+    // just means no "(you)" tags / edit buttons.
     let cancelled = false;
-    const client = createClient();
-    client.auth.getUser().then(({ data }) => {
-      if (!cancelled) setCurrentUserId(data?.user?.id ?? null);
-    });
+    fetch("/api/me", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const json = (await res.json()) as { userId?: string };
+        return json.userId ?? null;
+      })
+      .then((id) => {
+        if (!cancelled) setCurrentUserId(id);
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentUserId(null);
+      });
     return () => {
       cancelled = true;
     };
