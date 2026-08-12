@@ -237,12 +237,16 @@ export default function SettingsTab() {
         const res = await fetch("/api/users")
         if (res.ok) {
           const data = await res.json()
-          if (data?.appUsers && user) {
-            const current = data.appUsers.find((u: { id: string; name: string; role: string }) => u.id === user.id)
-            if (current) {
-              setUserRole(current.role)
-              if (current.name) setName(current.name)
-            }
+          const current = data?.currentUser || (data?.users && user ? data.users.find((u: { id: string }) => u.id === user.id) : null)
+          if (current) {
+            const rawRole = (current.role || "").toLowerCase()
+            const formattedRole =
+              rawRole === "bd" ? "BD Manager" :
+              rawRole === "admin" ? "Admin" :
+              rawRole === "lead" ? "Business Developer" :
+              current.role
+            setUserRole(formattedRole)
+            if (current.name) setName(current.name)
           }
         }
       } catch (err) {
