@@ -8,10 +8,6 @@ export function setOrganizationId(id: string | null): void {
   currentOrganizationId = id;
 }
 
-export function getOrganizationId(): string | null {
-  return currentOrganizationId;
-}
-
 /** Appends ?organizationId= to a GET url so org-scoped fetches carry it. */
 export function withOrgId(url: string, organizationId?: string | null): string {
   const id = organizationId ?? currentOrganizationId;

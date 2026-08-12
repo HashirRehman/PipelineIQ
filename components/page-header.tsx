@@ -19,7 +19,7 @@ export function PageHeader({ title, description, subtitle, actions, breadcrumb, 
             {breadcrumb}
           </p>
         )}
-        <h1 className="text-xl font-semibold tracking-tight text-foreground leading-tight">
+        <h1 className="font-heading text-xl font-semibold tracking-tight text-foreground leading-tight">
           {title}
         </h1>
         {sub && (

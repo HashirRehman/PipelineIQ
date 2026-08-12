@@ -52,7 +52,10 @@ export type RolePermissionSet = {
   canModerateComments: boolean;
   /** Pipeline management — edit other users' lead notes. */
   canManageLeadNotes: boolean;
-  /** Where "/" redirects for this role. */
+  /** Landing section for this role. The root page ("/") renders the
+   *  Dashboard for every role (Statistics lives at /statistics), so this is
+   *  "/" across the board — kept on the matrix so a per-role landing can
+   *  be reintroduced as a one-line change. */
   homeSection: string;
   /** App-facing role key used for UI colors / filters ("admin" | "lead" | "bd"). */
   userRoleKey: "admin" | "lead" | "bd";
@@ -68,7 +71,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canAccessJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
-    homeSection: "/profiles",
+    homeSection: "/",
     userRoleKey: "admin",
   },
   "BD Manager": {
@@ -83,7 +86,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canAccessJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
-    homeSection: "/profiles",
+    homeSection: "/",
     userRoleKey: "lead",
   },
   "Business Developer": {
@@ -95,7 +98,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canAccessJobs: true,
     canModerateComments: false,
     canManageLeadNotes: false,
-    homeSection: "/discovery",
+    homeSection: "/",
     userRoleKey: "bd",
   },
 };

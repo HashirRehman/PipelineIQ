@@ -19,7 +19,10 @@
    ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --radius: 0.5rem;
+  /* 6px base radius — sharper, instrument-like geometry for cards, tables,
+     inputs and popovers. Badges/pills stay rounded-full via their own
+     classes. */
+  --radius: 0.375rem;
 
   /* ── Elevation — soft, layered shadows (Tailwind v4 `shadow-*` utilities) ──
      Defined as raw tokens here so dark mode can tune them, and exposed
@@ -121,6 +124,35 @@ body { position: relative; }
 [data-slot="drawer-overlay"] {
   background-color: color-mix(in srgb, var(--scrim) 60%, transparent);
   backdrop-filter: blur(2px);
+}
+
+/* ── Chart entrance animations ────────────────────────────────────────
+   Pure-CSS replacements for the dashboard/statistics chart animations
+   (bars grow up, funnel widens, line draws in, points pop, donut sweeps,
+   stat cards rise). Keyframes run on mount and are consumed by the chart
+   components in components/charts.tsx / stat-card.tsx; animation-delay
+   provides the per-item stagger. The reduced-motion block below zeroes
+   these out automatically. */
+@keyframes chart-grow-up {
+  from { height: 0; }
+}
+@keyframes chart-grow-x {
+  from { width: 0; }
+}
+@keyframes chart-fade-in {
+  from { opacity: 0; }
+}
+@keyframes chart-pop {
+  from { opacity: 0; transform: scale(0); }
+}
+@keyframes chart-sweep {
+  from { stroke-dasharray: 0 1; }
+}
+@keyframes chart-draw {
+  from { stroke-dashoffset: 1; }
+}
+@keyframes chart-rise {
+  from { opacity: 0; transform: translateY(6px); }
 }
 
 /* Respect users who prefer reduced motion — tw-animate-css and the in-app

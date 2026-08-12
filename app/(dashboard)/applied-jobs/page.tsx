@@ -4,7 +4,7 @@ import AppliedJobsTab from "./applied-jobs-tab";
 import { getCachedRolePermissions } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Pipeline — PipelineIQ",
+  title: "Pipeline",
 };
 
 export default async function AppliedJobsPage() {

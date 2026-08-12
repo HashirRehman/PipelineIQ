@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { MapPin, UserRound } from "lucide-react";
 import { NewEditProfileDialog } from "./new-edit-profile-dialog";
 import { ProfilesListView } from "./profiles-list-view";
+import { Button } from "@/components/ui/button";
 import { GooeyInput } from "@/components/ui/gooey-input";
 import { ViewToggle } from "@/components/jobs/view-toggle";
 import { ResultsCount } from "@/components/results-count";
@@ -99,7 +100,7 @@ export function ProfilesList({
           <GooeyInput
             value={search}
             onValueChange={setSearch}
-            placeholder="Search profiles..."
+            placeholder="Search profiles…"
             expandedWidth={300}
           />
 
@@ -156,11 +157,12 @@ export function ProfilesList({
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((profile) => (
-              <button
+              <Button
                 key={profile.id}
                 type="button"
+                variant="ghost"
                 onClick={() => onSelectProfile(profile.id)}
-                className="group w-full rounded-xl border border-border bg-card p-5 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                className="group h-auto w-full rounded-xl border border-border bg-card p-5 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 hover:bg-card hover:shadow-lg"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-avatar-2 text-sm font-semibold text-white select-none">
@@ -209,7 +211,7 @@ export function ProfilesList({
                     {formatRate(profile)}
                   </span>
                 </div>
-              </button>
+              </Button>
             ))}
               </div>
             )}

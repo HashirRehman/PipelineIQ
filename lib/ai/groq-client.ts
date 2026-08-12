@@ -275,7 +275,7 @@ export class GroqAiClient implements AiClient {
 
     if (!isUsableParse(result.data)) {
       throw new Error(
-        "parseCv: the parse found neither skills nor experience — refusing to store an empty result.",
+        "parseCv: the parse found neither skills nor experience. Refusing to store an empty result.",
       );
     }
 

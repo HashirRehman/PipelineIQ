@@ -10,10 +10,12 @@ function Progress({
   value,
   trackClassName,
   indicatorClassName,
+  indicatorStyle,
   ...props
 }: ProgressPrimitive.Root.Props & {
   trackClassName?: string
   indicatorClassName?: string
+  indicatorStyle?: React.CSSProperties
 }) {
   return (
     <ProgressPrimitive.Root
@@ -24,7 +26,7 @@ function Progress({
     >
       {children}
       <ProgressTrack className={trackClassName}>
-        <ProgressIndicator className={indicatorClassName} />
+        <ProgressIndicator className={indicatorClassName} style={indicatorStyle} />
       </ProgressTrack>
     </ProgressPrimitive.Root>
   )

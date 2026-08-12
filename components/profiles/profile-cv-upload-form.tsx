@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { uploadProfileCvRequest } from "@/lib/api/profiles-client";
+import { Button } from "@/components/ui/button";
 import type { ProfileMutationResponse } from "@/lib/api/profiles-client";
 
 export function ProfileCvUploadForm({
@@ -122,13 +123,13 @@ export function ProfileCvUploadForm({
         </p>
       )}
 
-      <button
+      <Button
         type="submit"
         disabled={isPending || !fileName}
-        className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+        className="h-8 rounded-md px-4 text-xs hover:bg-primary/90"
       >
         {isPending ? "Uploading…" : "Upload"}
-      </button>
+      </Button>
     </form>
   );
 }

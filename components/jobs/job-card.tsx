@@ -1,5 +1,6 @@
 import { Bookmark, Clock, MapPin } from "lucide-react"
 import type { Job } from "@/components/job-drawer"
+import { Button } from "@/components/ui/button"
 import { TintedBadge } from "@/components/tinted-badge"
 import { WORK_TYPE_COLOR, scoreColor } from "@/lib/constants"
 import { timeAgo } from "@/lib/format"
@@ -63,15 +64,17 @@ export function JobCard({
 
       {/* Footer: save (disabled) + time */}
       <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="icon-sm"
           disabled
           title="Save (coming soon)"
           aria-label="Save job (coming soon)"
-          className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+          className="size-7 rounded-md text-muted-foreground"
         >
           <Bookmark className="size-3.5" />
-        </button>
+        </Button>
         <span className="flex items-center gap-1 text-meta text-muted-foreground">
           {/* Applied jobs are dated by when they were applied; the discovery
               feed has no appliedAt and falls back to the posting date. */}

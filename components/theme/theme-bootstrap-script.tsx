@@ -36,7 +36,10 @@ const SCRIPT = `(function(){try{var p=${JSON.stringify(PALETTE_CSS)};var g=${JSO
  * Emits a synchronous <script> as the first child of <body>. It runs during
  * initial HTML parsing — before any visible content is painted — so a saved
  * palette/pattern is applied before the user sees anything.
+ *
+ * The `nonce` (from the proxy's per-request CSP nonce) lets the strict
+ * Content-Security-Policy trust this inline script without 'unsafe-inline'.
  */
-export function ThemeBootstrapScript() {
-  return <script dangerouslySetInnerHTML={{ __html: SCRIPT }} />
+export function ThemeBootstrapScript({ nonce }: { nonce?: string }) {
+  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: SCRIPT }} />
 }
