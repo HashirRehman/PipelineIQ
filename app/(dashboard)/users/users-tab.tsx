@@ -41,7 +41,7 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
 
   const domainSuffix = allowedDomain?.trim()
     ? (allowedDomain.trim().startsWith("@") ? allowedDomain.trim() : `@${allowedDomain.trim()}`)
-    : "@recursolabs.com"
+    : null
 
   const canSubmit = isInvite ? Boolean(name && email && roleId) : Boolean(name.trim())
 
