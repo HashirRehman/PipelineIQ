@@ -457,6 +457,14 @@ export default function SettingsTab() {
     window.dispatchEvent(new Event(PATTERN_CHANGED_EVENT))
   }
 
+  const handleTabChange = (tab: "profile" | "security" | "appearance" | "organization") => {
+    setActiveTab(tab)
+    if (typeof window !== "undefined") {
+      const newUrl = tab === "profile" ? "/settings" : `/settings?tab=${tab}`
+      window.history.replaceState(null, "", newUrl)
+    }
+  }
+
   return (
     <div className="flex flex-1 min-h-0 flex-col bg-background">
       {/* Header Banner */}
@@ -487,7 +495,7 @@ export default function SettingsTab() {
         <div className="flex gap-2 border-t border-border pt-3">
           <button
             type="button"
-            onClick={() => setActiveTab("profile")}
+            onClick={() => handleTabChange("profile")}
             className={cn(
               "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
               activeTab === "profile"
@@ -501,7 +509,7 @@ export default function SettingsTab() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("security")}
+            onClick={() => handleTabChange("security")}
             className={cn(
               "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
               activeTab === "security"
@@ -515,7 +523,7 @@ export default function SettingsTab() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("appearance")}
+            onClick={() => handleTabChange("appearance")}
             className={cn(
               "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
               activeTab === "appearance"
@@ -530,7 +538,7 @@ export default function SettingsTab() {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setActiveTab("organization")}
+              onClick={() => handleTabChange("organization")}
               className={cn(
                 "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
                 activeTab === "organization"
