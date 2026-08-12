@@ -16,10 +16,11 @@ const PAGE_NAMES: Record<string, string> = {
   "/leads": "Leads",
   "/profiles": "Profiles",
   "/discovery": "Discovery",
+  "/pipeline": "Pipeline",
   "/applied-jobs": "Pipeline",
   "/users": "Team",
   "/statistics": "Statistics",
-  "/settings": "Theme",
+  "/settings": "Settings",
 };
 
 export function TopBar({ user }: TopBarProps) {
@@ -40,9 +41,9 @@ export function TopBar({ user }: TopBarProps) {
       <div className="flex items-center gap-3">
         {/* Theme page link */}
         <Link
-          href="/settings"
-          aria-label="Theme settings"
-          title="Theme settings"
+          href="/settings?tab=appearance"
+          aria-label="Appearance & Theme settings"
+          title="Appearance & Theme settings"
           aria-current={isSettings ? "page" : undefined}
           className={cn(
             "flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",

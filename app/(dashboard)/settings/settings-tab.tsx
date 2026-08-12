@@ -181,12 +181,25 @@ function subscribePattern(callback: () => void) {
   }
 }
 
+import { useSearchParams } from "next/navigation"
+
 export default function SettingsTab() {
   const mounted = useMounted()
   const { resolvedTheme } = useTheme()
   const mode = (resolvedTheme === "dark" ? "dark" : "light") as "light" | "dark"
 
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "appearance">("profile")
+  const searchParams = useSearchParams()
+  const tabParam = searchParams?.get("tab")
+
+  const [activeTab, setActiveTab] = useState<"profile" | "security" | "appearance">(
+    tabParam === "appearance" ? "appearance" : tabParam === "security" ? "security" : "profile"
+  )
+
+  useEffect(() => {
+    if (tabParam === "appearance" || tabParam === "security" || tabParam === "profile") {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
 
   // Current user state
   const [userId, setUserId] = useState<string>("")
