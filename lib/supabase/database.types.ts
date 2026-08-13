@@ -746,6 +746,66 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activities: {
+        Row: {
+          action: string
+          actor_name: string
+          created_at: string
+          description: string
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json
+          organization_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_name: string
+          created_at?: string
+          description: string
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          organization_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_name?: string
+          created_at?: string
+          description?: string
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          organization_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string

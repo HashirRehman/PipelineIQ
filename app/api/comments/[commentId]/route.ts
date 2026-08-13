@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -44,7 +45,7 @@ export async function PATCH(
 
   const { data: comment } = await supabase
     .from("job_comments")
-    .select("id, user_id")
+    .select("id, user_id, jobs(title, company_name)")
     .eq("id", commentId)
     .eq("organization_id", org.organizationId)
     .is("deleted_at", null)
@@ -75,6 +76,21 @@ export async function PATCH(
     );
   }
 
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "job_comment_updated",
+    description: comment.jobs
+      ? `Edited a comment on "${comment.jobs.title} — ${comment.jobs.company_name}"`
+      : "Edited a comment",
+    entityType: "job_comment",
+    entityId: commentId,
+    entityLabel: parsed.data.body.slice(0, 120),
+    request,
+  });
+
   revalidatePath("/");
   return NextResponse.json({ success: true });
 }
@@ -103,7 +119,7 @@ export async function DELETE(
 
   const { data: comment } = await supabase
     .from("job_comments")
-    .select("id, user_id")
+    .select("id, user_id, jobs(title, company_name)")
     .eq("id", commentId)
     .eq("organization_id", org.organizationId)
     .is("deleted_at", null)
@@ -134,6 +150,20 @@ export async function DELETE(
       { status: 500 },
     );
   }
+
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "job_comment_deleted",
+    description: comment.jobs
+      ? `Deleted a comment on "${comment.jobs.title} — ${comment.jobs.company_name}"`
+      : "Deleted a comment",
+    entityType: "job_comment",
+    entityId: commentId,
+    request,
+  });
 
   revalidatePath("/");
   return NextResponse.json({ success: true });

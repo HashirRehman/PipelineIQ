@@ -8,6 +8,7 @@ export type TabId =
   | "applied-jobs"
   | "leads"
   | "users"
+  | "activity"
   | "settings";
 
 /* Filter vocabulary shared by the job list pages (Discovery, Pipeline) */

@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import {
   CloudinaryConfigError,
@@ -130,6 +131,18 @@ export async function createProfile(
     };
   }
 
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId: gate.user.id,
+    actorName: actorNameFromUser(gate.user),
+    action: "profile_created",
+    description: `Created profile "${parsed.data.fullName}"`,
+    entityType: "profile",
+    entityId: data.id,
+    entityLabel: parsed.data.fullName,
+  });
+
   return { success: true, profileId: data.id };
 }
 
@@ -213,6 +226,18 @@ export async function updateProfile(
     return { success: false, status: 404, error: "Profile not found." };
   }
 
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId: gate.user.id,
+    actorName: actorNameFromUser(gate.user),
+    action: "profile_updated",
+    description: `Updated profile "${parsed.data.fullName}"`,
+    entityType: "profile",
+    entityId: profileId,
+    entityLabel: parsed.data.fullName,
+  });
+
   return { success: true, profileId };
 }
 
@@ -243,7 +268,7 @@ export async function archiveProfile(
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
-    .select("id");
+    .select("id, full_name");
 
   if (error) {
     console.error("archiveProfile: profiles update failed", error);
@@ -257,6 +282,18 @@ export async function archiveProfile(
   if (data.length === 0) {
     return { success: false, status: 404, error: "Profile not found." };
   }
+
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId: gate.user.id,
+    actorName: actorNameFromUser(gate.user),
+    action: "profile_archived",
+    description: `Archived profile "${data[0].full_name}"`,
+    entityType: "profile",
+    entityId: profileId,
+    entityLabel: data[0].full_name,
+  });
 
   return { success: true, profileId };
 }
@@ -292,10 +329,11 @@ export async function setProfileAssignment(
   // profile (and its CVs), which their discovery feed would then surface.
   // Admins are excluded from assignment entirely (they manage profiles, they
   // don't own them).
+  let assignedUserName: string | null = null;
   if (userId) {
     const { data: userRow } = await supabase
       .from("users")
-      .select("id, roles(name)")
+      .select("id, full_name, roles(name)")
       .eq("id", userId)
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
@@ -306,6 +344,7 @@ export async function setProfileAssignment(
     if (userRow.roles?.name === "Admin") {
       return { success: false, status: 400, error: "Admins cannot be assigned to profiles." };
     }
+    assignedUserName = userRow.full_name;
   }
 
   const { data, error } = await supabase
@@ -313,7 +352,7 @@ export async function setProfileAssignment(
     .update({ user_id: userId })
     .eq("id", profileId)
     .eq("organization_id", organizationId)
-    .select("id");
+    .select("id, full_name");
 
   if (error) {
     if (error.code === "23503") {
@@ -334,6 +373,22 @@ export async function setProfileAssignment(
   if (data.length === 0) {
     return { success: false, status: 404, error: "Profile not found." };
   }
+
+  const profileName = data[0].full_name;
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId: gate.user.id,
+    actorName: actorNameFromUser(gate.user),
+    action: assignedUserName ? "profile_assigned" : "profile_unassigned",
+    description: assignedUserName
+      ? `Assigned profile "${profileName}" to ${assignedUserName}`
+      : `Unassigned profile "${profileName}"`,
+    entityType: "profile",
+    entityId: profileId,
+    entityLabel: profileName,
+    metadata: { userId },
+  });
 
   return { success: true, profileId };
 }
@@ -373,7 +428,7 @@ export async function uploadProfileCv(
   // the org so a cross-org profile id can't be used to attach a CV.
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name")
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
@@ -457,6 +512,18 @@ export async function uploadProfileCv(
   // successful insert, so there is always a row to write the result to.
   scheduleCvParse({ cvId, fileType: file.type, buffer: fileBytes });
 
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId: gate.user.id,
+    actorName: actorNameFromUser(gate.user),
+    action: "profile_cv_uploaded",
+    description: `Uploaded CV "${file.name}" to profile "${profileRow.full_name}"`,
+    entityType: "profile_cv",
+    entityId: cvId,
+    entityLabel: file.name,
+  });
+
   return { success: true, profileId };
 }
 
@@ -515,7 +582,7 @@ export async function deleteProfileCv(
   // so a cross-org profile id must not resolve its CVs.
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name")
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
@@ -526,7 +593,7 @@ export async function deleteProfileCv(
 
   const { data: cvRow, error: selectError } = await supabase
     .from("profile_cvs")
-    .select("storage_path")
+    .select("storage_path, file_name")
     .eq("id", cvId)
     .eq("profile_id", profileId)
     .is("deleted_at", null)
@@ -572,6 +639,18 @@ export async function deleteProfileCv(
       );
     }
   }
+
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId: gate.user.id,
+    actorName: actorNameFromUser(gate.user),
+    action: "profile_cv_deleted",
+    description: `Deleted CV "${cvRow.file_name}" from profile "${profileRow.full_name}"`,
+    entityType: "profile_cv",
+    entityId: cvId,
+    entityLabel: cvRow.file_name,
+  });
 
   return { success: true, profileId };
 }
