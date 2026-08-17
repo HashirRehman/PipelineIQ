@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { BarChart, DonutChart, FunnelChart, LineChart } from "@/components/charts";
 import { ProfileUserFilters } from "@/components/leads/profile-user-filters";
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route";
 import { SERIES_PALETTE, stageColor, type DateRange, DATE_RANGES } from "@/lib/constants";
 import {
   businessWeekStart,
@@ -25,20 +25,9 @@ import {
   yearWindowLabel,
 } from "@/lib/date-window";
 import { isWithinWindow } from "@/lib/api/job-filters";
-import { withOrgId } from "@/lib/api/client";
-
-const LEADS_PAGE_SIZE = 50;
+import { useAllLeads } from "@/hooks/use-all-leads";
 
 type Granularity = "daily" | "weekly" | "monthly";
-
-interface LeadsPage {
-  leads: ApiLead[];
-  users: ApiLeadUser[];
-  profiles: { id: string; name: string; userId: string | null }[];
-  pipelineStages: { id: string; name: string; orderIndex: number }[];
-  currentUser: { id: string; name: string };
-  totalPages: number;
-}
 
 /** Sensible default bucket size for a window's length. */
 function suggestGranularity(window: { from: string; to: string } | null): Granularity {
@@ -106,16 +95,19 @@ function bucketKey(granularity: Granularity, date: Date): string {
 }
 
 export default function StatisticsTab() {
-  const [leads, setLeads] = useState<ApiLead[]>([]);
-  const [users, setUsers] = useState<ApiLeadUser[]>([]);
-  const [profiles, setProfiles] = useState<{ id: string; name: string; userId: string | null }[]>([]);
-  const [stages, setStages] = useState<{ id: string; name: string; orderIndex: number }[]>([]);
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
-  const [activeProfileCount, setActiveProfileCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  // Reference timestamp captured when the data loads — kept in state so the
-  // date windows and chart buckets are stable across re-renders.
-  const [nowMs, setNowMs] = useState(0);
+  const {
+    leads,
+    users,
+    profiles,
+    stages,
+    roleKey,
+    activeProfileCount,
+    isPending,
+    error,
+  } = useAllLeads();
+  // Reference timestamp captured when the component mounts — kept in state so
+  // the date windows and chart buckets are stable across re-renders.
+  const [nowMs] = useState(() => Date.now());
 
   const [userFilter, setUserFilter] = useState("all");
   const [profileFilter, setProfileFilter] = useState("all");
@@ -127,79 +119,10 @@ export default function StatisticsTab() {
   const [yearFilter, setYearFilter] = useState<number | null>(null);
   const [granularity, setGranularity] = useState<Granularity>("monthly");
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setNowMs(Date.now());
-        // All leads, page by page (the route caps pageSize at 50). The first
-        // page reveals totalPages; the rest are independent, so fetch them in
-        // parallel instead of waiting for each one (async-parallel). The
-        // route scopes BDs to their own leads, so this list is the caller's
-        // visible pipeline from the start.
-        const firstRes = await fetch(withOrgId(`/api/leads?page=1&pageSize=${LEADS_PAGE_SIZE}&dateRange=all&sort=newest`));
-        if (!firstRes.ok) throw new Error("Failed to load leads");
-        const first = (await firstRes.json()) as LeadsPage;
-        const all: ApiLead[] = [...first.leads];
-        const users = first.users;
-        const profiles = first.profiles;
-        const stages = first.pipelineStages;
-        const currentUser = first.currentUser;
-
-        const rest = await Promise.all(
-          Array.from({ length: first.totalPages - 1 }, (_, i) =>
-            fetch(withOrgId(`/api/leads?page=${i + 2}&pageSize=${LEADS_PAGE_SIZE}&dateRange=all&sort=newest`)).then(
-              async (res) => {
-                if (!res.ok) throw new Error("Failed to load leads");
-                return (await res.json()) as LeadsPage;
-              },
-            ),
-          ),
-        );
-
-        if (cancelled) return;
-        for (const json of rest) all.push(...json.leads);
-        setLeads(all);
-        setUsers(users);
-        setProfiles(profiles);
-        setStages(stages);
-        setCurrentUser(currentUser);
-
-        // Active profile count for the stat card — Admin + BD Manager only
-        // (Business Developers get 403 from /api/profiles; their card counts
-        // their own profiles from the scoped leads response instead).
-        const roleKey = users.find((u) => u.id === currentUser?.id)?.role ?? "bd";
-        if (roleKey !== "bd") {
-          const profileRes = await fetch(withOrgId("/api/profiles"));
-          if (profileRes.ok) {
-            const profileJson = (await profileRes.json()) as { profiles?: { isActive: boolean }[]; isActive?: boolean };
-            const list = Array.isArray(profileJson.profiles)
-              ? profileJson.profiles
-              : Array.isArray(profileJson)
-                ? (profileJson as unknown as { isActive: boolean }[])
-                : [];
-            if (list.length > 0 && "isActive" in list[0]) {
-              setActiveProfileCount(list.filter((p) => p.isActive).length);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load statistics:", err);
-        if (!cancelled) setError("Failed to load statistics");
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead");
   // Admin and BD Manager see the whole org (and the user filter + team
   // charts); Business Developers only ever see their own scoped data.
-  const canViewTeam = (users.find((u) => u.id === currentUser?.id)?.role ?? "bd") !== "bd";
+  const canViewTeam = roleKey !== "bd";
 
   // Reference time for date windows — derived once from nowMs so the window
   // stays stable across re-renders.
@@ -480,7 +403,11 @@ export default function StatisticsTab() {
       <div className="p-6 space-y-6">
         {error ? (
           <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
+            Failed to load statistics
+          </div>
+        ) : isPending ? (
+          <div className="flex items-center justify-center py-24 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin text-primary" />
           </div>
         ) : (
           <>

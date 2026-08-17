@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, MessageSquare, Pencil, Trash2 } from "lucide-react";
 
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import type { JobCommentDto } from "@/app/api/jobs/[jobId]/comments/route";
-import { apiDelete, apiPatch, apiPost, withOrgId } from "@/lib/api/client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
 import { timeAgo } from "@/lib/format";
 
 const inputClass =
@@ -15,13 +17,11 @@ const inputClass =
 function CommentRow({
   comment,
   currentUserId,
-  onEdited,
-  onDeleted,
+  onChanged,
 }: {
   comment: JobCommentDto;
   currentUserId: string | null;
-  onEdited: (comment: JobCommentDto) => void;
-  onDeleted: (id: string) => void;
+  onChanged: () => void;
 }) {
   const isOwn = currentUserId !== null && comment.authorId === currentUserId;
   const [editing, setEditing] = useState(false);
@@ -40,7 +40,7 @@ function CommentRow({
     setError(null);
     try {
       await apiPatch<{ success: boolean }>(`/api/comments/${comment.id}`, { body });
-      onEdited({ ...comment, body, updatedAt: new Date().toISOString() });
+      onChanged();
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save.");
@@ -54,7 +54,7 @@ function CommentRow({
     setError(null);
     try {
       await apiDelete<{ success: boolean }>(`/api/comments/${comment.id}`);
-      onDeleted(comment.id);
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
@@ -139,34 +139,24 @@ function CommentRow({
 }
 
 export function JobComments({ jobId }: { jobId: string }) {
-  const [comments, setComments] = useState<JobCommentDto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    fetch(withOrgId(`/api/jobs/${encodeURIComponent(jobId)}/comments`), {
-      signal: ctrl.signal,
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load comments");
-        return res.json() as Promise<{ comments: JobCommentDto[] }>;
-      })
-      .then((json) => {
-        setComments(json.comments);
-        setError(null);
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError("Failed to load comments.");
-      })
-      .finally(() => setLoading(false));
-    return () => ctrl.abort();
-  }, [jobId]);
+  const { data, isPending, error: loadError } = useQuery({
+    queryKey: queryKeys.jobComments.forJob(jobId),
+    queryFn: ({ signal }) =>
+      apiGet<{ comments: JobCommentDto[] }>(
+        `/api/jobs/${encodeURIComponent(jobId)}/comments`,
+        signal,
+      ),
+  });
+
+  const comments = data?.comments ?? [];
+  const refreshComments = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobComments.forJob(jobId) });
 
   useEffect(() => {
     // Read the acting user's id from the server instead of supabase-js in
@@ -197,11 +187,11 @@ export function JobComments({ jobId }: { jobId: string }) {
     setPosting(true);
     setError(null);
     try {
-      const json = await apiPost<{ success: boolean; comment: JobCommentDto }>(
+      await apiPost<{ success: boolean; comment: JobCommentDto }>(
         `/api/jobs/${encodeURIComponent(jobId)}/comments`,
         { body },
       );
-      setComments((cs) => [...cs, json.comment]);
+      await refreshComments();
       setDraft("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to post.");
@@ -220,7 +210,9 @@ export function JobComments({ jobId }: { jobId: string }) {
         placeholder="Add a comment…"
         className={inputClass}
       />
-      {error && <p className="text-meta text-destructive mb-1">{error}</p>}
+      {(error || loadError) && (
+        <p className="text-meta text-destructive mb-1">{error ?? "Failed to load comments."}</p>
+      )}
       <div className="flex justify-end mb-3">
         <Button
           type="button"
@@ -235,7 +227,7 @@ export function JobComments({ jobId }: { jobId: string }) {
       </div>
 
       {/* Thread (flat) */}
-      {loading ? (
+      {isPending ? (
         <div className="flex items-center justify-center py-6 text-muted-foreground">
           <Loader2 className="size-4 animate-spin text-primary" />
         </div>
@@ -250,8 +242,7 @@ export function JobComments({ jobId }: { jobId: string }) {
               key={comment.id}
               comment={comment}
               currentUserId={currentUserId}
-              onEdited={(updated) => setComments((cs) => cs.map((c) => (c.id === updated.id ? updated : c)))}
-              onDeleted={(id) => setComments((cs) => cs.filter((c) => c.id !== id))}
+              onChanged={refreshComments}
             />
           ))}
         </div>

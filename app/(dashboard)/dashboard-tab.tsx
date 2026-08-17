@@ -1,27 +1,17 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { FunnelChart } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
-import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route";
 import { SERIES_PALETTE, stageColor } from "@/lib/constants";
 import { businessWeekStart } from "@/lib/date-window";
-import { withOrgId } from "@/lib/api/client";
+import { useAllLeads } from "@/hooks/use-all-leads";
 import { cn } from "@/lib/utils";
 
-const LEADS_PAGE_SIZE = 50;
 const STALL_DAYS = 14;
-
-interface LeadsPage {
-  leads: ApiLead[];
-  users: ApiLeadUser[];
-  profiles: { id: string; name: string; userId: string | null }[];
-  pipelineStages: { id: string; name: string; orderIndex: number }[];
-  currentUser: { id: string; name: string };
-  totalPages: number;
-}
 
 // Compact "when" labels for activity lists: today / yesterday / Nd ago /
 // Nw ago / Nmo ago.
@@ -37,90 +27,22 @@ function timeAgo(iso: string, nowMs: number): string {
 }
 
 export default function DashboardTab() {
-  const [leads, setLeads] = useState<ApiLead[]>([]);
-  const [users, setUsers] = useState<ApiLeadUser[]>([]);
-  const [profiles, setProfiles] = useState<{ id: string; name: string; userId: string | null }[]>([]);
-  const [stages, setStages] = useState<{ id: string; name: string; orderIndex: number }[]>([]);
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
-  const [activeProfileCount, setActiveProfileCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  // Reference timestamp captured when the data loads — kept in state so the
-  // snapshot windows (this week, stalled cutoff) are stable across re-renders.
-  const [nowMs, setNowMs] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setNowMs(Date.now());
-        // All leads, page by page (the route caps pageSize at 50). The first
-        // page reveals totalPages; the rest are independent, so fetch them in
-        // parallel instead of waiting for each one (async-parallel).
-        const firstRes = await fetch(withOrgId(`/api/leads?page=1&pageSize=${LEADS_PAGE_SIZE}&dateRange=all&sort=newest`));
-        if (!firstRes.ok) throw new Error("Failed to load leads");
-        const first = (await firstRes.json()) as LeadsPage;
-        const all: ApiLead[] = [...first.leads];
-        const users = first.users;
-        const profiles = first.profiles;
-        const stages = first.pipelineStages;
-        const currentUser = first.currentUser;
-
-        const rest = await Promise.all(
-          Array.from({ length: first.totalPages - 1 }, (_, i) =>
-            fetch(withOrgId(`/api/leads?page=${i + 2}&pageSize=${LEADS_PAGE_SIZE}&dateRange=all&sort=newest`)).then(
-              async (res) => {
-                if (!res.ok) throw new Error("Failed to load leads");
-                return (await res.json()) as LeadsPage;
-              },
-            ),
-          ),
-        );
-
-        if (cancelled) return;
-        for (const json of rest) all.push(...json.leads);
-        setLeads(all);
-        setUsers(users);
-        setProfiles(profiles);
-        setStages(stages);
-        setCurrentUser(currentUser);
-
-        // Active profile count for the stat card — only Admin + BD Manager
-        // may read /api/profiles (Business Developers get 403 there, so this
-        // fetch is skipped for them; their card counts their own profiles
-        // from the scoped leads response instead).
-        const roleKey = users.find((u) => u.id === currentUser?.id)?.role ?? "bd";
-        if (roleKey !== "bd") {
-          const profileRes = await fetch(withOrgId("/api/profiles"));
-          if (profileRes.ok) {
-          const profileJson = (await profileRes.json()) as { profiles?: { isActive: boolean }[]; isActive?: boolean };
-          const list = Array.isArray(profileJson.profiles)
-            ? profileJson.profiles
-            : Array.isArray(profileJson)
-              ? (profileJson as unknown as { isActive: boolean }[])
-              : [];
-            if (list.length > 0 && "isActive" in list[0]) {
-              setActiveProfileCount(list.filter((p) => p.isActive).length);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load statistics:", err);
-        if (!cancelled) setError("Failed to load statistics");
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    leads,
+    users,
+    profiles,
+    stages,
+    currentUser,
+    roleKey,
+    activeProfileCount,
+    isPending,
+    error,
+  } = useAllLeads();
+  // Reference timestamp captured when the component mounts — kept in state so
+  // the snapshot windows (this week, stalled cutoff) are stable across re-renders.
+  const [nowMs] = useState(() => Date.now());
 
   const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead");
-  // App-facing role of the signed-in user ("admin" | "lead" | "bd"). The
-  // leads API scopes BDs to their own leads, so the admin/manager view shows
-  // the whole org and the BD view shows their own pipeline.
-  const roleKey = users.find((u) => u.id === currentUser?.id)?.role ?? "bd";
 
   // Terminal / done stages: the last pipeline stage plus any accept/reject
   // stage. Everything else is an open lead.
@@ -230,7 +152,11 @@ export default function DashboardTab() {
       <div className="p-6 space-y-6">
         {error ? (
           <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
+            Failed to load dashboard
+          </div>
+        ) : isPending ? (
+          <div className="flex items-center justify-center py-24 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin text-primary" />
           </div>
         ) : (
           <>

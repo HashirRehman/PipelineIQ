@@ -19,10 +19,6 @@ import { ProfileCvDetails, cvParseState, type CvParseState } from "./profile-cv-
 
 type CvEntry = ProfileCvEntry;
 
-// How often to re-fetch while a CV is being read. The parse takes a couple of
-// seconds end to end, so this resolves the row without the user doing anything.
-const PARSE_POLL_INTERVAL_MS = 3000;
-
 const STATE_BADGE: Record<CvParseState, { label: string; className: string; icon: React.ReactNode }> = {
   parsed: {
     label: "Read",
@@ -229,30 +225,8 @@ export function ProfileCvList({
     refresh();
   }
 
-  // A CV uploaded moments ago is being parsed in the background, and nothing
-  // pushes that result to the browser. Poll while such a row is on screen so
-  // its details appear on their own, and stop as soon as none are left — this
-  // is bounded by cvParseState's window, so it can't poll forever.
-  const hasParsingCv = cvs.some((cv) => cvParseState(cv) === "parsing");
-
-  // refresh() is rebuilt on every render (its onChanged prop is defined inline
-  // by the parent), so depending on it directly would tear down and recreate
-  // the interval on each render — including the re-render each poll causes,
-  // which keeps restarting the countdown. Holding it in a ref lets the effect
-  // depend only on whether polling should happen at all.
-  const refreshRef = useRef(refresh);
-  useEffect(() => {
-    refreshRef.current = refresh;
-  }, [refresh]);
-
-  useEffect(() => {
-    if (!hasParsingCv) {
-      return;
-    }
-
-    const timer = setInterval(() => refreshRef.current(), PARSE_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [hasParsingCv]);
+  // Polling for a parse in progress lives on the profile detail query
+  // (refetchInterval in profiles-tab), not here.
 
   if (cvs.length === 0) {
     return (
