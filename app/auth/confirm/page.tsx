@@ -18,10 +18,21 @@ import { PipelineIQLogo } from "@/components/pipelineiq-logo";
  * localStorage copies). Errors render in place rather than redirecting to
  * /login: bouncing to the login page is precisely what made this hard to
  * diagnose.
+ *
+ * `?flow=recovery` is set by us on the redirectTo we hand Supabase (see
+ * app/api/auth/forgot-password) — Supabase's own `type` param doesn't survive
+ * every link shape, and this page has to know whether to speak invite or
+ * password-reset language.
  */
 export default function ConfirmAuthPage() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  // The flow only ever matters alongside a failure, so it rides along with the
+  // message instead of being its own state (which would mean a synchronous
+  // setState in the effect body).
+  const [failure, setFailure] = useState<{
+    message: string;
+    isRecovery: boolean;
+  } | null>(null);
   // StrictMode in dev mounts effects twice; the confirmation tokens are
   // single-use, so the second run would exchange an already-consumed code
   // and surface a spurious error before the redirect lands. Run once.
@@ -32,6 +43,12 @@ export default function ConfirmAuthPage() {
     startedRef.current = true;
 
     const query = new URLSearchParams(window.location.search);
+    // `flow` is ours (set on redirectTo); `type` is Supabase's, present when the
+    // email template links straight here with a token_hash. Either one means
+    // this is a password reset, so the copy below doesn't talk about invites.
+    const recovery =
+      query.get("flow") === "recovery" || query.get("type") === "recovery";
+    const fail = (message: string) => setFailure({ message, isRecovery: recovery });
 
     const rawHash = window.location.hash.startsWith("#")
       ? window.location.hash.slice(1)
@@ -89,33 +106,41 @@ export default function ConfirmAuthPage() {
     establishSession()
       .then((errorCode) => {
         if (!errorCode) {
-          router.replace("/set-password");
+          router.replace(recovery ? "/set-password?flow=recovery" : "/set-password");
           return;
         }
 
         scrubUrl();
 
         if (errorCode === "link_rejected") {
-          setError(
-            "Your invite link is no longer valid. Ask an admin to send a new one.",
+          fail(
+            recovery
+              ? "Your reset link is no longer valid. Request a new one below."
+              : "Your invite link is no longer valid. Ask an admin to send a new one.",
           );
           return;
         }
 
         if (errorCode === "no_credentials") {
-          setError(
-            "This link is missing its confirmation token. Open the link from your invite email directly, without copying only part of it.",
+          fail(
+            `This link is missing its confirmation token. Open the link from your ${
+              recovery ? "reset" : "invite"
+            } email directly, without copying only part of it.`,
           );
           return;
         }
 
         console.error("[confirm] could not establish a session:", errorCode);
-        setError("Your invite link has expired or has already been used.");
+        fail(
+          recovery
+            ? "Your reset link has expired or has already been used."
+            : "Your invite link has expired or has already been used.",
+        );
       })
       .catch((caughtError) => {
         scrubUrl();
         console.error("[confirm] session setup threw:", caughtError);
-        setError("Something went wrong confirming your link. Please try again.");
+        fail("Something went wrong confirming your link. Please try again.");
       });
   }, [router]);
 
@@ -127,22 +152,32 @@ export default function ConfirmAuthPage() {
         </div>
 
         <div className="bg-background rounded-xl border border-border shadow-sm px-8 py-8">
-          {error ? (
+          {failure ? (
             <>
               <div className="mb-6">
                 <h1 className="text-base font-semibold text-foreground">
                   Link didn&apos;t work
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1">
-                  We couldn&apos;t confirm your invite.
+                  {failure.isRecovery
+                    ? "We couldn't confirm your password reset."
+                    : "We couldn't confirm your invite."}
                 </p>
               </div>
               <p
                 role="alert"
                 className="text-xs text-destructive rounded-md bg-destructive/10 px-3 py-2"
               >
-                {error}
+                {failure.message}
               </p>
+              {failure.isRecovery && (
+                <Link
+                  href="/forgot-password"
+                  className="mt-4 block text-xs font-medium text-primary hover:underline"
+                >
+                  Request a new reset link
+                </Link>
+              )}
               <Link
                 href="/login"
                 className="mt-4 block text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"

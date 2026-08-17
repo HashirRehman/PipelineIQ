@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
+import { resolveSiteUrl } from "@/lib/api/site-url";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { roleUserKey } from "@/lib/auth/roles";
@@ -179,13 +180,19 @@ export async function POST(request: Request) {
 
   const adminClient = createAdminClient();
 
-  // Fall back to the request's own origin: an unset NEXT_PUBLIC_SITE_URL would
-  // otherwise send every invite to a literal "undefined/auth/confirm". Note the
-  // target must also be in the project's Auth redirect allow list, or Supabase
-  // silently falls back to site_url and the invite lands on the login page.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
-    new URL(request.url).origin;
+  // The target must also be in the project's Auth redirect allow list, or
+  // Supabase silently falls back to site_url and the invite lands on the login
+  // page. Fails closed: an invite link must never be built from an unvalidated
+  // Host header (an unset NEXT_PUBLIC_SITE_URL would otherwise mail a literal
+  // "undefined/auth/confirm" or, worse, an attacker-controlled origin).
+  const siteUrl = resolveSiteUrl(request);
+  if (!siteUrl) {
+    console.error("api/users: NEXT_PUBLIC_SITE_URL is not set; invite not sent.");
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
 
   const { data: inviteData, error: inviteError } =
     await adminClient.auth.admin.inviteUserByEmail(email, {

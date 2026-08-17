@@ -28,6 +28,10 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Password is required."),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.email("Enter a valid email address."),
+});
+
 export const setPasswordSchema = z
   .object({
     password: z

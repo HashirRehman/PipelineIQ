@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { createClient, getCachedRolePermissions } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GroqAiClient } from "@/lib/ai/groq-client";
@@ -40,6 +41,12 @@ export async function POST(request: Request) {
   // but the caller must still be acting from their own organization.
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
+
+  // The global cooldown lock already bounds successful runs to one per 15
+  // minutes; this per-user cap just stops lock-acquisition churn (each attempt
+  // touches cron_run_locks + revalidates routes) from being spammed.
+  const userLimit = checkRateLimit(`discovery-run:user:${user.id}`, 6, 15 * 60_000);
+  if (!userLimit.allowed) return rateLimitResponse(userLimit.retryAfterMs);
 
   const adminClient = createAdminClient();
 

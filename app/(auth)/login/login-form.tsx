@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { apiPost } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
@@ -48,9 +49,17 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password" className="text-xs font-medium text-muted-foreground">
-          Password
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password" className="text-xs font-medium text-muted-foreground">
+            Password
+          </Label>
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <div className="relative">
           <Input
             id="password"
