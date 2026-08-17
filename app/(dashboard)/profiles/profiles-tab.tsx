@@ -9,7 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cvParseState } from "@/components/profiles/profile-cv-details"
 import { ApiError, apiGet } from "@/lib/api/client"
 import { queryKeys } from "@/lib/api/query-keys"
-import { Loader2 } from "lucide-react"
 
 // A freshly uploaded CV is parsed in the background, and nothing pushes the
 // result to the browser.
@@ -99,25 +98,17 @@ export default function ProfilesTab() {
         }}
       />
 
-      {/* Loading overlay — only before the first load of a profile; a cached
-          one opens straight away. */}
-      {selectedProfileId && detail.isPending && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/20">
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-lg">
-            <Loader2 className="size-4 animate-spin text-primary" />
-            Loading profile…
-          </div>
-        </div>
-      )}
-
       {selectedProfileId && detail.error && (
         <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-md border border-destructive/30 bg-background px-4 py-3 text-sm text-destructive shadow-lg">
           Unable to load the selected profile.
         </div>
       )}
 
+      {/* Opens on click; the drawer shows a skeleton while the detail query
+          is in flight. If the first load fails the drawer stays closed and
+          the error toast shows instead — same as before the skeleton. */}
       <ProfileDetailSheet
-        open={detailData != null}
+        open={selectedProfileId != null && !(detail.error && !detailData)}
         profile={detailData?.profile ?? null}
         seniorityLevels={listData.seniorityLevels}
         assignableUsers={listData.assignableUsers}

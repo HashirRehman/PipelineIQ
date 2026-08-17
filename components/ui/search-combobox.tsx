@@ -40,6 +40,7 @@ export function SearchCombobox({
   allowCustom = false,
   clearable = false,
   compact = false,
+  autoOpen = false,
   className,
   triggerClassName,
 }: {
@@ -60,6 +61,8 @@ export function SearchCombobox({
   clearable?: boolean;
   /** Smaller trigger for toolbars (h-7, rounded-md). */
   compact?: boolean;
+  /** Open the panel and focus the search input on mount (inline edit mode). */
+  autoOpen?: boolean;
   className?: string;
   triggerClassName?: string;
 }) {
@@ -69,7 +72,7 @@ export function SearchCombobox({
   // keeps a controlled value from fighting local edits.
   const [internal, setInternal] = useState(defaultValue ?? value ?? "");
   const current = value !== undefined ? value : internal;
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const [openUp, setOpenUp] = useState(false);

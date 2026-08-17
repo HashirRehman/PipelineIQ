@@ -7,7 +7,7 @@ import {
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import type { ParsedCv } from "@/lib/cv-parsing/parsed-cv";
-import { updateProfile } from "@/lib/services/profiles";
+import { archiveProfile, updateProfile } from "@/lib/services/profiles";
 import {
   createClient,
   getCachedUser,
@@ -244,6 +244,47 @@ export async function PATCH(
   if (!org.ok) return org.response;
 
   const result = await updateProfile(supabase, profileId, org.organizationId, body);
+
+  if (result.success) {
+    revalidatePath("/");
+  }
+
+  return profileMutationResponse(result);
+}
+
+// Soft-deletes the profile (sets deleted_at); the is_active column is left
+// untouched. Every read filters deleted_at IS NULL, so an archived profile
+// disappears from lists, discovery, and dashboards right away.
+export async function DELETE(
+  request: NextRequest,
+  context: {
+    params: Promise<{
+      profileId: string;
+    }>;
+  },
+) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json(
+      { success: false, error: "Forbidden" },
+      { status: 403 },
+    );
+  }
+
+  const { profileId } = await context.params;
+
+  const supabase = await createClient();
+
+  const user = await getCachedUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+  const org = await verifyOrganizationAccess(request, supabase, user.id);
+  if (!org.ok) return org.response;
+
+  const result = await archiveProfile(supabase, profileId, org.organizationId);
 
   if (result.success) {
     revalidatePath("/");
