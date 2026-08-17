@@ -14,7 +14,7 @@ import {
  * what's displayed (trigger + list), with the currency name as the
  * searchable hint.
  */
-const CURRENCY_OPTIONS: readonly SearchComboboxOption[] = CURRENCIES.map(
+export const CURRENCY_OPTIONS: readonly SearchComboboxOption[] = CURRENCIES.map(
   (c) => ({ value: c.code, label: c.code, hint: c.name }),
 );
 

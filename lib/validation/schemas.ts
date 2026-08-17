@@ -144,12 +144,8 @@ export const UPDATABLE_PROFILE_FIELDS = [
 
 export type UpdatableProfileField = (typeof UPDATABLE_PROFILE_FIELDS)[number];
 
-export const setProfileActiveSchema = z.object({
+export const archiveProfileSchema = z.object({
   profileId: z.uuid(),
-  isActive: z.union([
-    z.boolean(),
-    z.enum(["true", "false"]).transform((value) => value === "true"),
-  ]),
 });
 
 export const uploadProfileCvSchema = z.object({

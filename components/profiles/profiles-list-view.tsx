@@ -1,7 +1,6 @@
 "use client";
 
 import { MapPin, UserRound } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   type ProfileListItem,
   formatRate,
@@ -31,9 +30,6 @@ export function ProfilesListView({
             </th>
             <th className="hidden px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground md:table-cell">
               Seniority
-            </th>
-            <th className="px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground">
-              Status
             </th>
             <th className="hidden px-4 py-3 text-left text-caption font-semibold uppercase tracking-wide text-muted-foreground lg:table-cell">
               Assigned to
@@ -86,20 +82,6 @@ export function ProfilesListView({
                 ) : (
                   <span className="text-xs text-muted-foreground">N/A</span>
                 )}
-              </td>
-
-              {/* Status */}
-              <td className="px-4 py-3">
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-meta font-medium capitalize",
-                    profile.isActive
-                      ? "bg-success text-success-foreground"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {profile.isActive ? "Active" : "Inactive"}
-                </span>
               </td>
 
               {/* Assigned to */}

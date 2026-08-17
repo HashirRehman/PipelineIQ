@@ -12,7 +12,7 @@ import {
  * A thin wrapper over the shared SearchCombobox; the value stored is the
  * country NAME (as the gist's list defines it).
  */
-const COUNTRY_OPTIONS: readonly SearchComboboxOption[] = COUNTRIES.map(
+export const COUNTRY_OPTIONS: readonly SearchComboboxOption[] = COUNTRIES.map(
   (c) => ({ value: c.name, label: c.name, hint: c.code }),
 );
 

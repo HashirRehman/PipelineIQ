@@ -9,9 +9,9 @@ import {
 } from "@/lib/cloudinary";
 import { scheduleCvParse } from "@/lib/cv-parsing/schedule";
 import {
+  archiveProfileSchema,
   createProfileSchema,
   deleteProfileCvSchema,
-  setProfileActiveSchema,
   setProfileAssignmentSchema,
   updateProfileSchema,
   uploadProfileCvSchema,
@@ -216,16 +216,17 @@ export async function updateProfile(
   return { success: true, profileId };
 }
 
-export async function setProfileActive(
+// Soft delete — profiles.deleted_at stays null in the DB for live rows and
+// every read filters it, so archiving hides the profile (and its CVs) from
+// lists, discovery, and dashboards immediately while the row — and its
+// leads, matches, and assignment history — survives. Same convention as
+// profile_cvs and job comments.
+export async function archiveProfile(
   supabase: Client,
   profileId: string,
   organizationId: string,
-  input: unknown,
 ): Promise<ProfileMutationResult> {
-  const parsed = setProfileActiveSchema.safeParse({
-    ...(typeof input === "object" && input !== null ? input : {}),
-    profileId,
-  });
+  const parsed = archiveProfileSchema.safeParse({ profileId });
 
   if (!parsed.success) {
     return invalidInput(parsed.error.issues[0]?.message);
@@ -236,17 +237,16 @@ export async function setProfileActive(
     return gate.denied;
   }
 
-  const { isActive } = parsed.data;
-
   const { data, error } = await supabase
     .from("profiles")
-    .update({ is_active: isActive })
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", profileId)
     .eq("organization_id", organizationId)
+    .is("deleted_at", null)
     .select("id");
 
   if (error) {
-    console.error("setProfileActive: profiles update failed", error);
+    console.error("archiveProfile: profiles update failed", error);
     return {
       success: false,
       status: 500,
