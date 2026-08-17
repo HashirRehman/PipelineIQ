@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -48,7 +49,7 @@ export async function PATCH(
   // cross-org lead ids up front.
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, user_id, profiles(user_id)")
+    .select("id, user_id, profiles(user_id), jobs(title, company_name)")
     .eq("id", leadId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -82,6 +83,51 @@ export async function PATCH(
       { error: "Something went wrong. Please try again." },
       { status: 500 },
     );
+  }
+
+  const entityLabel = lead.jobs
+    ? `${lead.jobs.title} — ${lead.jobs.company_name}`
+    : "Untitled job";
+  const actorUserId = user.id;
+  const actorName = actorNameFromUser(user);
+
+  if (notes !== undefined) {
+    await logActivity({
+      supabase,
+      organizationId: org.organizationId,
+      actorUserId,
+      actorName,
+      action: "lead_notes_updated",
+      description: `Updated notes on lead for "${entityLabel}"`,
+      entityType: "lead",
+      entityId: leadId,
+      entityLabel,
+      request,
+    });
+  }
+
+  if (pipelineStageId !== undefined) {
+    const { data: stage } = await supabase
+      .from("pipeline_stages")
+      .select("name")
+      .eq("id", pipelineStageId)
+      .maybeSingle();
+
+    await logActivity({
+      supabase,
+      organizationId: org.organizationId,
+      actorUserId,
+      actorName,
+      action: "lead_stage_updated",
+      description: stage
+        ? `Moved lead for "${entityLabel}" to "${stage.name}"`
+        : `Moved lead for "${entityLabel}"`,
+      entityType: "lead",
+      entityId: leadId,
+      entityLabel,
+      metadata: { pipelineStageId },
+      request,
+    });
   }
 
   return NextResponse.json({ success: true });

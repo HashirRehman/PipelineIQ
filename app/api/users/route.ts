@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
@@ -255,6 +256,21 @@ export async function POST(request: Request) {
     request,
   });
 
+  // Activity feed: an invite is visible to Admin + BD Manager org-wide.
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "user_invited",
+    description: `Invited ${name} (${email}) as ${role.name}`,
+    entityType: "user",
+    entityId: inviteData.user.id,
+    entityLabel: name,
+    metadata: { role: role.name, email },
+    request,
+  });
+
   const newUser: ApiAppUser = {
     id: inviteData.user.id,
     name,
@@ -347,7 +363,7 @@ export async function PATCH(request: Request) {
     .update(userUpdates)
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
-    .select("id");
+    .select("id, full_name");
 
   if (error) {
     console.error("api/users: users update failed", error);
@@ -368,6 +384,26 @@ export async function PATCH(request: Request) {
     actorUserId: user.id,
     action: "user_updated",
     targetUserId: userId,
+    metadata: {
+      ...(name !== undefined ? { name } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(role ? { role: role.name } : {}),
+    },
+    request,
+  });
+
+  // Activity feed: name / role / status changes are org-visible. The label
+  // is the post-update full_name (data[0] is the row we just updated).
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "user_updated",
+    description: `Updated member ${data[0].full_name}`,
+    entityType: "user",
+    entityId: userId,
+    entityLabel: data[0].full_name,
     metadata: {
       ...(name !== undefined ? { name } : {}),
       ...(status !== undefined ? { status } : {}),
@@ -426,7 +462,7 @@ export async function DELETE(request: Request) {
   // admins see every row, so this lookup passes RLS).
   const { data: target, error: targetError } = await supabase
     .from("users")
-    .select("id, email")
+    .select("id, email, full_name")
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -485,6 +521,22 @@ export async function DELETE(request: Request) {
     targetUserId: null,
     targetEmail: target?.email,
     metadata: { deletedUserId: userId },
+    request,
+  });
+
+  // Activity feed: the removal is org-visible; entity_id keeps the deleted
+  // user's id (the table holds no FK on entity_id, so the row survives).
+  const deletedLabel = target?.full_name || target?.email || "member";
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "user_deleted",
+    description: `Removed member ${deletedLabel}`,
+    entityType: "user",
+    entityId: userId,
+    entityLabel: deletedLabel,
     request,
   });
 
