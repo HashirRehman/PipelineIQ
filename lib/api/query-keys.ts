@@ -19,6 +19,9 @@ export const queryKeys = {
     all: () => ["jobs", org()] as const,
     discovery: (params: string) => ["jobs", org(), "discovery", params] as const,
     applied: (params: string) => ["jobs", org(), "applied", params] as const,
+    // Reads the same underlying applied pairs as the applied feed — shares
+    // the jobs prefix so an apply/dismiss mutation refreshes both.
+    applications: () => ["jobs", org(), "applications"] as const,
   },
 
   leads: {

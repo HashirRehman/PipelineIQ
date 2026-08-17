@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SERIES_PALETTE, stageColor } from "@/lib/constants";
 import { businessWeekStart } from "@/lib/date-window";
 import { useAllLeads } from "@/hooks/use-all-leads";
+import { useApplications } from "@/hooks/use-applications";
 import { cn } from "@/lib/utils";
 
 const STALL_DAYS = 14;
@@ -43,6 +44,10 @@ export default function DashboardTab() {
   const [nowMs] = useState(() => Date.now());
 
   const bdUsers = users.filter((u) => u.role === "bd" || u.role === "lead");
+
+  // Applied-jobs stats: every applied (job, profile) pair in scope.
+  const { data: appsData } = useApplications();
+  const applications = useMemo(() => appsData?.applications ?? [], [appsData]);
 
   // Terminal / done stages: the last pipeline stage plus any accept/reject
   // stage. Everything else is an open lead.
@@ -81,6 +86,15 @@ export default function DashboardTab() {
         return t >= weekStartMs && t <= weekEndMs;
       }).length,
     [leads, weekStartMs, weekEndMs],
+  );
+  // Applications this business week — the same window as "New This Week".
+  const appsThisWeek = useMemo(
+    () =>
+      applications.filter((a) => {
+        const t = new Date(a.appliedAt).getTime();
+        return t >= weekStartMs && t <= weekEndMs;
+      }).length,
+    [applications, weekStartMs, weekEndMs],
   );
   const weekLabel = `${new Date(weekStartMs).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(weekEndMs).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
@@ -139,12 +153,13 @@ export default function DashboardTab() {
   // BDs can't read the profiles API, so their profile KPI counts their own
   // profiles from the (scoped) leads response instead.
   const statsCards = [
-    { label: "Open Leads", value: openLeads.length, sub: "in the pipeline" },
+    { label: "Open Leads", value: openLeads.length, sub: "not yet closed" },
     roleKey === "bd"
       ? { label: "My Profiles", value: profiles.length, sub: "assigned to you" }
       : { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` },
     { label: "Offers Out", value: offerLeads.length, sub: "waiting on decision" },
     { label: "New This Week", value: newThisWeek, sub: weekLabel },
+    { label: "Applied This Week", value: appsThisWeek, sub: "job applications" },
   ];
 
   return (
@@ -161,7 +176,7 @@ export default function DashboardTab() {
         ) : (
           <>
             {/* KPI strip */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               {statsCards.map((s, i) => (
                 <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} delay={i * 60} />
               ))}
@@ -169,9 +184,9 @@ export default function DashboardTab() {
 
             {/* Pipeline health + needs attention */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="gap-0 p-5 lg:col-span-2">
+              <Card className="gap-0 p-5 lg:col-span-2 overflow-visible">
                 <CardContent className="p-0">
-                  <div className="text-sm font-semibold text-foreground mb-1">Pipeline Health</div>
+                  <div className="text-sm font-semibold text-foreground mb-1">Leads Health</div>
                   <div className="text-meta text-muted-foreground mb-4">Leads currently in each stage — today&apos;s snapshot</div>
                   {stageCounts.some((c) => c > 0) ? (
                     <FunnelChart stages={stages} counts={stageCounts} />
@@ -297,7 +312,7 @@ export default function DashboardTab() {
                 <CardContent className="p-0">
                   <div className="text-sm font-semibold text-foreground mb-1">Recent Activity</div>
                   <div className="text-meta text-muted-foreground mb-4">
-                    {roleKey === "bd" ? "Your latest leads" : "Latest leads across the pipeline"}
+                    {roleKey === "bd" ? "Your latest leads" : "Latest leads across the team"}
                   </div>
                   {recent.length > 0 ? (
                     <div className="flex flex-col">
