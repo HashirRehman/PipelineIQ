@@ -8,6 +8,7 @@ import { GooeyInput } from "@/components/ui/gooey-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CountryCombobox } from "@/components/ui/country-combobox"
 import { FilterOption } from "@/components/jobs/filter-option"
+import { EngagementSection } from "@/components/jobs/filter-sections"
 import { FilterSidebar } from "@/components/jobs/filter-sidebar"
 import { JobCard } from "@/components/jobs/job-card"
 import { JobListView } from "@/components/jobs/job-list-view"
@@ -30,6 +31,7 @@ import {
   WORK_TYPES,
   WORK_TYPE_COLOR,
   type DateRange,
+  type EngagementType,
   type SortOption,
 } from "@/lib/constants"
 import {
@@ -101,6 +103,7 @@ const buildQueryKey = (opts: {
   leadFilter: LeadFilter
   profileId: string
   userId: string
+  engagement: EngagementType | ""
 }) => {
   const params = new URLSearchParams({
     page: String(opts.page),
@@ -117,6 +120,7 @@ const buildQueryKey = (opts: {
     leadFilter: opts.leadFilter === "exclude" ? "" : opts.leadFilter,
     profileId: opts.profileId === "all" ? "" : opts.profileId,
     userId: opts.userId === "all" ? "" : opts.userId,
+    engagement: opts.engagement,
   })
   // Exactly one date control is active; its window (computed client-side in
   // local time) drives the applied-date filter. The applied feed is filtered
@@ -140,6 +144,7 @@ export default function AppliedJobsTab() {
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
   const [countryFilter, setCountryFilter] = useState("")
+  const [engagementFilter, setEngagementFilter] = useState<EngagementType | "">("")
   const [page, setPage] = useState(1)
   // Default: the current Friday–Thursday week (the business week), and the
   // applied feed is newest-first (by when jobs were applied).
@@ -168,7 +173,7 @@ export default function AppliedJobsTab() {
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth()
 
-  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, country: countryFilter, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter })
+  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, country: countryFilter, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter, engagement: engagementFilter })
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.jobs.applied(loadingKey),
     queryFn: ({ signal }) => apiGet<AppliedJobsResponse>(`/api/discovery?${loadingKey}`, signal),
@@ -195,6 +200,7 @@ export default function AppliedJobsTab() {
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
   const changeParser = (v: string) => { setParserFilter(v); setPage(1) }
   const changeCountry = (v: string) => { setCountryFilter(v); setPage(1) }
+  const changeEngagement = (v: EngagementType | "") => { setEngagementFilter(v); setPage(1) }
   const changeDateRange = (v: DateRange) => {
     setDateRange(v)
     setMonthFilter(null)
@@ -244,6 +250,7 @@ export default function AppliedJobsTab() {
     setParserFilter("All Sources")
     setWorkTypeFilter("All Types")
     setCountryFilter("")
+    setEngagementFilter("")
     setDateRange("this_week")
     setMonthFilter(null)
     setYearFilter(null)
@@ -392,7 +399,7 @@ export default function AppliedJobsTab() {
       </div>
 
       {/* Right filter sidebar — every filter lives here: Profile, User, Date,
-          Work Type, Source, Leads visibility, Sort. */}
+          Work Type, Country, Type, Source, Leads visibility, Sort. */}
       <FilterSidebar
         open={filtersOpen}
         clearable={isActiveFilter}
@@ -495,6 +502,10 @@ export default function AppliedJobsTab() {
               clearable
             />
           </div>
+
+          {/* Type — how the job reached us. Manually added/imported jobs
+              only; scraped jobs are unclassified and match "Any type". */}
+          <EngagementSection value={engagementFilter} onValueChange={changeEngagement} />
 
           {/* Parser — the scrapers that fetch jobs (from the scrapers table) */}
           <div className="px-4 pb-4">

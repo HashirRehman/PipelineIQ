@@ -3,7 +3,7 @@ import { isWithinWindow, parseDateWindow, parseSort } from "@/lib/api/job-filter
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import type { ParsedJobData } from "@/lib/ai/client";
-import type { SortOption } from "@/lib/constants";
+import { parseEngagementType, type EngagementType, type SortOption } from "@/lib/constants";
 
 const DISCOVERY_SORT_OPTIONS: readonly SortOption[] = [
   "relevance",
@@ -27,6 +27,7 @@ type JobWithMatches = {
   apply_url: string;
   is_remote: boolean | null;
   remote_allowed_region: string | null;
+  engagement_type: EngagementType | null;
   job_posted_at: string | null;
   description: string | null;
   possibly_closed: boolean | null;
@@ -69,6 +70,8 @@ export type DiscoveryJob = {
   cvMatches: CvMatch[];
   possiblyClosed: boolean | null;
   remoteRegion: string | null;
+  /** How the job reached us; null on every scraped job. */
+  engagementType: EngagementType | null;
   isLead: boolean;
   /** Most recent applied time across the visible applied pairs — the date
    * the applied feed is filtered and sorted by (null on the discovery feed). */
@@ -222,6 +225,7 @@ function toDiscoveryJob(
     cvMatches,
     possiblyClosed: job.possibly_closed ?? null,
     remoteRegion: job.remote_allowed_region ?? null,
+    engagementType: job.engagement_type ?? null,
     isLead: profileStates.some((s) => s.isLead),
     // The most recent application across the visible applied pairs.
     appliedAt: profileStates.reduce<string | null>(
@@ -264,6 +268,8 @@ export async function GET(request: NextRequest) {
 
   const workType = searchParams.get("workType") ?? "";
   const parser = searchParams.get("parser") ?? "";
+  // Unrecognised values fall back to null = no filter, never an error.
+  const engagement = parseEngagementType(searchParams.get("engagement"));
   const search = (searchParams.get("search") ?? "").trim();
   const region = searchParams.get("region") ?? "";
   // Country filter — a country name from lib/countries. Matched as a
@@ -422,7 +428,7 @@ export async function GET(request: NextRequest) {
   }
 
   let query = supabase.from("jobs").select(
-    "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, job_posted_at, description, possibly_closed, parsed_data, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
+    "id, created_at, title, company_name, company_location, apply_url, is_remote, remote_allowed_region, engagement_type, job_posted_at, description, possibly_closed, parsed_data, scrapers(name), job_profile_matches(id, profile_id, cv_id, relevance_score, profile_cvs!cv_id(file_name))",
   )
     .eq("organization_id", organizationId)
     .order("job_posted_at", { ascending: false, nullsFirst: false });
@@ -448,6 +454,10 @@ export async function GET(request: NextRequest) {
 
   if (parser && parser !== "All Sources") {
     query = query.eq("scrapers.name", parser);
+  }
+
+  if (engagement) {
+    query = query.eq("engagement_type", engagement);
   }
 
   if (country) {

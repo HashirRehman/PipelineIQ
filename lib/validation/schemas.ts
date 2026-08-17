@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ENGAGEMENT_TYPE_VALUES } from "@/lib/constants";
 
 export const createUserSchema = z.object({
   name: z.string().trim().min(1, "Full name is required."),
@@ -74,6 +75,14 @@ const optionalTrimmedText = z
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
   });
+
+// Optional inbound/outbound. The form and the import mapper both send "" for
+// "not set", so an empty string is a valid way to say "leave it null" rather
+// than a validation failure.
+const engagementTypeSchema = z
+  .union([z.enum(ENGAGEMENT_TYPE_VALUES), z.literal("")])
+  .nullish()
+  .transform((value) => (value ? value : undefined));
 
 export const profileCoreFieldsSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required."),
@@ -225,6 +234,9 @@ export const createManualJobSchema = z
     // Free-text source (e.g. LinkedIn, referral, email) — kept on
     // jobs.parsed_data; jobs.scraper_id points at the Manual scraper.
     source: optionalTrimmedText,
+    // How the job reached us. Optional everywhere — an unset value stays null
+    // (unclassified), which is also where every scraped job sits.
+    engagementType: engagementTypeSchema,
     skills: z.array(z.string().trim().min(1)).max(100).optional(),
     budget: optionalTrimmedText,
     expCompensation: optionalTrimmedText,

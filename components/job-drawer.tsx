@@ -13,7 +13,7 @@ import { TintedBadge } from "@/components/tinted-badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
-import { scoreColor } from "@/lib/constants"
+import { scoreColor, type EngagementType } from "@/lib/constants"
 import { formatDate, timeAgo } from "@/lib/format"
 
 export interface CvMatch {
@@ -61,6 +61,8 @@ export interface Job {
   cvMatches?: CvMatch[]
   possiblyClosed?: boolean | null
   remoteRegion?: string | null
+  /** How the job reached us; null/absent on scraped jobs. */
+  engagementType?: EngagementType | null
   /** True when this (job, profile) pair already has a live lead. */
   isLead?: boolean
   /** Per-profile state for every profile assigned to the acting user — a job
@@ -664,6 +666,13 @@ export default function JobDrawer({
                     : null}
                 </dd>
               </div>
+
+              {displayJob.engagementType && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Type</dt>
+                  <dd className="text-xs text-foreground capitalize font-medium">{displayJob.engagementType}</dd>
+                </div>
+              )}
 
               {displayJob.stage && (
                 <div className="flex items-center justify-between gap-3">

@@ -1,3 +1,5 @@
+import type { EngagementType } from "@/lib/constants"
+
 export interface Lead {
   id: string
   jobId: string
@@ -22,6 +24,8 @@ export interface Lead {
   applyUrl: string
   /** Raw jobs.parsed_data (jsonb) — carries the manual/imported extras. */
   parsedData: unknown | null
+  /** How the originating job reached us; null when unclassified. */
+  engagementType: EngagementType | null
 }
 
 // Structural stand-ins for the people/profiles referenced by the lead rows.

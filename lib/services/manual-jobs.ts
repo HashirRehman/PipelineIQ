@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ParsedJobData } from "@/lib/ai/client";
+import type { EngagementType } from "@/lib/constants";
 
 /**
  * Shared engine behind the manual job flows (the Pipeline "New Job" dialog
@@ -22,6 +23,8 @@ export type ManualJobInput = {
   /** Applied-on date as "YYYY-MM-DD" (local). */
   date: string;
   source?: string;
+  /** How the job reached us; undefined leaves jobs.engagement_type null. */
+  engagementType?: EngagementType;
   skills?: string[];
   budget?: string;
   expCompensation?: string;
@@ -170,6 +173,7 @@ export function prepareManualJob(
       apply_url: applyUrl,
       is_remote: null,
       remote_allowed_region: null,
+      engagement_type: input.engagementType ?? null,
       job_posted_at: appliedAt,
       is_globally_open: true,
       possibly_closed: false,

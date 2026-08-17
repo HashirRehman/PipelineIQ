@@ -19,6 +19,7 @@ import { FilterOption } from "@/components/jobs/filter-option";
 import { FilterSidebar } from "@/components/jobs/filter-sidebar";
 import {
   DateRangeSection,
+  EngagementSection,
   FilterSection,
   SortSection,
 } from "@/components/jobs/filter-sections";
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
 import {
   stageColor,
   type DateRange,
+  type EngagementType,
   type SortOption,
 } from "@/lib/constants";
 import { apiGet, apiPatch } from "@/lib/api/client";
@@ -70,6 +72,7 @@ const buildQueryKey = (opts: {
   userId: string;
   dateRange: DateRange;
   sort: SortOption;
+  engagement: EngagementType | "";
 }) => {
   const params = new URLSearchParams({
     search: opts.search,
@@ -79,6 +82,7 @@ const buildQueryKey = (opts: {
     userId: opts.userId === "all" ? "" : opts.userId,
     dateRange: opts.dateRange,
     sort: opts.sort,
+    engagement: opts.engagement,
     pageSize: String(PAGE_SIZE),
   });
   // Exact week/month/year window (leads are dated by applied_at).
@@ -105,6 +109,7 @@ function toLead(a: ApiLead): Lead {
     assignedTo: a.assignedTo,
     notes: a.notes,
     parsedData: a.parsedData,
+    engagementType: a.engagementType,
     salary: null,
     parser: a.parser,
     applyUrl: a.applyUrl,
@@ -117,6 +122,7 @@ export default function LeadsTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("");
+  const [engagementFilter, setEngagementFilter] = useState<EngagementType | "">("");
   const [profileFilter, setProfileFilter] = useState("all");
   const [bdFilter, setBdFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -138,6 +144,7 @@ export default function LeadsTab() {
     userId: bdFilter,
     dateRange,
     sort,
+    engagement: engagementFilter,
   });
   const leadsKey = queryKeys.leads.list(params);
 
@@ -177,10 +184,12 @@ export default function LeadsTab() {
   const changeBd = (v: string) => setBdFilter(v ?? "all");
   const changeDateRange = (v: DateRange) => setDateRange(v);
   const changeSort = (v: SortOption) => setSort(v);
+  const changeEngagement = (v: EngagementType | "") => setEngagementFilter(v);
 
   const isActiveFilter =
     statusFilter !== "all" ||
     countryFilter !== "" ||
+    engagementFilter !== "" ||
     profileFilter !== "all" ||
     bdFilter !== "all" ||
     dateRange !== "all" ||
@@ -189,6 +198,7 @@ export default function LeadsTab() {
   const clearFilters = () => {
     setStatusFilter("all");
     setCountryFilter("");
+    setEngagementFilter("");
     setProfileFilter("all");
     setBdFilter("all");
     setDateRange("all");
@@ -274,6 +284,7 @@ export default function LeadsTab() {
     applyUrl: lead.applyUrl,
     isLead: true,
     parsedData: (lead.parsedData ?? null) as Job["parsedData"],
+    engagementType: lead.engagementType,
     profiles: [],
   });
 
@@ -447,6 +458,9 @@ export default function LeadsTab() {
             clearable
           />
         </div>
+
+        {/* Type — how the originating job reached us */}
+        <EngagementSection value={engagementFilter} onValueChange={changeEngagement} />
 
         {/* Time + Sort (shared with Discovery / Pipeline) */}
         <DateRangeSection value={dateRange} onValueChange={changeDateRange} />

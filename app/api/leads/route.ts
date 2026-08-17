@@ -5,7 +5,7 @@ import { isWithinWindow, parseDateWindow, parseSort } from "@/lib/api/job-filter
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { addToLeadsSchema } from "@/lib/validation/schemas";
-import type { SortOption } from "@/lib/constants";
+import { parseEngagementType, type EngagementType, type SortOption } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +42,8 @@ export interface ApiLead {
    * (budget, source, developer, salaryRange) so the job drawer can show
    * everything that was added. */
   parsedData: unknown | null;
+  /** How the originating job reached us; null when unclassified. */
+  engagementType: EngagementType | null;
 }
 
 export interface ApiLeadUser {
@@ -67,6 +69,7 @@ type LeadRow = {
     company_location: string | null;
     is_remote: boolean | null;
     apply_url: string;
+    engagement_type: EngagementType | null;
     parsed_data: unknown;
     scrapers: { name: string } | null;
   } | null;
@@ -82,6 +85,7 @@ function toApiLead(row: LeadRow): ApiLead {
     jobTitle: row.jobs?.title ?? "Untitled job",
     company: row.jobs?.company_name ?? "",
     jobLocation: row.jobs?.company_location ?? "",
+    engagementType: row.jobs?.engagement_type ?? null,
     workType: row.jobs?.is_remote ? "remote" : "onsite",
     appliedAt: row.applied_at,
     status: row.pipeline_stages?.name ?? "",
@@ -137,6 +141,8 @@ export async function GET(request: Request) {
   // Country filter — a country name from lib/countries, matched as a
   // case-insensitive substring of the job's company_location.
   const country = (searchParams.get("country") ?? "").trim().toLowerCase();
+  // Unrecognised values fall back to null = no filter, never an error.
+  const engagement = parseEngagementType(searchParams.get("engagement"));
   const profileId = searchParams.get("profileId") ?? "";
   const userId = searchParams.get("userId") ?? "";
   // Explicit date window (Friday–Thursday weeks / calendar months, computed
@@ -151,7 +157,7 @@ export async function GET(request: Request) {
   let leadsQuery = supabase
     .from("leads")
     .select(
-      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
+      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
     )
     .eq("organization_id", organizationId)
     .is("deleted_at", null);
@@ -210,6 +216,10 @@ export async function GET(request: Request) {
     const matchCountry =
       !country ||
       (row.jobs?.company_location ?? "").toLowerCase().includes(country);
+    // Filtered here rather than with .eq("jobs.engagement_type", …): the job
+    // is an embedded resource, so a column filter on it would need
+    // jobs!inner(…) to drop rows rather than just null the join out.
+    const matchEngagement = !engagement || row.jobs?.engagement_type === engagement;
     const matchDate = isWithinWindow(row.applied_at, dateWindow);
     return (
       matchSearch &&
@@ -217,6 +227,7 @@ export async function GET(request: Request) {
       matchProfile &&
       matchUser &&
       matchCountry &&
+      matchEngagement &&
       matchDate
     );
   });
