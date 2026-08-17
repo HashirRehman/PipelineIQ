@@ -1,6 +1,12 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isSameOrigin } from "@/lib/api/guard";
+import {
+  checkRateLimit,
+  clientIp,
+  rateLimitResponse,
+} from "@/lib/api/rate-limit";
+import { resolveSiteUrl } from "@/lib/api/site-url";
 import { forgotPasswordSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -57,13 +63,26 @@ export async function POST(request: Request) {
     );
   }
 
-  // Same fallback as the invite flow in app/api/users: an unset
-  // NEXT_PUBLIC_SITE_URL would otherwise mail out "undefined/auth/confirm".
+  // Per-IP burst cap on top of Supabase's own per-email rate limit: one IP
+  // must not be able to trigger reset emails for many different addresses
+  // (inbox bombing / email-provider abuse). Every request costs an email, so
+  // the cap is tighter than the login one.
+  const ipLimit = checkRateLimit(`forgot-password:ip:${clientIp(request)}`, 5, 60_000);
+  if (!ipLimit.allowed) return rateLimitResponse(ipLimit.retryAfterMs);
+
   // The target must also be in the project's Auth redirect allow list, or
   // Supabase silently falls back to site_url and the link lands on /login.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ||
-    new URL(request.url).origin;
+  const siteUrl = resolveSiteUrl(request);
+  if (!siteUrl) {
+    // Fail closed: a reset link built from an unvalidated Host header could
+    // point at an attacker's origin (password-reset poisoning). The 500 is
+    // emitted for every request, so it leaks nothing about account existence.
+    console.error("api/auth/forgot-password: NEXT_PUBLIC_SITE_URL is not set.");
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
 
   const supabase = createRecoveryMailClient();
 
