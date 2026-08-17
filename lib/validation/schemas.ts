@@ -28,15 +28,30 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Password is required."),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.email("Enter a valid email address."),
+});
+
 export const setPasswordSchema = z
   .object({
-    password: z.string().min(8, "Password must be at least 8 characters."),
-    confirmPassword: z.string(),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters.")
+      .max(256, "Password must be at most 256 characters."),
+    confirmPassword: z.string().max(256),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
-  });
+  })
+  // bcrypt (Supabase Auth's password hasher) silently truncates input at 72
+  // bytes — over-long passwords would be compared post-truncation, so two
+  // distinct passwords could hash identically. Reject rather than truncate
+  // (byte length, not chars, since multi-byte characters inflate past 72).
+  .refine(
+    (data) => new TextEncoder().encode(data.password).length <= 72,
+    { message: "Password must be at most 72 bytes.", path: ["password"] },
+  );
 
 const optionalNonNegativeNumber = z
   .union([z.string(), z.number()])
@@ -129,12 +144,8 @@ export const UPDATABLE_PROFILE_FIELDS = [
 
 export type UpdatableProfileField = (typeof UPDATABLE_PROFILE_FIELDS)[number];
 
-export const setProfileActiveSchema = z.object({
+export const archiveProfileSchema = z.object({
   profileId: z.uuid(),
-  isActive: z.union([
-    z.boolean(),
-    z.enum(["true", "false"]).transform((value) => value === "true"),
-  ]),
 });
 
 export const uploadProfileCvSchema = z.object({

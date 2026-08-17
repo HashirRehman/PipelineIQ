@@ -14,8 +14,11 @@ import {
   updateProfileFieldsRequest,
   type ProfileFieldPatch,
 } from "@/lib/api/profiles-client";
-import { ProfileActiveToggle } from "./profile-active-toggle";
+import { ProfileArchiveButton } from "./profile-archive-button";
+import { ProfileDetailSkeleton } from "./profile-detail-skeleton";
 import { ProfileCvList } from "./profile-cv-list";
+import { COUNTRY_OPTIONS } from "@/components/ui/country-combobox";
+import { CURRENCY_OPTIONS } from "@/components/ui/currency-combobox";
 import { ProfileCvUploadForm } from "./profile-cv-upload-form";
 import { ProfileAssignment } from "./profile-assignment";
 import type { AssignableUser } from "@/app/api/profiles/route";
@@ -192,10 +195,15 @@ function ProfileFields({
         value={profile.phone}
         onSave={save((phone) => ({ phone }))}
       />
+      {/* Same country list as the New Profile form — searchable dropdown,
+          allowCustom keeps legacy free-text locations ("Lahore, Pakistan")
+          intact until a country is picked. */}
       <InlineEditField
         {...shared}
         label="Location"
+        type="combobox"
         value={profile.location}
+        options={COUNTRY_OPTIONS}
         onSave={save((location) => ({ location }))}
       />
       <InlineEditField
@@ -224,10 +232,14 @@ function ProfileFields({
         placeholder="Rate not set"
         onSave={save((rateExpectation) => ({ rateExpectation }))}
       />
+      {/* Same ISO 4217 list as the New Profile form; allowCustom keeps any
+          legacy code visible until a currency is picked. */}
       <InlineEditField
         {...shared}
         label="Currency"
+        type="combobox"
         value={profile.rateCurrency}
+        options={CURRENCY_OPTIONS}
         onSave={save((rateCurrency) => ({ rateCurrency }))}
       />
     </div>
@@ -276,6 +288,29 @@ export function ProfileDetailSheet({
   const displayProfile = profile ?? lastProfile;
   const displayCvs = cvs ?? lastCvs;
 
+  // Open but no data yet — a profile was just clicked and its detail query
+  // is in flight. Draw the drawer shell with a skeleton body instead of a
+  // blocking modal or the previously opened profile's stale content, so
+  // opening (and switching between) profiles feels instant. The real content
+  // replaces it when the query lands.
+  if (open && !profile) {
+    return (
+      <Drawer
+        direction="right"
+        dismissible={editingFields === 0}
+        open={open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) onClose();
+        }}
+      >
+        <DrawerContent className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground">
+          <ProfileDetailSkeleton />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  // Closed and nothing loaded yet (initial state): render nothing.
   if (!displayProfile) return null;
 
   return (
@@ -288,7 +323,7 @@ export function ProfileDetailSheet({
       }}
     >
       <DrawerContent className="!w-full !max-w-none sm:!w-[880px] sm:!max-w-[880px] rounded-none! border-border bg-card text-foreground">
-        {/* Top bar — avatar + name left, active toggle + dismiss right */}
+        {/* Top bar — avatar + name left, archive + dismiss right */}
         <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-b border-border bg-card shrink-0">
           <div className="flex min-w-0 items-center gap-2.5">
             <Avatar name={displayProfile.fullName} size={24} />
@@ -297,14 +332,13 @@ export function ProfileDetailSheet({
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-muted-foreground">
-              {displayProfile.isActive ? "Active" : "Inactive"}
-            </span>
             {canManage && (
-              <ProfileActiveToggle
+              <ProfileArchiveButton
                 profileId={displayProfile.id}
-                isActive={displayProfile.isActive}
-                onChanged={onChanged}
+                onArchived={() => {
+                  onChanged?.();
+                  onClose();
+                }}
               />
             )}
             <Button
@@ -333,8 +367,8 @@ export function ProfileDetailSheet({
                   onChanged={onChanged}
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Each profile can be assigned to one user only. A user may
-                  own multiple profiles.
+                  Each profile can be assigned to one user only, a user may own
+                  multiple profiles.
                 </p>
               </section>
             )}

@@ -2,9 +2,9 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 17 · **Tables:** 14 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 25 · **Tables:** 16 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
-- **Last updated:** 2026-08-11
+- **Last updated:** 2026-08-13
 
 > Migrations are intentionally comment-free; this document is the single source of truth for schema reasoning, old-DB mappings, and open questions. Keep it in sync when migrations change.
 
@@ -37,13 +37,23 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 8 | `20260806220000_cron_lock_and_auth_triggers.sql` | seeds the `cron_run_locks` row; `handle_new_user()` auth trigger (auth.users → users auto-create) |
 | 9 | `20260806230000_security_and_constraint_hardening.sql` | trigger helper `search_path`; `profiles.user_id` FK `ON DELETE SET NULL`; `profile_cvs` MIME/size/unique-storage-path constraints; `job_profile_states` update policy allows profile owners to set `applied` / `dismissed` |
 | 10 | `20260809120000_job_comments.sql` | `job_comments` (flat team discussion on jobs — additive, applied via `db push`, no reset) |
-| 11 | `20260810094117_profile_cv_parsed_data.sql` | `profile_cvs` parse columns (`parsed_data` jsonb + `parse_status`/`parse_error`/`parsed_at`/`parse_model_version`/`parse_schema_version`), status CHECK, success-implies-payload CHECK, partial index on unfinished parses — additive, `db push`, no reset |
-| 12 | `20260810120000_allow_multiple_profiles_per_user.sql` | drops UNIQUE on `profiles.user_id` (a user may own several profiles); adds a plain `user_id` index — `db push`, no reset |
-| 13 | `20260810140000_user_delete.sql` | admin-only `users_delete` policy; `leads.user_id` made nullable + `ON DELETE SET NULL`, `job_profile_states.user_id` `ON DELETE SET NULL` (deleting a user removes only the user + comments; leads/states/profiles unlink) — `db push`, no reset |
-| 14 | `20260810150000_bd_manager_access.sql` | `is_bd_manager()` helper; `users_select` widened so BD Managers can read the team roster (view-only — updates/deletes/invites stay admin-only) — `db push`, no reset |
-| 15 | `20260810160000_bd_manager_full_access.sql` | widens business-table RLS so BD Managers mirror Admins everywhere except user management: `is_bd_manager()` added to profiles / profile_cvs / job_profile_matches / job_profile_states / leads / job_comments_update policies; `users` policies unchanged (roster read + own-name edit only, invites/management stay Admin-only) — `db push`, no reset |
-| 16 | `20260810170000_leads_profile_owner.sql` | leads ownership follows the PROFILE, not the creation-time snapshot: `leads_select` / `leads_update` owner branch widened to the profile's current assigned user (`exists profiles p where p.id = profile_id and p.user_id = auth.uid()`), snapshot branch kept for the original applier — so leads created by an admin, or whose applier was deleted/reassigned, still land on the assigned developer — `db push`, no reset |
-| 17 | `20260811120000_manual_jobs.sql` | seeds the `Manual` scraper (idempotent — only when no `Manual` row exists); `jobs_insert` RLS policy pinning `organization_id` to the caller's own `users` row, so any org member can add a job by hand — `db push`, no reset |
+| 11 | `20260809130000_drop_job_comments_parent_id.sql` | Drops `job_comments.parent_id` and its index — follow-up to migration 10, confirming comments are flat with no replies; the table had gone live only minutes earlier so no reply rows existed to migrate |
+| 12 | `20260810094117_profile_cv_parsed_data.sql` | `profile_cvs` parse columns (`parsed_data` jsonb + `parse_status`/`parse_error`/`parsed_at`/`parse_model_version`/`parse_schema_version`), status CHECK, success-implies-payload CHECK, partial index on unfinished parses — additive, `db push`, no reset |
+| 13 | `20260810120000_allow_multiple_profiles_per_user.sql` | drops UNIQUE on `profiles.user_id` (a user may own several profiles); adds a plain `user_id` index — `db push`, no reset |
+| 14 | `20260810140000_user_delete.sql` | admin-only `users_delete` policy; `leads.user_id` made nullable + `ON DELETE SET NULL`, `job_profile_states.user_id` `ON DELETE SET NULL` (deleting a user removes only the user + comments; leads/states/profiles unlink) — `db push`, no reset |
+| 15 | `20260810150000_bd_manager_access.sql` | `is_bd_manager()` helper; `users_select` widened so BD Managers can read the team roster (view-only — updates/deletes/invites stay admin-only) — `db push`, no reset |
+| 16 | `20260810160000_bd_manager_full_access.sql` | widens business-table RLS so BD Managers mirror Admins everywhere except user management: `is_bd_manager()` added to profiles / profile_cvs / job_profile_matches / job_profile_states / leads / job_comments_update policies; `users` policies unchanged (roster read + own-name edit only, invites/management stay Admin-only) — `db push`, no reset |
+| 17 | `20260810170000_leads_profile_owner.sql` | leads ownership follows the PROFILE, not the creation-time snapshot: `leads_select` / `leads_update` owner branch widened to the profile's current assigned user (`exists profiles p where p.id = profile_id and p.user_id = auth.uid()`), snapshot branch kept for the original applier — so leads created by an admin, or whose applier was deleted/reassigned, still land on the assigned developer — `db push`, no reset |
+| 18 | `20260811055143_add_parsed_data_to_jobs.sql` | Adds `jobs.parsed_data` jsonb (`IF NOT EXISTS` — the column had already been added manually on the dev database during feature work, so the migration had to be safe against both a fresh and an already-patched DB) |
+| 19 | `20260811120000_manual_jobs.sql` | seeds the `Manual` scraper (idempotent — only when no `Manual` row exists); `jobs_insert` RLS policy pinning `organization_id` to the caller's own `users` row, so any org member can add a job by hand — `db push`, no reset |
+| 20 | `20260812000000_guard_last_active_admin.sql` | `guard_last_active_admin()` trigger on `users` (BEFORE UPDATE OR DELETE) — a hard DB-level guarantee that an org can never be left with zero active Admins, regardless of how the write is issued (app convention, direct DB write, or cascade) |
+| 21 | `20260812010000_audit_logs.sql` | `audit_logs` — the security/team-management trail (login, password_set, invite_sent, user_updated, user_deleted), written by `lib/api/audit.ts`'s `logAudit()`; append-only through RLS (no update/delete policy), reads Admin-only |
+| 22 | `20260812100000_multi_tenant_rls_scoping.sql` | `current_org_id()` / `is_admin_in(org)` / `is_privileged_in(org)` helpers; re-scopes every business-table policy (previously admissible to any Admin/BD Manager regardless of org) to the caller's own organization — closes a cross-tenant read/write hole ahead of a second organization ever existing |
+| 23 | `20260812110000_trim_rls_to_tenant_tables.sql` | Revokes the seed's blanket `authenticated` CRUD grant; disables RLS on the 4 pure-catalog tables (`roles`, `pipeline_stages`, `seniority_level`, `scrapers`) and on `organizations`/`cron_run_locks` (no authenticated access), replacing it with per-table grants matching what the app actually issues — RLS stays the boundary only on genuinely tenant-scoped tables |
+| 24 | `20260812120000_close_anon_grants.sql` | Revokes all `anon` privileges on every public table (defense-in-depth — RLS already masked them, but a table with a residual `anon` grant is one `disable row level security` away from exposure) and sets default privileges so future tables don't re-inherit `anon` access |
+| 25 | `20260813075322_user_activities.sql` | `user_activities` — the product's business-activity feed (profiles/jobs/leads/comments/discovery), deliberately separate from `audit_logs`'s Admin-only security trail; visible org-wide to Admin/BD Manager, self-only to everyone else; append-only enforced by grants (no update/delete/truncate to `authenticated`) AND a BEFORE UPDATE/DELETE/TRUNCATE trigger (`prevent_user_activity_mutation()`) so not even `service_role` can rewrite history |
+
+> Rows 11 and 18 (`drop_job_comments_parent_id`, `add_parsed_data_to_jobs`) were previously missing from this table entirely — a pre-existing documentation gap unrelated to this update, found and fixed while adding row 25. Rows 20–24 were added to the codebase by a separate PR (multi-tenant RLS scoping, the audit log, and the last-admin guard) and were likewise undocumented here until now.
 
 ---
 
@@ -343,6 +353,51 @@ Flat team discussion on a job — anyone in the org can comment, everyone in the
 
 **Permissions:** any authenticated user of the job's org can read and comment (RLS `job_comments_select`/`insert` in migration 10 + the app's org gate). Edits are author-only; deletes are author-or-admin (moderation). Comments are org-scoped end-to-end, matching every other business table.
 
+### 3.15 `audit_logs`
+
+The security / team-management trail: login, password_set, invite_sent, user_updated, user_deleted. Written by `lib/api/audit.ts`'s `logAudit()`, best-effort, after the operation it records has already succeeded.
+
+| Column | Type | Constraints |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | NOT NULL, FK → `organizations(id)` |
+| actor_user_id | uuid | FK → `users(id)` ON DELETE SET NULL — the acting user |
+| action | text | NOT NULL — `AuditAction` union in `lib/api/audit.ts` is the source of truth |
+| target_user_id | uuid | FK → `users(id)` ON DELETE SET NULL — the member the action is about, when different from the actor |
+| target_email | text | snapshot, for targets deleted before the log write (e.g. `user_deleted`) |
+| ip_address | text | |
+| metadata | jsonb | NOT NULL, default `{}` |
+| created_at | timestamptz | NOT NULL, default `now()` |
+
+**No `updated_at` / `deleted_at`** — append-only by design, not an oversight (see `user_activities` below for the same divergence, spelled out in full). **Permissions:** insert is any org member, scoped to their own `organization_id` (migration 22's `current_org_id()`); select is Admin-only (`is_admin_in(organization_id)`) — this is the team-management trail, not a general activity feed, so BD Managers do not see it (contrast with `user_activities`, which they do see org-wide).
+
+### 3.16 `user_activities`
+
+The product's business-activity feed: profiles, jobs, leads, comments, and discovery actions. Written by `lib/api/activity.ts`'s `logActivity()`, best-effort, after the operation it records has already succeeded. Deliberately a **separate table from `audit_logs`** — that one is the Admin-only security trail; this one has a wider, role-scoped audience, and keeping them apart means widening this feed's visibility can never widen access to login/invite/member-deletion records.
+
+| Column | Type | Constraints |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | NOT NULL, FK → `organizations(id)` |
+| user_id | uuid | FK → `users(id)` ON DELETE SET NULL — the actor |
+| actor_name | text | NOT NULL, snapshot — a deleted user's activity still renders as a person |
+| action | text | NOT NULL, CHECK `^[a-z][a-z0-9_]{2,63}$` — `ActivityAction` union in `lib/api/activity.ts` is the source of truth, not an enum, so a new action needs no migration |
+| entity_type / entity_id | text / uuid | polymorphic, no FK — points at profiles/jobs/leads/CVs/comments without a column per entity type, and survives the subject being deleted (the point of a log); CHECK: an id implies a type |
+| entity_label | text | snapshot of the subject's name/title at the time, ≤300 chars |
+| description | text | NOT NULL, CHECK length 1–500 — the rendered, human-readable sentence for the feed; a snapshot, same reasoning as `entity_label` |
+| metadata | jsonb | NOT NULL, default `{}` — structured extras, not used for display |
+| ip_address | text | |
+| created_at | timestamptz | NOT NULL, default `now()` |
+
+**No `updated_at` / `deleted_at` — a deliberate divergence from §1's "every mutable table gets `deleted_at`" convention.** A row here is written once and never touched again, so there is nothing to soft-delete or update; recording a "deleted" activity would also directly contradict the append-only requirement below.
+
+**Append-only, enforced three ways (RLS alone cannot do this — `service_role` bypasses RLS entirely, and `TRUNCATE` bypasses RLS even for `authenticated`):**
+1. No UPDATE/DELETE RLS policies for `authenticated`.
+2. Grants: `authenticated` and `service_role` hold only `SELECT, INSERT` (the blanket `REVOKE ALL` first strips the `TRUNCATE` that default privileges hand out).
+3. Triggers (`prevent_user_activity_mutation()`) that raise on UPDATE, DELETE, and TRUNCATE (a separate statement-level trigger for TRUNCATE, since it never fires row-level triggers) — these fire regardless of role, so this is the guarantee that actually holds even against the service-role key; 1 and 2 are defense in depth. Force-tested against `service_role`/`postgres` directly, not just `authenticated`.
+
+**Permissions:** insert is bound to `user_id = auth.uid()` in the same org — one user can never forge an entry attributed to someone else. Select is `is_privileged_in(organization_id)` (Admin + BD Manager, org-wide) OR own rows (`user_id = auth.uid()`) — matching the spec that BD Managers get full visibility like Admins, while every other role sees only their own activity. Force-tested (SELECT scoping for all three roles, forged-attribution INSERT, cross-org INSERT) against the live database with simulated JWTs per role.
+
 ---
 
 ## 4. Relationships
@@ -371,6 +426,9 @@ pipeline_stages 1─N leads,
 job_profile_states 1─N leads  (the replied application)
 
 jobs 1─N job_comments, users 1─N job_comments  (authors)
+
+organizations 1─N audit_logs, users 1─N audit_logs           (actor; target_user_id is a second, unenforced FK-style reference)
+organizations 1─N user_activities, users 1─N user_activities (actor only — entity_type/entity_id are polymorphic, no FK)
 ```
 
 ### Invariants
@@ -414,6 +472,10 @@ jobs 1─N job_comments, users 1─N job_comments  (authors)
 14. **JWT carries `is_admin` / `user_role`.** `custom_access_token_hook()` (migration 5) reads `users.role_id` → `roles.name` and bakes the claims into issued tokens; `middleware.ts` / `getCachedIsAdmin()` read them locally. RLS still re-checks `is_admin()` live at query time — the claim is an app-layer convenience only.
 
 15. **Comments are an open org-wide thread, not an owner-scoped record.** Unlike leads (owner snapshot) or notes (applier-only), any org member can read and comment on any of the org's jobs (`job_comments` RLS scopes by `organization_id`, not by `user_id`). Comments are **flat** — deliberately no `parent_id`/replies. The drawer surfaces the same thread for a job everywhere (Discovery, Pipeline, and Leads via `commentsJobId`), since a lead wraps the same job.
+
+16. **RLS is org-scoped, not just role-scoped, since migration 22.** Before `multi_tenant_rls_scoping`, every business-table policy admitted "Admin or BD Manager" regardless of which org the row belonged to — correct for a single-tenant deployment, but a live cross-tenant leak the moment a second `organizations` row exists (an Admin in org A could read/write org B's data). `current_org_id()` (the caller's own org, fail-closed to NULL) and `is_admin_in(org)` / `is_privileged_in(org)` (role check ANDed with an org match) are the helpers every policy now composes from. Reference tables with identical rows for every org (`roles`, `pipeline_stages`, `seniority_level`, `scrapers`) were deliberately left unscoped and had RLS disabled entirely in favor of plain grants (migration 23) — scoping them would mean duplicating catalog rows per org for no security benefit.
+
+17. **Two audit tables, split by audience, not one.** `audit_logs` (migration 21) is the security/team-management trail — logins, invites, member changes — and stays Admin-only to read, on purpose. `user_activities` (migration 25) is the product's business-activity feed — profiles, jobs, leads, comments, discovery — visible org-wide to Admin **and** BD Manager, matching the Business Developer permission model everywhere else. They were kept as separate tables specifically so that widening the feed's audience (as the product requires) could never widen access to the security trail (which must not). Both are append-only by construction — see §3.15/§3.16 for the three-layer enforcement (RLS, grants, and a mutation-blocking trigger that also covers `service_role` and `TRUNCATE`, neither of which RLS can reach).
 
 ---
 

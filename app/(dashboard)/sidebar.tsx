@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   BarChart3,
   Briefcase,
   CheckCircle2,
@@ -41,17 +42,16 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
   },
   { id: "leads", label: "Leads", icon: Briefcase, href: "/leads" },
   { id: "users", label: "Users", icon: Users, href: "/users" },
-    {
+  {
     id: "statistics",
     label: "Statistics",
     icon: BarChart3,
     href: "/statistics",
   },
+  { id: "activity", label: "Activity", icon: Activity, href: "/activity" },
 ];
 
-// Persisted alongside the other pipelineiq.* localStorage prefs. Same-tab
-// writes dispatch COLLAPSED_CHANGED_EVENT so the useSyncExternalStore
-// snapshot refreshes (the storage event only fires cross-tab).
+
 const COLLAPSED_KEY = "pipelineiq.sidebar.collapsed";
 const COLLAPSED_CHANGED_EVENT = "pipelineiq:sidebar-collapsed-changed";
 

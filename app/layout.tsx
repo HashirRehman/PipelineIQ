@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
@@ -20,10 +21,14 @@ const jetbrainsMono = JetBrains_Mono({
 // Display face for titles only (top bar page names, page headers, drawer
 // and dialog titles, auth heading). Geometric grotesk with an industrial,
 // instrument-like voice — deliberately not used for body text.
+//
+// Variable font (no weight array): one woff2 covers the 400-700 range the
+// UI actually uses, instead of four static weight files — the heading face
+// drops from ~4 downloads to 1 (font-display: swap stays on via next/font,
+// so text renders instantly and the face upgrades when it lands).
 const archivo = Archivo({
   variable: "--font-heading",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -42,11 +47,18 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // The proxy generates a fresh CSP nonce per request and forwards it as
+  // x-csp-nonce. It nonces the two intentional inline scripts below (the
+  // theme bootstrap and next-themes' theme resolver) so the strict
+  // Content-Security-Policy can keep script 'unsafe-inline' off. Absent in
+  // dev / direct hits — the scripts then simply render without a nonce.
+  const nonce = (await headers()).get("x-csp-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
@@ -57,8 +69,13 @@ export default function RootLayout({
         {/* Re-applies the saved palette/pattern before first paint, like
             next-themes does for dark/light mode — prevents the default-theme
             flash on refresh. */}
-        <ThemeBootstrapScript />
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeBootstrapScript nonce={nonce} />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          nonce={nonce}
+        >
           <PaletteApplier />
           <PatternApplier />
           {children}

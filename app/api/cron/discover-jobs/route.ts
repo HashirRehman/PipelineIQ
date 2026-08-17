@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GroqAiClient } from "@/lib/ai/groq-client";
+import { isCronAuthorized } from "@/lib/api/cron-auth";
 import { acquireDiscoveryLock, releaseDiscoveryLock, runJobDiscovery } from "@/lib/cron/discover-jobs";
 
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

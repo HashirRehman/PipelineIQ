@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Briefcase, SlidersHorizontal } from "lucide-react";
 import type { DiscoveryProfile } from "@/app/api/discovery/route";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,8 @@ import {
 import { getDateWindow } from "@/lib/date-window";
 import { cn } from "@/lib/utils";
 import JobDrawer, { type Job } from "@/components/job-drawer";
-import { apiPost, withOrgId } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
+import { queryKeys } from "@/lib/api/query-keys";
 
 const REGIONS = ["Global", "US Only"];
 const PAGE_SIZE = 20;
@@ -80,8 +82,7 @@ interface DiscoveryResponse {
 }
 
 export default function DiscoveryTab() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [parserFilter, setParserFilter] = useState("All Sources");
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types");
@@ -90,22 +91,12 @@ export default function DiscoveryTab() {
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [sort, setSort] = useState<SortOption>("relevance");
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [appliedKey, setAppliedKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [dismissOpen, setDismissOpen] = useState(false);
   const [dismissReason, setDismissReason] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [markAppliedPending, setMarkAppliedPending] = useState(false);
-  // Real parser/scraper list from the API (the scrapers table) — NOT a
-  // hardcoded list of platforms.
-  const [parsers, setParsers] = useState<string[]>(["All Sources"]);
   const [view, setView] = useJobView();
-  // Bumped after a job action (mark-applied / dismiss) so the feed silently
-  // re-fetches and reflects the updated per-profile state.
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadingKey = buildQueryKey({
     page,
@@ -117,32 +108,27 @@ export default function DiscoveryTab() {
     dateRange,
     sort,
   });
-  const loading = appliedKey !== loadingKey;
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.jobs.discovery(loadingKey),
+    queryFn: ({ signal }) => apiGet<DiscoveryResponse>(`/api/discovery?${loadingKey}`, signal),
+  });
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    fetch(withOrgId(`/api/discovery?${loadingKey}`), { signal: ctrl.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load jobs");
-        return res.json() as Promise<DiscoveryResponse>;
-      })
-      .then((json) => {
-        setJobs(json.jobs);
-        setProfiles(json.profiles);
-        setTotalCount(json.totalCount);
-        setTotalPages(json.totalPages);
-        setParsers(json.parsers ?? ["All Sources"]);
-        if (page > json.totalPages) setPage(Math.max(1, json.totalPages));
-        setAppliedKey(loadingKey);
-        setError(null);
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError("Failed to load jobs");
-        setAppliedKey(loadingKey);
-      });
-    return () => ctrl.abort();
-  }, [loadingKey, page, refreshKey]);
+  const jobs = data?.jobs ?? [];
+  const profiles = data?.profiles ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  // Real parser/scraper list from the API (the scrapers table) — NOT a
+  // hardcoded list of platforms.
+  const parsers = data?.parsers?.length ? data.parsers : ["All Sources"];
+
+  // Applying to or dismissing a job changes what Applied Jobs shows too, and
+  // both read /api/discovery — so the whole "jobs" area is invalidated.
+  const refreshJobs = () => queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() });
+
+  // Dismissing the last page's jobs can leave `page` past the end.
+  if (data && page > data.totalPages) {
+    setPage(Math.max(1, data.totalPages));
+  }
 
   const changeSearch = (v: string) => {
     setSearch(v);
@@ -194,7 +180,7 @@ export default function DiscoveryTab() {
       setMarkAppliedPending(false);
     }
     setSelectedJob(null);
-    setRefreshKey((k) => k + 1);
+    await refreshJobs();
   };
 
   const handleDismiss = async (
@@ -215,7 +201,7 @@ export default function DiscoveryTab() {
     }
     setSelectedJob(null);
     setDismissReason("");
-    setRefreshKey((k) => k + 1);
+    await refreshJobs();
   };
 
   const isActiveFilter =
@@ -275,9 +261,9 @@ export default function DiscoveryTab() {
               role="alert"
               className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
-              {error}
+              Failed to load jobs
             </div>
-          ) : loading ? (
+          ) : isPending ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">

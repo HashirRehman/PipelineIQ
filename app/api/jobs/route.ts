@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -86,6 +87,39 @@ export async function POST(request: Request) {
   const inserted = await insertManualJob(context, prepared);
   if (!inserted.ok) {
     return NextResponse.json({ error: inserted.message }, { status: 500 });
+  }
+
+  const actorUserId = user.id;
+  const actorName = actorNameFromUser(user);
+  await logActivity({
+    supabase,
+    organizationId,
+    actorUserId,
+    actorName,
+    action: "job_created",
+    description: `Added job "${parsed.data.title}" at ${parsed.data.company}`,
+    entityType: "job",
+    entityId: inserted.jobId,
+    entityLabel: `${parsed.data.title} — ${parsed.data.company}`,
+    request,
+  });
+
+  // A "lead" job also creates a leads row as a side effect (see
+  // insertManualJob) — worth its own activity entry, distinct from the job
+  // itself, since it's a different entity in the feed.
+  if (prepared.leadRow) {
+    await logActivity({
+      supabase,
+      organizationId,
+      actorUserId,
+      actorName,
+      action: "lead_created",
+      description: `Added lead for "${parsed.data.title}" at ${parsed.data.company}`,
+      entityType: "job",
+      entityId: inserted.jobId,
+      entityLabel: `${parsed.data.title} — ${parsed.data.company}`,
+      request,
+    });
   }
 
   return NextResponse.json({ success: true, jobId: inserted.jobId });

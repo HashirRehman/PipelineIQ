@@ -1,12 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { cn } from "@/lib/utils";
 
-export type InlineEditType = "text" | "email" | "number" | "textarea" | "select";
+export type InlineEditType =
+  | "text"
+  | "email"
+  | "number"
+  | "textarea"
+  | "select"
+  | "combobox";
 
 export type InlineEditOption = { value: string; label: string };
 
@@ -18,6 +25,59 @@ const LABEL_CLASS =
 // One geometry for every row, so highlights match whatever the value is.
 const ROW_CLASS =
   "-mx-2 flex items-start justify-between gap-3 rounded-md px-2 py-1.5";
+
+// The searchable dropdown shown while a combobox field is being edited.
+// Picking an option commits; Escape, or clicking anywhere outside, cancels
+// the edit. (A plain blur can't be trusted here: closing the panel unmounts
+// the search input, and removing a focused element doesn't fire blur.)
+function ComboboxEditor({
+  options,
+  value,
+  onPick,
+  onCancel,
+}: {
+  options: readonly InlineEditOption[];
+  value: string;
+  onPick: (next: string) => void;
+  onCancel: () => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Cancel when the user clicks outside the combobox (panel included). The
+  // setState lives in the listener, not the effect body.
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        onCancel();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      ref={rootRef}
+      className="min-w-0 flex-1"
+      onKeyDown={(e) => {
+        // SearchCombobox closes its panel on Escape; the keydown then bubbles
+        // here and cancels the whole edit.
+        if (e.key === "Escape") onCancel();
+      }}
+    >
+      <SearchCombobox
+        compact
+        autoOpen
+        options={options}
+        value={value}
+        allowCustom
+        onValueChange={onPick}
+        className="w-full"
+      />
+    </div>
+  );
+}
 
 export function InlineEditField({
   label,
@@ -32,7 +92,7 @@ export function InlineEditField({
   label: string;
   value: string | number | null;
   type?: InlineEditType;
-  options?: InlineEditOption[];
+  options?: readonly InlineEditOption[];
   placeholder?: string;
   canEdit: boolean;
   onSave: InlineEditSave;
@@ -180,7 +240,17 @@ export function InlineEditField({
         <div className={cn(ROW_CLASS, "items-center")}>
           <span className={LABEL_CLASS}>{label}</span>
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
-            {type === "textarea" ? (
+            {type === "combobox" ? (
+              <ComboboxEditor
+                options={options}
+                value={draft}
+                onPick={(next) => {
+                  setDraft(next);
+                  void commit(next);
+                }}
+                onCancel={cancel}
+              />
+            ) : type === "textarea" ? (
               <Textarea
                 {...shared}
                 rows={4}

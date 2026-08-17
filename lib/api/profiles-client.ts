@@ -59,11 +59,9 @@ export function updateProfileFieldsRequest(profileId: string, patch: ProfileFiel
   );
 }
 
-export function setProfileActiveRequest(profileId: string, isActive: boolean) {
+export function archiveProfileRequest(profileId: string) {
   return toResult(
-    apiPatch<ProfileMutationResponse>(`${profilePath(profileId)}/status`, {
-      isActive,
-    }),
+    apiDelete<ProfileMutationResponse>(profilePath(profileId)),
   );
 }
 

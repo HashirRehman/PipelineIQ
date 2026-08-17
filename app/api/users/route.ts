@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
+import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
+import { resolveSiteUrl } from "@/lib/api/site-url";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { roleUserKey } from "@/lib/auth/roles";
@@ -21,6 +24,14 @@ export interface ApiAppUser {
 export interface ApiRole {
   id: string;
   name: string;
+}
+
+export interface UsersApiResponse {
+  users: ApiAppUser[];
+  roles: ApiRole[];
+  currentUser: ApiAppUser | null;
+  isAdmin: boolean;
+  canInvite: boolean;
 }
 
 
@@ -115,16 +126,17 @@ export async function GET(request: Request) {
     joinedAt: new Date().toISOString().split("T")[0],
   };
 
-  // GET is gated above (Admin + BD Manager). isAdmin gates the row actions
-  // (edit / deactivate / delete — admin-only); canInvite gates the invite
-  // button (also admin-only). BD Managers see the roster but nothing else.
-  return NextResponse.json({
+  // isAdmin gates row actions; canInvite gates the invite button. BD Managers
+  // see the roster only.
+  const response: UsersApiResponse = {
     users,
     roles,
     currentUser: currentUserObj,
     isAdmin: perms.isAdmin,
     canInvite: perms.canInviteUsers,
-  });
+  };
+
+  return NextResponse.json(response);
 }
 
 export async function POST(request: Request) {
@@ -178,10 +190,24 @@ export async function POST(request: Request) {
 
   const adminClient = createAdminClient();
 
+  // The target must also be in the project's Auth redirect allow list, or
+  // Supabase silently falls back to site_url and the invite lands on the login
+  // page. Fails closed: an invite link must never be built from an unvalidated
+  // Host header (an unset NEXT_PUBLIC_SITE_URL would otherwise mail a literal
+  // "undefined/auth/confirm" or, worse, an attacker-controlled origin).
+  const siteUrl = resolveSiteUrl(request);
+  if (!siteUrl) {
+    console.error("api/users: NEXT_PUBLIC_SITE_URL is not set; invite not sent.");
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    );
+  }
+
   const { data: inviteData, error: inviteError } =
     await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { full_name: name },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
+      redirectTo: `${siteUrl}/auth/confirm`,
     });
 
   if (inviteError) {
@@ -217,6 +243,33 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  // Audit: an invitation was issued.
+  await logAudit({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    action: "invite_sent",
+    targetUserId: inviteData.user.id,
+    targetEmail: email,
+    metadata: { role: role.name },
+    request,
+  });
+
+  // Activity feed: an invite is visible to Admin + BD Manager org-wide.
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "user_invited",
+    description: `Invited ${name} (${email}) as ${role.name}`,
+    entityType: "user",
+    entityId: inviteData.user.id,
+    entityLabel: name,
+    metadata: { role: role.name, email },
+    request,
+  });
 
   const newUser: ApiAppUser = {
     id: inviteData.user.id,
@@ -310,7 +363,7 @@ export async function PATCH(request: Request) {
     .update(userUpdates)
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
-    .select("id");
+    .select("id, full_name");
 
   if (error) {
     console.error("api/users: users update failed", error);
@@ -323,6 +376,41 @@ export async function PATCH(request: Request) {
   if (!data || data.length === 0) {
     return NextResponse.json({ error: "User not found or not accessible." }, { status: 404 });
   }
+
+  // Audit: what changed on the member row (name / status / role).
+  await logAudit({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    action: "user_updated",
+    targetUserId: userId,
+    metadata: {
+      ...(name !== undefined ? { name } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(role ? { role: role.name } : {}),
+    },
+    request,
+  });
+
+  // Activity feed: name / role / status changes are org-visible. The label
+  // is the post-update full_name (data[0] is the row we just updated).
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "user_updated",
+    description: `Updated member ${data[0].full_name}`,
+    entityType: "user",
+    entityId: userId,
+    entityLabel: data[0].full_name,
+    metadata: {
+      ...(name !== undefined ? { name } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(role ? { role: role.name } : {}),
+    },
+    request,
+  });
 
   return NextResponse.json({ success: true });
 }
@@ -374,7 +462,7 @@ export async function DELETE(request: Request) {
   // admins see every row, so this lookup passes RLS).
   const { data: target, error: targetError } = await supabase
     .from("users")
-    .select("id")
+    .select("id, email, full_name")
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -418,6 +506,39 @@ export async function DELETE(request: Request) {
       { status: 500 },
     );
   }
+
+  // Audit: the member (and their auth identity) was permanently removed.
+  // The target's users row is already gone, so target_user_id must NOT be
+  // set — audit_logs.target_user_id is an FK and a new row can't reference
+  // a deleted user (on delete set null only protects existing rows).
+  // Identity is captured via the pre-delete email, with the id preserved
+  // in metadata so it isn't lost.
+  await logAudit({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    action: "user_deleted",
+    targetUserId: null,
+    targetEmail: target?.email,
+    metadata: { deletedUserId: userId },
+    request,
+  });
+
+  // Activity feed: the removal is org-visible; entity_id keeps the deleted
+  // user's id (the table holds no FK on entity_id, so the row survives).
+  const deletedLabel = target?.full_name || target?.email || "member";
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "user_deleted",
+    description: `Removed member ${deletedLabel}`,
+    entityType: "user",
+    entityId: userId,
+    entityLabel: deletedLabel,
+    request,
+  });
 
   return NextResponse.json({ success: true });
 }
