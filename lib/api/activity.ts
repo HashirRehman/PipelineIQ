@@ -5,10 +5,11 @@ import { clientIp } from "@/lib/api/rate-limit";
 /**
  * Business activity feed (see supabase/migrations/20260813075322_user_activities.sql).
  *
- * Records BUSINESS actions — profiles, jobs, leads, comments, discovery —
- * as a human-readable feed. Deliberately separate from lib/api/audit.ts
- * (login / password_set / invite_sent / user_updated / user_deleted), which
- * stays the Admin-only security trail; this feed is visible to Admin + BD
+ * Records BUSINESS actions — profiles, jobs, leads, comments, discovery,
+ * and team management (invites, member edits, member removal) — as a
+ * human-readable feed. Overlaps lib/api/audit.ts (login / password_set /
+ * invite_sent / user_updated / user_deleted), which stays the Admin-only
+ * security trail with richer metadata; this feed is visible to Admin + BD
  * Manager org-wide, and to every other role for their own actions.
  *
  * Writes are BEST-EFFORT and go out AFTER the mutation they describe has
@@ -37,7 +38,10 @@ export type ActivityAction =
   | "lead_notes_updated"
   | "discovery_dismissed"
   | "discovery_mark_applied"
-  | "discovery_run_triggered";
+  | "discovery_run_triggered"
+  | "user_invited"
+  | "user_updated"
+  | "user_deleted";
 
 /** Every value of ActivityAction, for validating the ?action= filter and
  *  building the UI's filter dropdown without a second hardcoded list. */
@@ -61,6 +65,9 @@ export const ACTIVITY_ACTIONS: readonly ActivityAction[] = [
   "discovery_dismissed",
   "discovery_mark_applied",
   "discovery_run_triggered",
+  "user_invited",
+  "user_updated",
+  "user_deleted",
 ];
 
 export interface LogActivityParams {
@@ -80,7 +87,7 @@ export interface LogActivityParams {
   description: string;
   /** What the action was about (no FK — the subject may be deleted later
    *  and the row must survive that). */
-  entityType?: "profile" | "job" | "lead" | "profile_cv" | "job_comment" | null;
+  entityType?: "profile" | "job" | "lead" | "profile_cv" | "job_comment" | "user" | null;
   entityId?: string | null;
   /** Snapshot of the subject's name/title at the time. */
   entityLabel?: string | null;
@@ -127,6 +134,9 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   discovery_dismissed: "Job dismissed",
   discovery_mark_applied: "Marked applied",
   discovery_run_triggered: "Discovery run",
+  user_invited: "Member invited",
+  user_updated: "Member updated",
+  user_deleted: "Member removed",
 };
 
 export async function logActivity(params: LogActivityParams): Promise<void> {
