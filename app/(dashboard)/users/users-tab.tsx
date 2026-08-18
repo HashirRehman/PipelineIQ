@@ -168,10 +168,11 @@ export default function UsersTab() {
   const [deleteError, setDeleteError] = useState("")
 
   const usersKey = queryKeys.users.list()
-  const { data, isPending: loading, error: queryErr } = useQuery({
+  const { data, isPending, error: queryErr } = useQuery({
     queryKey: usersKey,
     queryFn: ({ signal }) => apiGet<UsersApiResponse>("/api/users", signal),
   })
+  const loading = isPending
 
   const rawUsers: ApiAppUser[] = data?.users ?? []
   const users = Array.from(new Map(rawUsers.map(u => [u.id, u])).values())
@@ -193,7 +194,6 @@ export default function UsersTab() {
       current ? { ...current, users: update(current.users) } : current,
     )
   }
->>>>>>> main
 
   const saveUserEdit = async (userId: string, updates: { name?: string; roleId?: string }) => {
     setActionError("")
