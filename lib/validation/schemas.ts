@@ -28,6 +28,10 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Password is required."),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.email("Enter a valid email address."),
+});
+
 export const setPasswordSchema = z
   .object({
     password: z
@@ -90,16 +94,58 @@ export const profileCoreFieldsSchema = z.object({
 
 export const createProfileSchema = profileCoreFieldsSchema;
 
-export const updateProfileSchema = profileCoreFieldsSchema.extend({
+// Absent means "leave alone"; an explicit "" or null means "clear".
+const clearableText = z
+  .union([z.string(), z.null()])
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  });
+
+const clearableNumber = z
+  .union([z.string(), z.number(), z.null()])
+  .transform((value) => (value === null || value === "" ? null : Number(value)))
+  .refine(
+    (value) => value === null || (Number.isFinite(value) && value >= 0),
+    "Must be zero or greater.",
+  );
+
+// All optional, so a full payload still validates.
+export const updateProfileSchema = z.object({
   profileId: z.uuid(),
+  fullName: z.string().trim().min(1, "Full name is required.").optional(),
+  email: z.email("Enter a valid email address.").optional(),
+  phone: clearableText.optional(),
+  location: clearableText.optional(),
+  seniorityLevelId: z.uuid("Select a seniority level.").optional(),
+  yearsExperience: clearableNumber.optional(),
+  rateExpectation: clearableNumber.optional(),
+  // No "USD" fallback: it would rewrite the currency of any edit that omits it.
+  rateCurrency: z
+    .string()
+    .trim()
+    .transform((value) => value.toUpperCase())
+    .refine((value) => value.length === 3, "Currency must be a 3-letter code.")
+    .optional(),
+  summary: clearableText.optional(),
 });
 
-export const setProfileActiveSchema = z.object({
+export const UPDATABLE_PROFILE_FIELDS = [
+  "fullName",
+  "email",
+  "phone",
+  "location",
+  "seniorityLevelId",
+  "yearsExperience",
+  "rateExpectation",
+  "rateCurrency",
+  "summary",
+] as const;
+
+export type UpdatableProfileField = (typeof UPDATABLE_PROFILE_FIELDS)[number];
+
+export const archiveProfileSchema = z.object({
   profileId: z.uuid(),
-  isActive: z.union([
-    z.boolean(),
-    z.enum(["true", "false"]).transform((value) => value === "true"),
-  ]),
 });
 
 export const uploadProfileCvSchema = z.object({

@@ -15,7 +15,6 @@ export type ProfileListItem = {
   fullName: string;
   email: string;
   location: string | null;
-  isActive: boolean;
   seniority: string | null;
   rateExpectation: number | null;
   rateCurrency: string;
@@ -23,7 +22,6 @@ export type ProfileListItem = {
   assignedUserName: string | null;
 };
 
-type StatusFilter = "all" | "active" | "inactive";
 type SeniorityLevel = { id: string; name: string };
 
 export function getInitials(name: string) {
@@ -57,41 +55,28 @@ export function ProfilesList({
   onProfileCreated?: (profileId: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [view, setView] = usePersistedView("profiles");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return profiles.filter((profile) => {
-      const matchStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" ? profile.isActive : !profile.isActive);
+    if (!q) {
+      return profiles;
+    }
 
-      if (!matchStatus) {
-        return false;
-      }
+    const searchableValues = (profile: ProfileListItem) => [
+      profile.fullName,
+      profile.email,
+      profile.location ?? "",
+      profile.seniority ?? "",
+    ];
 
-      if (!q) {
-        return true;
-      }
-
-      const searchableValues = [
-        profile.fullName,
-        profile.email,
-        profile.location ?? "",
-        profile.seniority ?? "",
-      ];
-
-      return searchableValues.some((value) => value.toLowerCase().includes(q));
-    });
-  }, [profiles, search, statusFilter]);
-
-  const statusTabs: { id: StatusFilter; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "active", label: "Active" },
-    { id: "inactive", label: "Inactive" },
-  ];
+    return profiles.filter((profile) =>
+      searchableValues(profile).some((value) =>
+        value.toLowerCase().includes(q),
+      ),
+    );
+  }, [profiles, search]);
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
@@ -103,23 +88,6 @@ export function ProfilesList({
             placeholder="Search profiles…"
             expandedWidth={300}
           />
-
-          <div className="flex items-center rounded-md border border-border overflow-hidden">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStatusFilter(tab.id)}
-                className={`h-9 px-3.5 text-xs font-medium transition-colors cursor-pointer ${
-                  statusFilter === tab.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-accent"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
         </div>
         <ViewToggle view={view} onChange={setView} />
         {canManage && onProfileCreated && (
@@ -138,7 +106,7 @@ export function ProfilesList({
               No profiles found
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Try adjusting your search or filter.
+              Try adjusting your search.
             </p>
           </div>
         ) : (
@@ -176,15 +144,6 @@ export function ProfilesList({
                       {profile.email}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-meta font-medium ${
-                          profile.isActive
-                            ? "bg-success text-success-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {profile.isActive ? "Active" : "Inactive"}
-                      </span>
                       {profile.seniority && (
                         <span className="rounded-md bg-info px-2 py-0.5 text-meta font-medium text-info-foreground">
                           {profile.seniority}

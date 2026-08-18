@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export function SetPasswordForm() {
+/** `isRecovery` only swaps wording — the password update path is identical. */
+export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }) {
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -105,7 +106,12 @@ export function SetPasswordForm() {
 
       <Button type="submit" disabled={isPending} className="mt-1 h-10 w-full text-sm font-semibold">
         {isPending ? (
-          <><Loader2 className="size-4 animate-spin mr-2" />Setting password…</>
+          <>
+            <Loader2 className="size-4 animate-spin mr-2" />
+            {isRecovery ? "Updating password…" : "Setting password…"}
+          </>
+        ) : isRecovery ? (
+          "Update password"
         ) : (
           "Set password"
         )}

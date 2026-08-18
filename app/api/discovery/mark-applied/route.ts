@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   // state row carries that org.
   const { data: job } = await supabase
     .from("jobs")
-    .select("id")
+    .select("id, title, company_name")
     .eq("id", jobId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
   const { data: profileRows, error: profileError } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name")
     .in("id", uniqueProfileIds)
     .eq("organization_id", org.organizationId)
     .is("deleted_at", null);
@@ -80,6 +81,9 @@ export async function POST(request: Request) {
   if (!profileRows || profileRows.length !== uniqueProfileIds.length) {
     return NextResponse.json({ error: "Profile not found." }, { status: 404 });
   }
+
+  const profileNameById = new Map(profileRows.map((p) => [p.id, p.full_name]));
+  const entityLabel = `${job.title} — ${job.company_name}`;
 
   for (const profileId of uniqueProfileIds) {
     const { error: insertError } = await supabase.from("job_profile_states").insert({
@@ -116,6 +120,20 @@ export async function POST(request: Request) {
         );
       }
     }
+
+    await logActivity({
+      supabase,
+      organizationId: org.organizationId,
+      actorUserId: user.id,
+      actorName: actorNameFromUser(user),
+      action: "discovery_mark_applied",
+      description: `Marked "${entityLabel}" as applied for ${profileNameById.get(profileId) ?? "a profile"}`,
+      entityType: "job",
+      entityId: jobId,
+      entityLabel,
+      metadata: { profileId },
+      request,
+    });
   }
 
   revalidatePath("/");

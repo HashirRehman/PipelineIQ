@@ -1,8 +1,10 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react"
-import type { ApiAppUser } from "@/app/api/users/route"
-import { apiPost, apiRequest, withOrgId } from "@/lib/api/client"
+import type { ApiAppUser, UsersApiResponse } from "@/app/api/users/route"
+import { ApiError, apiGet, apiPost, apiRequest } from "@/lib/api/client"
+import { queryKeys } from "@/lib/api/query-keys"
 import { Avatar } from "@/components/avatar"
 import { StatCard } from "@/components/stat-card"
 import { Button } from "@/components/ui/button"
@@ -153,71 +155,50 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
 
 /* ─── Main Tab ─── */
 export default function UsersTab() {
-  const [users, setUsers] = useState<ApiAppUser[]>([])
-  const [roles, setRoles] = useState<RoleOption[]>([])
-  const [activeUser, setActiveUser] = useState<ApiAppUser | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [canInvite, setCanInvite] = useState(false)
-  const [allowedDomain, setAllowedDomain] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [actionError, setActionError] = useState("")
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [accessDenied, setAccessDenied] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [editingUser, setEditingUser] = useState<ApiAppUser | null>(null)
   const [deletingUser, setDeletingUser] = useState<ApiAppUser | null>(null)
   const [deletePending, setDeletePending] = useState(false)
   const [deleteError, setDeleteError] = useState("")
 
-  useEffect(() => {
-    const ctrl = new AbortController()
-    fetch(withOrgId("/api/users"), { signal: ctrl.signal })
-      .then(res => {
-        if (res.status === 403) {
-          setAccessDenied(true)
-          return
-        }
-        if (!res.ok) throw new Error("Failed to load users")
-        return res.json()
-      })
-      .then(json => {
-        if (!json) return
-        const rawUsers: ApiAppUser[] = json.users ?? []
-        const uniqueUsers = Array.from(new Map(rawUsers.map(u => [u.id, u])).values())
-        setUsers(uniqueUsers)
-        setRoles(json.roles ?? [])
-        setActiveUser(json.currentUser ?? null)
-        setIsAdmin(json.isAdmin ?? false)
-        setCanInvite(json.canInvite ?? false)
-        setAllowedDomain(json.allowedEmailDomain ?? null)
-        setError(null)
-      })
-      .catch(err => {
-        if (err instanceof DOMException && err.name === "AbortError") return
-        setError("Unable to load team members.")
-      })
-      .finally(() => setLoading(false))
-    return () => ctrl.abort()
-  }, [])
+  const usersKey = queryKeys.users.list()
+  const { data, isPending: loading, error: queryErr } = useQuery({
+    queryKey: usersKey,
+    queryFn: ({ signal }) => apiGet<UsersApiResponse>("/api/users", signal),
+  })
+
+  const rawUsers: ApiAppUser[] = data?.users ?? []
+  const users = Array.from(new Map(rawUsers.map(u => [u.id, u])).values())
+  const roles: RoleOption[] = data?.roles ?? []
+  const activeUser = data?.currentUser ?? null
+  const isAdmin = data?.isAdmin ?? false
+  const canInvite = data?.canInvite ?? false
+  const allowedDomain = data?.allowedEmailDomain ?? null
+
+  // 403 = role may not see the roster; a real answer, not a failure.
+  const accessDenied = queryErr instanceof ApiError && queryErr.status === 403
+  const error = queryErr && !accessDenied ? "Unable to load team members." : null
+
+  const refreshUsers = () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
+
+  /** Optimistic write straight into the cache. */
+  const patchCachedUsers = (update: (list: ApiAppUser[]) => ApiAppUser[]) => {
+    queryClient.setQueryData<UsersApiResponse>(usersKey, (current) =>
+      current ? { ...current, users: update(current.users) } : current,
+    )
+  }
+>>>>>>> main
 
   const saveUserEdit = async (userId: string, updates: { name?: string; roleId?: string }) => {
     setActionError("")
     await apiRequest<{ success: boolean }>("/api/users", "PATCH", { userId, ...updates })
-
-    const roleName = updates.roleId ? (roles.find(r => r.id === updates.roleId)?.name ?? "") : ""
-    setUsers(us => us.map(u => {
-      if (u.id !== userId) return u
-      return {
-        ...u,
-        name: updates.name ?? u.name,
-        roleId: updates.roleId ?? u.roleId,
-        role: updates.roleId ? roleUserKey(roleName) : u.role,
-      }
-    }))
+    await refreshUsers()
     // Modal closes itself on success.
   }
 
@@ -232,7 +213,7 @@ export default function UsersTab() {
     const newStatus = target.status === "active" ? "inactive" : "active"
 
     // Optimistic UI update
-    setUsers(us => us.map(u => u.id === id ? { ...u, status: newStatus } : u))
+    patchCachedUsers(us => us.map(u => u.id === id ? { ...u, status: newStatus } : u))
 
     try {
       await apiRequest<{ success: boolean }>("/api/users", "PATCH", {
@@ -241,7 +222,7 @@ export default function UsersTab() {
       })
     } catch (err) {
       // Revert the optimistic update on error.
-      setUsers(us => us.map(u => u.id === id ? { ...u, status: target.status } : u))
+      patchCachedUsers(us => us.map(u => u.id === id ? { ...u, status: target.status } : u))
       setActionError(err instanceof Error ? err.message : "Failed to update user status.")
     } finally {
       setUpdatingId(null)
@@ -254,7 +235,7 @@ export default function UsersTab() {
     setDeleteError("")
     try {
       await apiRequest<{ success: boolean }>("/api/users", "DELETE", { userId: deletingUser.id })
-      setUsers(us => us.filter(u => u.id !== deletingUser.id))
+      await refreshUsers()
       setDeletingUser(null)
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete user.")
@@ -291,7 +272,7 @@ export default function UsersTab() {
     )
   }
 
-  if (loading) {
+  if (isPending) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="grid grid-cols-3 gap-3">
@@ -312,7 +293,7 @@ export default function UsersTab() {
   if (error) {
     return (
       <div className="p-8">
-        <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
+        <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">Unable to load team members.</div>
       </div>
     )
   }
@@ -508,8 +489,8 @@ export default function UsersTab() {
           allowedDomain={allowedDomain}
           onClose={() => setShowInvite(false)}
           onSubmit={async ({ name, email, roleId }) => {
-            const data = await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", { name, email, roleId })
-            setUsers(us => [data.user, ...us])
+            await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", { name, email, roleId })
+            await refreshUsers()
           }}
         />
       )}

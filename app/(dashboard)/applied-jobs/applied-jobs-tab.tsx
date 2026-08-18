@@ -1,5 +1,6 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Briefcase, SlidersHorizontal, Plus, Upload } from "lucide-react"
 import type { DiscoveryProfile } from "@/app/api/discovery/route"
 import { Button } from "@/components/ui/button"
@@ -40,7 +41,8 @@ import {
   yearWindowLabel,
 } from "@/lib/date-window"
 import { cn } from "@/lib/utils"
-import { apiPost, withOrgId } from "@/lib/api/client"
+import { apiGet, apiPost } from "@/lib/api/client"
+import { queryKeys } from "@/lib/api/query-keys"
 import { NewJobDialog, type NewJobStage } from "@/components/jobs/new-job-dialog"
 import dynamic from "next/dynamic"
 
@@ -133,9 +135,7 @@ const buildQueryKey = (opts: {
 }
 
 export default function AppliedJobsTab() {
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [profiles, setProfiles] = useState<DiscoveryProfile[]>([])
-  const [parsers, setParsers] = useState<string[]>(["All Sources"])
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
@@ -155,59 +155,41 @@ export default function AppliedJobsTab() {
   // that only see their own data.
   const [profileFilter, setProfileFilter] = useState("all")
   const [userFilter, setUserFilter] = useState("all")
-  const [users, setUsers] = useState<AppliedJobsResponse["users"]>([])
-  const [canViewAllData, setCanViewAllData] = useState(false)
-  const [pipelineStages, setPipelineStages] = useState<NewJobStage[]>([])
   const [newJobOpen, setNewJobOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [totalCount, setTotalCount] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
-  const [appliedKey, setAppliedKey] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(true)
   const [addToLeadPending, setAddToLeadPending] = useState(false)
   const [dismissOpen, setDismissOpen] = useState(false)
   const [dismissReason, setDismissReason] = useState("")
   const [view, setView] = useJobView()
-  // Bumped after a job action (add-to-leads / dismiss) so the feed silently
-  // re-fetches and reflects the updated per-profile state.
-  const [refreshKey, setRefreshKey] = useState(0)
   // Calendar year/month for the months-of-this-year and year dropdowns.
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth()
 
   const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, country: countryFilter, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter })
-  const loading = appliedKey !== loadingKey
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.jobs.applied(loadingKey),
+    queryFn: ({ signal }) => apiGet<AppliedJobsResponse>(`/api/discovery?${loadingKey}`, signal),
+  })
 
-  useEffect(() => {
-    const ctrl = new AbortController()
-    fetch(withOrgId(`/api/discovery?${loadingKey}`), { signal: ctrl.signal })
-      .then(async res => {
-        if (!res.ok) throw new Error("Failed to load pipeline")
-        return res.json() as Promise<AppliedJobsResponse>
-      })
-      .then(json => {
-        setJobs(json.jobs)
-        setProfiles(json.profiles)
-        setUsers(json.users ?? [])
-        setCanViewAllData(json.canViewAllData ?? false)
-        setPipelineStages(json.pipelineStages ?? [])
-        setTotalCount(json.totalCount)
-        setTotalPages(json.totalPages)
-        if (json.parsers?.length) setParsers(json.parsers)
-        if (page > json.totalPages) setPage(Math.max(1, json.totalPages))
-        setAppliedKey(loadingKey)
-        setError(null)
-      })
-      .catch(err => {
-        if (err instanceof DOMException && err.name === "AbortError") return
-        setError("Failed to load pipeline")
-        setAppliedKey(loadingKey)
-      })
-    return () => ctrl.abort()
-  }, [loadingKey, page, refreshKey])
+  const jobs = data?.jobs ?? []
+  const profiles = data?.profiles ?? []
+  const users = data?.users ?? []
+  const canViewAllData = data?.canViewAllData ?? false
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = data?.totalPages ?? 1
+  const parsers = data?.parsers?.length ? data.parsers : ["All Sources"]
+  const pipelineStages: NewJobStage[] = data?.pipelineStages ?? []
+
+  // Shares /api/discovery with the Discovery feed, so invalidate the whole area.
+  const refreshJobs = () => queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all() })
+
+  // Dismissing the last page's jobs can leave `page` past the end.
+  if (data && page > data.totalPages) {
+    setPage(Math.max(1, data.totalPages))
+  }
 
   const changeSearch = (v: string) => { setSearch(v); setPage(1) }
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
@@ -286,7 +268,7 @@ export default function AppliedJobsTab() {
     // The default "Not in Leads" filter hides fully-lead jobs from the feed;
     // the silent refresh reflects that (and the updated badge on mixed jobs).
     setSelectedJob(null)
-    setRefreshKey(k => k + 1)
+    await refreshJobs()
   }
 
   const handleDismiss = async (id: string, reason: string, profileIds: string[]) => {
@@ -300,7 +282,7 @@ export default function AppliedJobsTab() {
     setSelectedJob(null)
     setDismissReason("")
     setDismissOpen(false)
-    setRefreshKey(k => k + 1)
+    await refreshJobs()
   }
 
   return (
@@ -357,9 +339,9 @@ export default function AppliedJobsTab() {
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {error ? (
             <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
+              Failed to load pipeline
             </div>
-          ) : loading ? (
+          ) : isPending ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
@@ -570,7 +552,7 @@ export default function AppliedJobsTab() {
       <NewJobDialog
         open={newJobOpen}
         onOpenChange={setNewJobOpen}
-        onCreated={() => setRefreshKey(k => k + 1)}
+        onCreated={refreshJobs}
         profiles={profiles.filter(p => p.status === "active").map(p => ({ id: p.id, name: p.name }))}
         pipelineStages={pipelineStages}
       />
@@ -581,7 +563,7 @@ export default function AppliedJobsTab() {
       <ImportJobsDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImported={() => setRefreshKey(k => k + 1)}
+        onImported={refreshJobs}
         profiles={profiles.filter(p => p.status === "active").map(p => ({ id: p.id, name: p.name, location: p.location }))}
         stages={pipelineStages.map(s => ({ id: s.id, name: s.name }))}
       />
