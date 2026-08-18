@@ -1,19 +1,29 @@
 import { useRef, useState } from "react"
 import { Bookmark, Loader2, X } from "lucide-react"
 
+import { InlineEditBlock } from "@/components/inline-edit-block"
+import { InlineEditField } from "@/components/inline-edit-field"
 import { JobComments } from "@/components/job-comments"
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
 import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
+import { COUNTRY_OPTIONS } from "@/components/ui/country-combobox"
 import { parseDescription, type DescBlock } from "@/lib/job-description"
 
 // Minimal shape — only profile.name is rendered; both the real discovery
 // profile and any caller-supplied profile satisfy it.
 type ActiveProfile = { name: string }
+
+// jobs.is_remote is a boolean, so the editor offers exactly the two states
+// the column can hold.
+const WORK_TYPE_EDIT_OPTIONS = [
+  { value: "remote", label: "Remote" },
+  { value: "onsite", label: "Onsite" },
+] as const
 import { TintedBadge } from "@/components/tinted-badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
-import { scoreColor } from "@/lib/constants"
+import { scoreColor, type EngagementType } from "@/lib/constants"
 import { formatDate, timeAgo } from "@/lib/format"
 
 export interface CvMatch {
@@ -61,6 +71,8 @@ export interface Job {
   cvMatches?: CvMatch[]
   possiblyClosed?: boolean | null
   remoteRegion?: string | null
+  /** How the job reached us; null/absent on scraped jobs. */
+  engagementType?: EngagementType | null
   /** True when this (job, profile) pair already has a live lead. */
   isLead?: boolean
   /** Per-profile state for every profile assigned to the acting user — a job
@@ -331,6 +343,14 @@ interface Props {
   notes?: string
   onNotesSave?: (value: string) => void
   canEditNotes?: boolean
+  /** Job field editing (Admin + BD Manager — the jobs_update RLS policy).
+   * Both must be provided for the editable rows to appear. */
+  canEditJob?: boolean
+  onJobFieldSave?: (patch: JobFieldPatch) => Promise<string | null>
+  /** Opened from the Leads section — shows the fields that belong to the
+   * lead, not the job (Developer), which stay hidden on Discovery/Pipeline
+   * even for the same job. */
+  isLeadsView?: boolean
   dismissReason?: string
   setDismissReason?: (r: string) => void
   dismissOpen?: boolean
@@ -339,18 +359,47 @@ interface Props {
   // row becomes a dropdown backed by the database's pipeline_stages.
   stages?: StageOption[]
   onStageChange?: (stage: string) => void
+  /** Developer field saver for leads (Admin + BD Manager only). Lead-specific
+   * since a job can have many leads, one per profile — returns error string
+   * on failure or null on success. */
+  onDeveloperSave?: (value: string) => Promise<string | null>
 }
+
+/** Payload accepted by onJobFieldSave — column values plus the parsed-data
+ * extras (skills/technologies are string lists, minExperience a number). */
+export type JobFieldPatch = Record<
+  string,
+  string | boolean | number | string[] | null
+>
+
+const COUNTRY_EDIT_OPTIONS: readonly { value: string; label: string }[] =
+  COUNTRY_OPTIONS.map(({ value, label }) => ({ value, label }))
+
+// A skills/technologies textarea holds one item per line (or comma); the
+// stored value is a list, so commit splits on either separator.
+const splitList = (value: string): string[] =>
+  value
+    .split(/[,;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 
 export default function JobDrawer({
   job, onClose, open, profiles,
   onApply, onMarkApplied, markAppliedPending = false, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
   commentsJobId, notes, onNotesSave, canEditNotes = true,
+  canEditJob = false, onJobFieldSave, isLeadsView = false,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
-  stages, onStageChange,
+  stages, onStageChange, onDeveloperSave,
 }: Props) {
   // The drawer content node — the lead stage select portals its popup into
   // it so the dialog's focus trap (vaul is modal) doesn't blink it shut.
   const contentRef = useRef<HTMLDivElement | null>(null)
+
+  // Editing needs both the permission and a save handler; pages that pass
+  // neither keep the drawer read-only.
+  const editable = Boolean(canEditJob && onJobFieldSave)
+  const saveField = (field: string) => async (value: string) =>
+    onJobFieldSave!({ [field]: value })
 
   const [lastJob, setLastJob] = useState<Job | null>(job)
   const [lastNotes, setLastNotes] = useState(notes)
@@ -436,11 +485,41 @@ export default function JobDrawer({
         <div className="flex flex-1 min-h-0">
           {/* Left column — white */}
           <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6">
-            <h2 className="font-heading text-lg font-bold tracking-tight text-foreground mb-1.5 mt-0">{displayJob.title}</h2>
+            <InlineEditBlock
+              value={displayJob.title}
+              canEdit={editable}
+              onSave={saveField("title")}
+            >
+              {(shown) => (
+                <h2 className="font-heading text-lg font-bold tracking-tight text-foreground mb-1.5 mt-0">
+                  {shown}
+                </h2>
+              )}
+            </InlineEditBlock>
             <div className="flex items-center gap-1.5 flex-wrap mb-4">
-              <span className="text-sm font-semibold text-foreground">{displayJob.company}</span>
+              <InlineEditBlock
+                value={displayJob.company}
+                canEdit={editable}
+                onSave={saveField("companyName")}
+              >
+                {(shown) => (
+                  <span className="text-sm font-semibold text-foreground">{shown}</span>
+                )}
+              </InlineEditBlock>
               <span className="text-border">·</span>
-              <span className="text-xs text-muted-foreground">{displayJob.location}</span>
+              <InlineEditBlock
+                type="combobox"
+                options={COUNTRY_EDIT_OPTIONS}
+                value={displayJob.location}
+                canEdit={editable}
+                onSave={saveField("companyLocation")}
+              >
+                {(shown) => (
+                  <span className="text-xs text-muted-foreground">
+                    {shown || (editable ? "Location not set" : "")}
+                  </span>
+                )}
+              </InlineEditBlock>
             </div>
 
             {/* Stage — editable on the lead drawer, right under the title. */}
@@ -606,35 +685,76 @@ export default function JobDrawer({
 
             {profiles.length > 0 && <RelevanceMatch profiles={profiles} job={displayJob} />}
 
-            {displayJob.parsedData?.skills && displayJob.parsedData.skills.length > 0 && (
+            {(editable || (displayJob.parsedData?.skills?.length ?? 0) > 0) && (
               <div className="mb-5">
                 <div className="text-xs font-semibold text-foreground mb-2">Required Skills</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {displayJob.parsedData.skills.map((skill) => (
-                    <TintedBadge key={skill} color="var(--primary)">
-                      {skill}
-                    </TintedBadge>
-                  ))}
-                </div>
+                <InlineEditBlock
+                  type="textarea"
+                  value={(displayJob.parsedData?.skills ?? []).join(", ")}
+                  canEdit={editable}
+                  onSave={async (value: string) =>
+                    onJobFieldSave!({ skills: splitList(value) })
+                  }
+                >
+                  {(shown) =>
+                    shown.trim() ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {splitList(shown).map((skill) => (
+                          <TintedBadge key={skill} color="var(--primary)">
+                            {skill}
+                          </TintedBadge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No skills yet — click to add.
+                      </p>
+                    )
+                  }
+                </InlineEditBlock>
               </div>
             )}
 
-            {displayJob.parsedData?.technologies && displayJob.parsedData.technologies.length > 0 && (
+            {(editable || (displayJob.parsedData?.technologies?.length ?? 0) > 0) && (
               <div className="mb-5">
                 <div className="text-xs font-semibold text-foreground mb-2">Technologies & Tools</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {displayJob.parsedData.technologies.map((tech) => (
-                    <TintedBadge key={tech} color="#6366F1">
-                      {tech}
-                    </TintedBadge>
-                  ))}
-                </div>
+                <InlineEditBlock
+                  type="textarea"
+                  value={(displayJob.parsedData?.technologies ?? []).join(", ")}
+                  canEdit={editable}
+                  onSave={async (value: string) =>
+                    onJobFieldSave!({ technologies: splitList(value) })
+                  }
+                >
+                  {(shown) =>
+                    shown.trim() ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {splitList(shown).map((tech) => (
+                          <TintedBadge key={tech} color="#6366F1">
+                            {tech}
+                          </TintedBadge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No technologies yet — click to add.
+                      </p>
+                    )
+                  }
+                </InlineEditBlock>
               </div>
             )}
 
             <div className="mb-5">
               <div className="text-xs font-semibold text-foreground mb-2.5">About the Role</div>
-              <FormattedDescription text={displayJob.description} />
+              <InlineEditBlock
+                type="textarea"
+                value={displayJob.description}
+                canEdit={editable}
+                onSave={saveField("description")}
+              >
+                {(shown) => <FormattedDescription text={shown} />}
+              </InlineEditBlock>
             </div>
 
             {hasNotes && (
@@ -655,6 +775,61 @@ export default function JobDrawer({
             <div className="text-xs font-semibold text-foreground mb-4">Details</div>
 
             <dl className="flex flex-col gap-4">
+              {editable && (
+                <div className="flex flex-col gap-0.5 pb-2 mb-2 border-b border-border">
+                  <InlineEditField
+                    label="Work Type"
+                    type="select"
+                    options={WORK_TYPE_EDIT_OPTIONS}
+                    value={displayJob.workType}
+                    canEdit
+                    onSave={async (value: string) => onJobFieldSave!({ isRemote: value === "remote" })}
+                  />
+                  <InlineEditField
+                    label="Apply URL"
+                    value={displayJob.applyUrl}
+                    canEdit
+                    onSave={saveField("applyUrl")}
+                  />
+                  <InlineEditField
+                    label="Source"
+                    value={displayJob.parsedData?.source ?? null}
+                    canEdit
+                    onSave={saveField("source")}
+                  />
+                  <InlineEditField
+                    label="Min Experience"
+                    type="number"
+                    value={displayJob.parsedData?.experienceYears ?? null}
+                    canEdit
+                    onSave={async (value: string) =>
+                      onJobFieldSave!({ minExperience: value === "" ? null : Number(value) })
+                    }
+                  />
+                  <InlineEditField
+                    label="Exp. Compensation"
+                    value={displayJob.parsedData?.salaryRange ?? null}
+                    canEdit
+                    onSave={saveField("expCompensation")}
+                  />
+                  <InlineEditField
+                    label="Budget"
+                    value={displayJob.parsedData?.budget ?? null}
+                    canEdit
+                    onSave={saveField("budget")}
+                  />
+                  {isLeadsView && onDeveloperSave && (
+                    <InlineEditField
+                      label="Developer"
+                      value={displayJob.parsedData?.developer ?? null}
+                      canEdit
+                      onSave={onDeveloperSave}
+                    />
+                  )}
+                </div>
+              )}
+
+              {!editable && (
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Work Type</dt>
                 <dd className="text-xs text-foreground capitalize">
@@ -664,6 +839,14 @@ export default function JobDrawer({
                     : null}
                 </dd>
               </div>
+              )}
+
+              {displayJob.engagementType && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Type</dt>
+                  <dd className="text-xs text-foreground capitalize font-medium">{displayJob.engagementType}</dd>
+                </div>
+              )}
 
               {displayJob.stage && (
                 <div className="flex items-center justify-between gap-3">
@@ -672,28 +855,28 @@ export default function JobDrawer({
                 </div>
               )}
 
-              {displayJob.parsedData?.experienceYears && (
+              {!editable && displayJob.parsedData?.experienceYears && (
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Min Experience</dt>
                   <dd className="text-xs text-foreground font-medium">{displayJob.parsedData.experienceYears} Years</dd>
                 </div>
               )}
 
-              {displayJob.parsedData?.salaryRange && (
+              {!editable && displayJob.parsedData?.salaryRange && (
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Exp. Compensation</dt>
                   <dd className="text-xs text-foreground font-medium">{displayJob.parsedData.salaryRange}</dd>
                 </div>
               )}
 
-              {displayJob.parsedData?.budget && (
+              {!editable && displayJob.parsedData?.budget && (
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Budget</dt>
                   <dd className="text-xs text-foreground font-medium text-right">{displayJob.parsedData.budget}</dd>
                 </div>
               )}
 
-              {displayJob.parsedData?.developer && (
+              {!editable && isLeadsView && displayJob.parsedData?.developer && (
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Developer</dt>
                   <dd className="text-xs text-foreground font-medium text-right">{displayJob.parsedData.developer}</dd>
@@ -709,12 +892,14 @@ export default function JobDrawer({
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Source</dt>
-                <dd className="text-xs text-foreground">
-                  {displayJob.parsedData?.source || displayJob.parser}
-                </dd>
-              </div>
+              {!editable && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Source</dt>
+                  <dd className="text-xs text-foreground">
+                    {displayJob.parsedData?.source || displayJob.parser}
+                  </dd>
+                </div>
+              )}
 
               {(() => {
                 // Who this job is tied to — the profile(s) it was applied
@@ -753,12 +938,14 @@ export default function JobDrawer({
                 </dd>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Location</dt>
-                <dd className="text-xs text-foreground text-right">{displayJob.location}</dd>
-              </div>
+              {!editable && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Location</dt>
+                  <dd className="text-xs text-foreground text-right">{displayJob.location}</dd>
+                </div>
+              )}
 
-              {displayJob.applyUrl && (
+              {displayJob.applyUrl && !editable && (
                 <>
                   <div className="my-2 border-t border-border" />
                   <div className="flex flex-col gap-1">

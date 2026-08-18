@@ -326,11 +326,15 @@ export type Database = {
           company_name: string
           created_at: string
           description: string | null
+          engagement_type:
+            | Database["public"]["Enums"]["job_engagement_type"]
+            | null
           external_job_id: string
           id: string
           is_globally_open: boolean | null
           is_remote: boolean | null
           job_posted_at: string | null
+          manual_overrides: string[]
           organization_id: string
           parsed_data: Json | null
           possibly_closed: boolean
@@ -345,11 +349,15 @@ export type Database = {
           company_name: string
           created_at?: string
           description?: string | null
+          engagement_type?:
+            | Database["public"]["Enums"]["job_engagement_type"]
+            | null
           external_job_id: string
           id?: string
           is_globally_open?: boolean | null
           is_remote?: boolean | null
           job_posted_at?: string | null
+          manual_overrides?: string[]
           organization_id: string
           parsed_data?: Json | null
           possibly_closed?: boolean
@@ -364,11 +372,15 @@ export type Database = {
           company_name?: string
           created_at?: string
           description?: string | null
+          engagement_type?:
+            | Database["public"]["Enums"]["job_engagement_type"]
+            | null
           external_job_id?: string
           id?: string
           is_globally_open?: boolean | null
           is_remote?: boolean | null
           job_posted_at?: string | null
+          manual_overrides?: string[]
           organization_id?: string
           parsed_data?: Json | null
           possibly_closed?: boolean
@@ -399,6 +411,7 @@ export type Database = {
           applied_at: string
           created_at: string
           deleted_at: string | null
+          developer: string | null
           id: string
           job_id: string
           job_profile_state_id: string | null
@@ -414,6 +427,7 @@ export type Database = {
           applied_at?: string
           created_at?: string
           deleted_at?: string | null
+          developer?: string | null
           id?: string
           job_id: string
           job_profile_state_id?: string | null
@@ -429,6 +443,7 @@ export type Database = {
           applied_at?: string
           created_at?: string
           deleted_at?: string | null
+          developer?: string | null
           id?: string
           job_id?: string
           job_profile_state_id?: string | null
@@ -871,6 +886,7 @@ export type Database = {
     }
     Enums: {
       application_status: "suggested" | "dismissed" | "applied"
+      job_engagement_type: "inbound" | "outbound"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1002,6 +1018,7 @@ export const Constants = {
   public: {
     Enums: {
       application_status: ["suggested", "dismissed", "applied"],
+      job_engagement_type: ["inbound", "outbound"],
     },
   },
 } as const

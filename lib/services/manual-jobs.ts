@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { ParsedJobData } from "@/lib/ai/client";
+import type { EngagementType } from "@/lib/constants";
 
 /**
  * Shared engine behind the manual job flows (the Pipeline "New Job" dialog
@@ -22,6 +23,8 @@ export type ManualJobInput = {
   /** Applied-on date as "YYYY-MM-DD" (local). */
   date: string;
   source?: string;
+  /** How the job reached us; undefined leaves jobs.engagement_type null. */
+  engagementType?: EngagementType;
   skills?: string[];
   budget?: string;
   expCompensation?: string;
@@ -148,7 +151,6 @@ export function prepareManualJob(
   };
   if (input.budget) parsedData.budget = input.budget;
   if (input.source) parsedData.source = input.source;
-  if (input.developer) parsedData.developer = input.developer;
 
   let applyUrl = input.url ?? "";
   if (applyUrl && !/^https?:\/\//i.test(applyUrl)) {
@@ -170,6 +172,7 @@ export function prepareManualJob(
       apply_url: applyUrl,
       is_remote: null,
       remote_allowed_region: null,
+      engagement_type: input.engagementType ?? null,
       job_posted_at: appliedAt,
       is_globally_open: true,
       possibly_closed: false,
@@ -190,6 +193,9 @@ export function prepareManualJob(
             pipeline_stage_id: input.pipelineStageId,
             applied_at: appliedAt,
             notes: input.comment ?? "",
+            // The developer is a lead attribute (one developer per lead, but
+            // a job can have many leads) — stored here, not on the job.
+            developer: input.developer ?? null,
             user_id: profile.user_id as string,
           }
         : null,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ENGAGEMENT_TYPE_VALUES } from "@/lib/constants";
 
 export const createUserSchema = z.object({
   name: z.string().trim().min(1, "Full name is required."),
@@ -74,6 +75,14 @@ const optionalTrimmedText = z
     const trimmed = value?.trim();
     return trimmed ? trimmed : undefined;
   });
+
+// Optional inbound/outbound. The form and the import mapper both send "" for
+// "not set", so an empty string is a valid way to say "leave it null" rather
+// than a validation failure.
+const engagementTypeSchema = z
+  .union([z.enum(ENGAGEMENT_TYPE_VALUES), z.literal("")])
+  .nullish()
+  .transform((value) => (value ? value : undefined));
 
 export const profileCoreFieldsSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required."),
@@ -225,6 +234,9 @@ export const createManualJobSchema = z
     // Free-text source (e.g. LinkedIn, referral, email) — kept on
     // jobs.parsed_data; jobs.scraper_id points at the Manual scraper.
     source: optionalTrimmedText,
+    // How the job reached us. Optional everywhere — an unset value stays null
+    // (unclassified), which is also where every scraped job sits.
+    engagementType: engagementTypeSchema,
     skills: z.array(z.string().trim().min(1)).max(100).optional(),
     budget: optionalTrimmedText,
     expCompensation: optionalTrimmedText,
@@ -243,14 +255,116 @@ export const createManualJobSchema = z
     path: ["pipelineStageId"],
   });
 
+// Editing a scraped or manual job. Exactly the columns the discovery cron
+// rewrites — and so exactly the ones jobs.manual_overrides can protect (the
+// jobs_manual_overrides_known_columns check constraint, migration
+// 20260812130222). Keep these two lists in step: a column added here without
+// the constraint knowing it will fail the write.
+export const JOB_EDITABLE_FIELDS = [
+  "title",
+  "companyName",
+  "companyLocation",
+  "description",
+  "applyUrl",
+  "isRemote",
+  "jobPostedAt",
+] as const;
+
+export type JobEditableField = (typeof JOB_EDITABLE_FIELDS)[number];
+
+/** camelCase payload key → the jobs column it writes (and protects). */
+export const JOB_FIELD_COLUMNS: Record<JobEditableField, string> = {
+  title: "title",
+  companyName: "company_name",
+  companyLocation: "company_location",
+  description: "description",
+  applyUrl: "apply_url",
+  isRemote: "is_remote",
+  jobPostedAt: "job_posted_at",
+};
+
+export const updateJobSchema = z
+  .object({
+    title: z.string().trim().min(1, "Title is required.").max(300).optional(),
+    companyName: z.string().trim().min(1, "Company is required.").max(200).optional(),
+    // Nullable: clearing an optional field is a real edit, and still counts
+    // as an override so the cron won't refill it.
+    companyLocation: z.string().trim().max(300).nullable().optional(),
+    description: z.string().trim().max(20000).nullable().optional(),
+    applyUrl: z.string().trim().max(2000).nullable().optional(),
+    isRemote: z.boolean().nullable().optional(),
+    jobPostedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date.")
+      .refine(isRealCalendarDate, { message: "Enter a valid date." })
+      .nullable()
+      .optional(),
+    // Parsed-data extras — the structured fields on jobs.parsed_data (jsonb):
+    // skills, technologies, experience, compensation, budget, source.
+    // Edited by the same job editor as the columns above.
+    skills: z.array(z.string().trim().min(1)).max(100).optional(),
+    technologies: z.array(z.string().trim().min(1)).max(100).optional(),
+    minExperience: z.number().nullable().optional(),
+    expCompensation: z.string().trim().max(300).nullable().optional(),
+    budget: z.string().trim().max(300).nullable().optional(),
+    source: z.string().trim().max(300).nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      [...JOB_EDITABLE_FIELDS, ...JOB_PARSED_DATA_FIELDS].some(
+        (field) => data[field] !== undefined,
+      ),
+    { message: "Provide at least one field to update." },
+  );
+
+// The structured extras stored inside jobs.parsed_data (jsonb) rather than
+// as columns. They're merged at write time and never join manual_overrides
+// — its check constraint only knows the ingest-written columns (migration
+// 20260812130222), and parsed_data is only ever written by the one-shot AI
+// enrichment, never the nightly upsert, so an edit survives by construction.
+// Developer is deliberately NOT here: it belongs to the lead, not the job
+// (a job can have many leads, one per applying profile) — see migration
+// 20260818090000 and leads.developer.
+export const JOB_PARSED_DATA_FIELDS = [
+  "skills",
+  "technologies",
+  "minExperience",
+  "expCompensation",
+  "budget",
+  "source",
+] as const;
+
+export type JobParsedDataField = (typeof JOB_PARSED_DATA_FIELDS)[number];
+
+/** camelCase payload key → the jobs.parsed_data key it writes. */
+export const JOB_PARSED_DATA_KEYS: Record<JobParsedDataField, string> = {
+  skills: "skills",
+  technologies: "technologies",
+  minExperience: "experienceYears",
+  expCompensation: "salaryRange",
+  budget: "budget",
+  source: "source",
+};
+
 export const updateLeadSchema = z
   .object({
     notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),
     pipelineStageId: z.uuid("Invalid stage.").optional(),
+    // Who handles the lead. Lead-specific (a job can have many leads, one
+    // per applying profile) — empty string clears it; absent means leave alone.
+    developer: z
+      .string()
+      .trim()
+      .max(300)
+      .transform((value) => (value ? value : null))
+      .optional(),
   })
   .refine(
-    (data) => data.notes !== undefined || data.pipelineStageId !== undefined,
-    { message: "Provide notes or a stage to update." },
+    (data) =>
+      data.notes !== undefined ||
+      data.pipelineStageId !== undefined ||
+      data.developer !== undefined,
+    { message: "Provide notes, a stage, or a developer to update." },
   );
 
 export const createCommentSchema = z.object({

@@ -2,7 +2,14 @@
 
 import type { ReactNode } from "react"
 import { FilterOption } from "@/components/jobs/filter-option"
-import { DATE_RANGES, SORT_OPTIONS, type DateRange, type SortOption } from "@/lib/constants"
+import {
+  DATE_RANGES,
+  ENGAGEMENT_TYPES,
+  SORT_OPTIONS,
+  type DateRange,
+  type EngagementType,
+  type SortOption,
+} from "@/lib/constants"
 
 /**
  * Shared filter-bar sections used by the Discovery and Pipeline sidebars.
@@ -37,6 +44,35 @@ export function DateRangeSection({
           onClick={() => onValueChange(range.value)}
         >
           {range.label}
+        </FilterOption>
+      ))}
+    </FilterSection>
+  )
+}
+
+/**
+ * Inbound / outbound. "" is "any", so the section is a three-way choice with
+ * no separate clear control — matching how the other sections behave.
+ */
+export function EngagementSection({
+  value,
+  onValueChange,
+}: {
+  value: EngagementType | ""
+  onValueChange: (value: EngagementType | "") => void
+}) {
+  return (
+    <FilterSection title="Type">
+      <FilterOption active={value === ""} onClick={() => onValueChange("")}>
+        Any type
+      </FilterOption>
+      {ENGAGEMENT_TYPES.map((option) => (
+        <FilterOption
+          key={option.value}
+          active={value === option.value}
+          onClick={() => onValueChange(option.value)}
+        >
+          {option.label}
         </FilterOption>
       ))}
     </FilterSection>

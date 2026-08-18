@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { parseEngagementType, type EngagementType } from "@/lib/constants";
 
 /**
  * SECURITY NOTE — dependency deferral (see security_best_practices_report.md,
@@ -37,6 +38,7 @@ export type ImportFieldKey =
   | "date"
   | "budget"
   | "expCompensation"
+  | "engagement"
   | "url";
 
 export type ImportFieldDef = {
@@ -61,6 +63,7 @@ export const IMPORT_FIELDS: readonly ImportFieldDef[] = [
   { key: "date", label: "Date applied", required: false },
   { key: "budget", label: "Budget", required: false },
   { key: "expCompensation", label: "Exp. Compensation", required: false },
+  { key: "engagement", label: "Type (inbound/outbound)", required: false },
   { key: "url", label: "URL", required: false },
 ];
 
@@ -176,6 +179,7 @@ const HEADER_ALIASES: Record<ImportFieldKey, string[]> = {
     "exp. compensation", "exp compensation", "compensation", "exp comp",
     "expcomp", "comp", "expected compensation", "salary", "salary range", "rate",
   ],
+  engagement: ["type", "engagement", "engagement type", "inbound outbound", "job type", "lead type", "direction"],
   url: ["url", "link", "job url", "apply url", "job link", "posting url", "apply link"],
 };
 
@@ -396,6 +400,8 @@ export type ImportRowValues = {
   date: string;
   budget: string;
   expCompensation: string;
+  /** "inbound" | "outbound", or "" when unset or unrecognised. */
+  engagement: EngagementType | "";
   url: string;
 };
 
@@ -432,6 +438,9 @@ export function validateRow(
     date: "",
     budget: cellOf("budget"),
     expCompensation: cellOf("expCompensation"),
+    // Unrecognised text is dropped to "" rather than failing the row: the
+    // column is optional, so a stray value just means unclassified.
+    engagement: parseEngagementType(cellOf("engagement")) ?? "",
     url: cellOf("url"),
   };
 

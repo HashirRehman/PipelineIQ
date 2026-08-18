@@ -28,8 +28,8 @@ import {
 } from "@/lib/constants";
 import { getDateWindow } from "@/lib/date-window";
 import { cn } from "@/lib/utils";
-import JobDrawer, { type Job } from "@/components/job-drawer";
-import { apiGet, apiPost } from "@/lib/api/client";
+import JobDrawer, { type Job, type JobFieldPatch } from "@/components/job-drawer";
+import { apiGet, apiPatch, apiPost } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 
 const REGIONS = ["Global", "US Only"];
@@ -73,6 +73,8 @@ const buildQueryKey = (opts: {
 interface DiscoveryResponse {
   jobs: Job[];
   profiles: DiscoveryProfile[];
+  /** Admin / BD Manager may edit job fields (the jobs_update RLS policy). */
+  canEditJobs: boolean;
   totalCount: number;
   page: number;
   pageSize: number;
@@ -115,6 +117,7 @@ export default function DiscoveryTab() {
 
   const jobs = data?.jobs ?? [];
   const profiles = data?.profiles ?? [];
+  const canEditJobs = data?.canEditJobs ?? false;
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? 1;
   // Real parser/scraper list from the API (the scrapers table) — NOT a
@@ -202,6 +205,21 @@ export default function DiscoveryTab() {
     setSelectedJob(null);
     setDismissReason("");
     await refreshJobs();
+  };
+
+  // Job field editing (title, location, summary, skills, source…) — Admin
+  // and BD Managers only, gated by canEditJobs from the API and the PATCH
+  // route. The edited job is refetched so the new values come back from the
+  // server rather than being guessed here.
+  const saveJobFields = async (patch: JobFieldPatch) => {
+    if (!selectedJob) return "No job selected.";
+    try {
+      await apiPatch<{ success: boolean }>(`/api/jobs/${selectedJob.id}`, patch);
+      await refreshJobs();
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    }
   };
 
   const isActiveFilter =
@@ -418,6 +436,8 @@ export default function DiscoveryTab() {
         markAppliedPending={markAppliedPending}
         onDismiss={handleDismiss}
         showActions={true}
+        canEditJob={canEditJobs}
+        onJobFieldSave={saveJobFields}
         dismissOpen={dismissOpen}
         setDismissOpen={setDismissOpen}
         dismissReason={dismissReason}

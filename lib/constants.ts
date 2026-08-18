@@ -50,6 +50,25 @@ export const SORT_OPTIONS = [
 
 export type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 
+/* How a job reached us — mirrors the jobs.engagement_type enum
+   (migration 20260814090000). Optional on every write: an unset value is
+   null, which is where every scraped job stays until someone classifies it.
+   One list feeds the create form, the import mapper, and the filters. */
+export const ENGAGEMENT_TYPES = [
+  { value: "inbound", label: "Inbound" },
+  { value: "outbound", label: "Outbound" },
+] as const;
+
+export type EngagementType = (typeof ENGAGEMENT_TYPES)[number]["value"];
+
+export const ENGAGEMENT_TYPE_VALUES = ENGAGEMENT_TYPES.map((t) => t.value) as readonly EngagementType[];
+
+/** "INBOUND", " inbound " → "inbound"; anything unrecognised → null. */
+export function parseEngagementType(input: string | null | undefined): EngagementType | null {
+  const normalized = (input ?? "").trim().toLowerCase();
+  return ENGAGEMENT_TYPE_VALUES.find((value) => value === normalized) ?? null;
+}
+
 /* ════════════════════════════════════════════════════════════════════
    COLOR TOKENS
    ────────────────────────────────────────────────────────────────────

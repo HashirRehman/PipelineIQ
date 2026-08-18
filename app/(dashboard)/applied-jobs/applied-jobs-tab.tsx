@@ -8,13 +8,14 @@ import { GooeyInput } from "@/components/ui/gooey-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CountryCombobox } from "@/components/ui/country-combobox"
 import { FilterOption } from "@/components/jobs/filter-option"
+import { EngagementSection } from "@/components/jobs/filter-sections"
 import { FilterSidebar } from "@/components/jobs/filter-sidebar"
 import { JobCard } from "@/components/jobs/job-card"
 import { JobListView } from "@/components/jobs/job-list-view"
 import { Pagination } from "@/components/jobs/pagination"
 import { ViewToggle } from "@/components/jobs/view-toggle"
 import { useJobView } from "@/hooks/use-job-view"
-import JobDrawer, { type Job } from "@/components/job-drawer"
+import JobDrawer, { type Job, type JobFieldPatch } from "@/components/job-drawer"
 import { ProfileUserFilters } from "@/components/leads/profile-user-filters"
 import { ResultsCount } from "@/components/results-count"
 import {
@@ -30,6 +31,7 @@ import {
   WORK_TYPES,
   WORK_TYPE_COLOR,
   type DateRange,
+  type EngagementType,
   type SortOption,
 } from "@/lib/constants"
 import {
@@ -41,7 +43,7 @@ import {
   yearWindowLabel,
 } from "@/lib/date-window"
 import { cn } from "@/lib/utils"
-import { apiGet, apiPost } from "@/lib/api/client"
+import { apiGet, apiPatch, apiPost } from "@/lib/api/client"
 import { queryKeys } from "@/lib/api/query-keys"
 import { NewJobDialog, type NewJobStage } from "@/components/jobs/new-job-dialog"
 import dynamic from "next/dynamic"
@@ -77,6 +79,7 @@ interface AppliedJobsResponse {
   users: { id: string; name: string; role: "admin" | "lead" | "bd"; profileIds: string[] }[]
   /** True when the caller may see (and filter by) every user's data. */
   canViewAllData: boolean
+  canEditJobs: boolean
   totalCount: number
   page: number
   pageSize: number
@@ -101,6 +104,7 @@ const buildQueryKey = (opts: {
   leadFilter: LeadFilter
   profileId: string
   userId: string
+  engagement: EngagementType | ""
 }) => {
   const params = new URLSearchParams({
     page: String(opts.page),
@@ -117,6 +121,7 @@ const buildQueryKey = (opts: {
     leadFilter: opts.leadFilter === "exclude" ? "" : opts.leadFilter,
     profileId: opts.profileId === "all" ? "" : opts.profileId,
     userId: opts.userId === "all" ? "" : opts.userId,
+    engagement: opts.engagement,
   })
   // Exactly one date control is active; its window (computed client-side in
   // local time) drives the applied-date filter. The applied feed is filtered
@@ -140,6 +145,7 @@ export default function AppliedJobsTab() {
   const [parserFilter, setParserFilter] = useState("All Sources")
   const [workTypeFilter, setWorkTypeFilter] = useState("All Types")
   const [countryFilter, setCountryFilter] = useState("")
+  const [engagementFilter, setEngagementFilter] = useState<EngagementType | "">("")
   const [page, setPage] = useState(1)
   // Default: the current Friday–Thursday week (the business week), and the
   // applied feed is newest-first (by when jobs were applied).
@@ -168,7 +174,7 @@ export default function AppliedJobsTab() {
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth()
 
-  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, country: countryFilter, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter })
+  const loadingKey = buildQueryKey({ page, workType: workTypeFilter, parser: parserFilter, search, country: countryFilter, dateRange, month: monthFilter, year: yearFilter, sort, leadFilter, profileId: profileFilter, userId: userFilter, engagement: engagementFilter })
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.jobs.applied(loadingKey),
     queryFn: ({ signal }) => apiGet<AppliedJobsResponse>(`/api/discovery?${loadingKey}`, signal),
@@ -178,6 +184,7 @@ export default function AppliedJobsTab() {
   const profiles = data?.profiles ?? []
   const users = data?.users ?? []
   const canViewAllData = data?.canViewAllData ?? false
+  const canEditJobs = data?.canEditJobs ?? false
   const totalCount = data?.totalCount ?? 0
   const totalPages = data?.totalPages ?? 1
   const parsers = data?.parsers?.length ? data.parsers : ["All Sources"]
@@ -195,6 +202,21 @@ export default function AppliedJobsTab() {
   const changeWorkType = (v: string) => { setWorkTypeFilter(v); setPage(1) }
   const changeParser = (v: string) => { setParserFilter(v); setPage(1) }
   const changeCountry = (v: string) => { setCountryFilter(v); setPage(1) }
+  const changeEngagement = (v: EngagementType | "") => { setEngagementFilter(v); setPage(1) }
+
+  // Returns an error message to keep the inline editor open, or null on
+  // success. The edited job is refetched so manual_overrides and the new value
+  // come back from the server rather than being guessed here.
+  const saveJobFields = async (patch: JobFieldPatch) => {
+    if (!selectedJob) return "No job selected."
+    try {
+      await apiPatch<{ success: boolean }>(`/api/jobs/${selectedJob.id}`, patch)
+      await refreshJobs()
+      return null
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again."
+    }
+  }
   const changeDateRange = (v: DateRange) => {
     setDateRange(v)
     setMonthFilter(null)
@@ -244,6 +266,7 @@ export default function AppliedJobsTab() {
     setParserFilter("All Sources")
     setWorkTypeFilter("All Types")
     setCountryFilter("")
+    setEngagementFilter("")
     setDateRange("this_week")
     setMonthFilter(null)
     setYearFilter(null)
@@ -392,7 +415,7 @@ export default function AppliedJobsTab() {
       </div>
 
       {/* Right filter sidebar — every filter lives here: Profile, User, Date,
-          Work Type, Source, Leads visibility, Sort. */}
+          Work Type, Country, Type, Source, Leads visibility, Sort. */}
       <FilterSidebar
         open={filtersOpen}
         clearable={isActiveFilter}
@@ -496,6 +519,10 @@ export default function AppliedJobsTab() {
             />
           </div>
 
+          {/* Type — how the job reached us. Manually added/imported jobs
+              only; scraped jobs are unclassified and match "Any type". */}
+          <EngagementSection value={engagementFilter} onValueChange={changeEngagement} />
+
           {/* Parser — the scrapers that fetch jobs (from the scrapers table) */}
           <div className="px-4 pb-4">
             <p className="text-caption font-semibold text-muted-foreground uppercase tracking-widest mb-2">Parser</p>
@@ -582,6 +609,8 @@ export default function AppliedJobsTab() {
         setDismissOpen={setDismissOpen}
         dismissReason={dismissReason}
         setDismissReason={setDismissReason}
+        canEditJob={canEditJobs}
+        onJobFieldSave={saveJobFields}
       />
     </div>
   )

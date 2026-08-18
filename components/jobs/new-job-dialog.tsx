@@ -20,11 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiPost } from "@/lib/api/client";
+import { ENGAGEMENT_TYPES, type EngagementType } from "@/lib/constants";
 
 export type NewJobProfile = { id: string; name: string };
 export type NewJobStage = { id: string; name: string; orderIndex: number };
 
 type JobState = "applied" | "lead" | "dismissed";
+
+// Base UI's Select can't carry "" as an item value, so "not set" needs a
+// sentinel that never reaches the API — it's mapped back to undefined.
+const UNSET_ENGAGEMENT = "unset";
 
 const JOB_STATES: readonly { value: JobState; label: string }[] = [
   { value: "applied", label: "Applied" },
@@ -76,6 +81,7 @@ export function NewJobDialog({
   const [date, setDate] = useState(localToday);
   const [profileId, setProfileId] = useState("");
   const [state, setState] = useState<JobState>("applied");
+  const [engagementType, setEngagementType] = useState<EngagementType | "">("");
   const [stageId, setStageId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -90,6 +96,7 @@ export function NewJobDialog({
       setDate(localToday());
       setState("applied");
       setStageId("");
+      setEngagementType("");
       // Single assigned profile → default it (the requirement); several →
       // leave the choice to the user.
       setProfileId(profiles.length === 1 ? profiles[0].id : "");
@@ -132,6 +139,7 @@ export function NewJobDialog({
         url: form.url,
         date,
         source: form.source,
+        engagementType: engagementType || undefined,
         skills: skillList.length > 0 ? skillList : undefined,
         budget: form.budget,
         expCompensation: form.expCompensation,
@@ -144,6 +152,7 @@ export function NewJobDialog({
       setForm(BLANK_FORM);
       setState("applied");
       setStageId("");
+      setEngagementType("");
       setProfileId(profiles.length === 1 ? profiles[0].id : "");
       onCreated();
       close();
@@ -233,6 +242,35 @@ export function NewJobDialog({
               </div>
             </div>
 
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="engagementType">Type</Label>
+              <Select
+                value={engagementType || UNSET_ENGAGEMENT}
+                onValueChange={(v) =>
+                  setEngagementType(
+                    !v || v === UNSET_ENGAGEMENT ? "" : (v as EngagementType),
+                  )
+                }
+                name="engagementType"
+              >
+                <SelectTrigger id="engagementType" className="w-full">
+                  <SelectValue placeholder="Not set" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNSET_ENGAGEMENT}>Not set</SelectItem>
+                  {ENGAGEMENT_TYPES.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Optional — inbound means the client approached us, outbound
+                means we applied.
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="budget">Budget</Label>
@@ -254,14 +292,16 @@ export function NewJobDialog({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="developer">Developer</Label>
-              <Input
-                id="developer"
-                value={form.developer}
-                onChange={(e) => set("developer")(e.target.value)}
-              />
-            </div>
+            {state === "lead" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="developer">Developer</Label>
+                <Input
+                  id="developer"
+                  value={form.developer}
+                  onChange={(e) => set("developer")(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="profileId">Profile *</Label>

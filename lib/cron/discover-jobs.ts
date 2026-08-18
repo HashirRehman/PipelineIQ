@@ -125,8 +125,48 @@ export async function runJobDiscovery(
       continue;
     }
 
+    // Rows a user has edited, for this source only. Their edited columns must
+    // survive this run (jobs.manual_overrides, migration 20260812130222).
+    const { data: editedRows } = await supabase
+      .from("jobs")
+      .select("id, external_job_id, manual_overrides")
+      .eq("scraper_id", adapter.sourceId)
+      .not("manual_overrides", "eq", "{}");
+    const editedByExternalId = new Map(
+      (editedRows ?? []).map((row) => [row.external_job_id, row]),
+    );
+
     for (const listing of listings) {
       try {
+        const incoming = {
+          title: listing.title,
+          company_name: listing.companyName,
+          company_location: listing.location ?? null,
+          description: listing.description ?? null,
+          apply_url: listing.applyUrl,
+          is_remote: listing.isRemote ?? null,
+          job_posted_at: listing.postedAt?.toISOString() ?? null,
+        };
+
+        const edited = editedByExternalId.get(listing.externalId);
+        if (edited) {
+          // Deliberately an UPDATE of the unprotected columns rather than an
+          // upsert with the protected keys omitted: ON CONFLICT still forms
+          // the candidate insert row first, so leaving out NOT NULL columns
+          // (title, company_name, apply_url) would raise a not-null
+          // violation before the conflict is ever detected.
+          const protectedColumns = new Set(edited.manual_overrides ?? []);
+          const payload: Partial<typeof incoming> = Object.fromEntries(
+            Object.entries(incoming).filter(([column]) => !protectedColumns.has(column)),
+          );
+          if (Object.keys(payload).length > 0) {
+            const { error } = await supabase.from("jobs").update(payload).eq("id", edited.id);
+            if (error) throw error;
+          }
+          summary.jobsUpserted++;
+          continue;
+        }
+
         const { error } = await supabase
           .from("jobs")
           .upsert(
@@ -134,13 +174,7 @@ export async function runJobDiscovery(
               organization_id: organizationId,
               scraper_id: adapter.sourceId,
               external_job_id: listing.externalId,
-              title: listing.title,
-              company_name: listing.companyName,
-              company_location: listing.location ?? null,
-              description: listing.description ?? null,
-              apply_url: listing.applyUrl,
-              is_remote: listing.isRemote ?? null,
-              job_posted_at: listing.postedAt?.toISOString() ?? null,
+              ...incoming,
             },
             { onConflict: "scraper_id,external_job_id" },
           );
