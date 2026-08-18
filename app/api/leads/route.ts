@@ -305,6 +305,7 @@ export async function GET(request: Request) {
     // Manager from the ROLE_PERMISSIONS matrix). The applier can always edit
     // their own lead's notes.
     canManageLeadNotes: perms.canManageLeadNotes,
+    canEditJobs: perms.canEditJobs,
     totalCount,
     page,
     pageSize,

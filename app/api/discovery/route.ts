@@ -574,6 +574,7 @@ export async function GET(request: NextRequest) {
     profiles: allProfileRows.map(toDiscoveryProfile),
     users: perms.canViewUsers ? users : [],
     canViewAllData: perms.canViewUsers,
+    canEditJobs: perms.canEditJobs,
     totalCount,
     page,
     pageSize,

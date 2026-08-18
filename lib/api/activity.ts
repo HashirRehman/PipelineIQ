@@ -29,6 +29,7 @@ export type ActivityAction =
   | "profile_cv_deleted"
   | "profile_cv_parsed"
   | "job_created"
+  | "job_updated"
   | "job_imported"
   | "job_comment_posted"
   | "job_comment_updated"
@@ -55,6 +56,7 @@ export const ACTIVITY_ACTIONS: readonly ActivityAction[] = [
   "profile_cv_deleted",
   "profile_cv_parsed",
   "job_created",
+  "job_updated",
   "job_imported",
   "job_comment_posted",
   "job_comment_updated",
@@ -124,6 +126,7 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   profile_cv_deleted: "CV deleted",
   profile_cv_parsed: "CV parsed",
   job_created: "Job added",
+  job_updated: "Job edited",
   job_imported: "Jobs imported",
   job_comment_posted: "Comment posted",
   job_comment_updated: "Comment edited",

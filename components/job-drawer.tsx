@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { Bookmark, Loader2, X } from "lucide-react"
 
+import { InlineEditField } from "@/components/inline-edit-field"
 import { JobComments } from "@/components/job-comments"
 import { LeadNotesPanel } from "@/components/leads/lead-notes-panel"
 import { LeadStatusSelect, type StageOption } from "@/components/leads/lead-status-select"
@@ -9,6 +10,13 @@ import { parseDescription, type DescBlock } from "@/lib/job-description"
 // Minimal shape — only profile.name is rendered; both the real discovery
 // profile and any caller-supplied profile satisfy it.
 type ActiveProfile = { name: string }
+
+// jobs.is_remote is a boolean, so the editor offers exactly the two states
+// the column can hold.
+const WORK_TYPE_EDIT_OPTIONS = [
+  { value: "remote", label: "Remote" },
+  { value: "onsite", label: "Onsite" },
+] as const
 import { TintedBadge } from "@/components/tinted-badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -333,6 +341,10 @@ interface Props {
   notes?: string
   onNotesSave?: (value: string) => void
   canEditNotes?: boolean
+  /** Job field editing (Admin + BD Manager — the jobs_update RLS policy).
+   * Both must be provided for the editable rows to appear. */
+  canEditJob?: boolean
+  onJobFieldSave?: (patch: Record<string, string | boolean | null>) => Promise<string | null>
   dismissReason?: string
   setDismissReason?: (r: string) => void
   dismissOpen?: boolean
@@ -347,12 +359,19 @@ export default function JobDrawer({
   job, onClose, open, profiles,
   onApply, onMarkApplied, markAppliedPending = false, onDismiss, onAddToLead, addToLeadPending = false, showActions = true,
   commentsJobId, notes, onNotesSave, canEditNotes = true,
+  canEditJob = false, onJobFieldSave,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
   stages, onStageChange,
 }: Props) {
   // The drawer content node — the lead stage select portals its popup into
   // it so the dialog's focus trap (vaul is modal) doesn't blink it shut.
   const contentRef = useRef<HTMLDivElement | null>(null)
+
+  // Editing needs both the permission and a save handler; the Discovery feed
+  // passes neither, so its drawer stays read-only.
+  const editable = Boolean(canEditJob && onJobFieldSave)
+  const saveField = (field: string) => async (value: string) =>
+    onJobFieldSave!({ [field]: value })
 
   const [lastJob, setLastJob] = useState<Job | null>(job)
   const [lastNotes, setLastNotes] = useState(notes)
@@ -657,6 +676,34 @@ export default function JobDrawer({
             <div className="text-xs font-semibold text-foreground mb-4">Details</div>
 
             <dl className="flex flex-col gap-4">
+              {editable && (
+                <div className="flex flex-col gap-0.5 pb-2 mb-2 border-b border-border">
+                  <InlineEditField label="Title" value={displayJob.title} canEdit onSave={saveField("title")} />
+                  <InlineEditField label="Company" value={displayJob.company} canEdit onSave={saveField("companyName")} />
+                  <InlineEditField
+                    label="Location"
+                    value={displayJob.location}
+                    canEdit
+                    onSave={saveField("companyLocation")}
+                  />
+                  <InlineEditField
+                    label="Work Type"
+                    type="select"
+                    options={WORK_TYPE_EDIT_OPTIONS}
+                    value={displayJob.workType}
+                    canEdit
+                    onSave={async (value: string) => onJobFieldSave!({ isRemote: value === "remote" })}
+                  />
+                  <InlineEditField
+                    label="Apply URL"
+                    value={displayJob.applyUrl}
+                    canEdit
+                    onSave={saveField("applyUrl")}
+                  />
+                </div>
+              )}
+
+              {!editable && (
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Work Type</dt>
                 <dd className="text-xs text-foreground capitalize">
@@ -666,6 +713,7 @@ export default function JobDrawer({
                     : null}
                 </dd>
               </div>
+              )}
 
               {displayJob.engagementType && (
                 <div className="flex items-center justify-between gap-3">
@@ -762,12 +810,14 @@ export default function JobDrawer({
                 </dd>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Location</dt>
-                <dd className="text-xs text-foreground text-right">{displayJob.location}</dd>
-              </div>
+              {!editable && (
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-caption font-semibold text-muted-foreground uppercase tracking-widest">Location</dt>
+                  <dd className="text-xs text-foreground text-right">{displayJob.location}</dd>
+                </div>
+              )}
 
-              {displayJob.applyUrl && (
+              {displayJob.applyUrl && !editable && (
                 <>
                   <div className="my-2 border-t border-border" />
                   <div className="flex flex-col gap-1">

@@ -43,7 +43,7 @@ import {
   yearWindowLabel,
 } from "@/lib/date-window"
 import { cn } from "@/lib/utils"
-import { apiGet, apiPost } from "@/lib/api/client"
+import { apiGet, apiPatch, apiPost } from "@/lib/api/client"
 import { queryKeys } from "@/lib/api/query-keys"
 import { NewJobDialog, type NewJobStage } from "@/components/jobs/new-job-dialog"
 import dynamic from "next/dynamic"
@@ -79,6 +79,7 @@ interface AppliedJobsResponse {
   users: { id: string; name: string; role: "admin" | "lead" | "bd"; profileIds: string[] }[]
   /** True when the caller may see (and filter by) every user's data. */
   canViewAllData: boolean
+  canEditJobs: boolean
   totalCount: number
   page: number
   pageSize: number
@@ -183,6 +184,7 @@ export default function AppliedJobsTab() {
   const profiles = data?.profiles ?? []
   const users = data?.users ?? []
   const canViewAllData = data?.canViewAllData ?? false
+  const canEditJobs = data?.canEditJobs ?? false
   const totalCount = data?.totalCount ?? 0
   const totalPages = data?.totalPages ?? 1
   const parsers = data?.parsers?.length ? data.parsers : ["All Sources"]
@@ -201,6 +203,20 @@ export default function AppliedJobsTab() {
   const changeParser = (v: string) => { setParserFilter(v); setPage(1) }
   const changeCountry = (v: string) => { setCountryFilter(v); setPage(1) }
   const changeEngagement = (v: EngagementType | "") => { setEngagementFilter(v); setPage(1) }
+
+  // Returns an error message to keep the inline editor open, or null on
+  // success. The edited job is refetched so manual_overrides and the new value
+  // come back from the server rather than being guessed here.
+  const saveJobFields = async (patch: Record<string, string | boolean | null>) => {
+    if (!selectedJob) return "No job selected."
+    try {
+      await apiPatch<{ success: boolean }>(`/api/jobs/${selectedJob.id}`, patch)
+      await refreshJobs()
+      return null
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again."
+    }
+  }
   const changeDateRange = (v: DateRange) => {
     setDateRange(v)
     setMonthFilter(null)
@@ -593,6 +609,8 @@ export default function AppliedJobsTab() {
         setDismissOpen={setDismissOpen}
         dismissReason={dismissReason}
         setDismissReason={setDismissReason}
+        canEditJob={canEditJobs}
+        onJobFieldSave={saveJobFields}
       />
     </div>
   )

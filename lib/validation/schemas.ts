@@ -255,6 +255,56 @@ export const createManualJobSchema = z
     path: ["pipelineStageId"],
   });
 
+// Editing a scraped or manual job. Exactly the columns the discovery cron
+// rewrites — and so exactly the ones jobs.manual_overrides can protect (the
+// jobs_manual_overrides_known_columns check constraint, migration
+// 20260812130222). Keep these two lists in step: a column added here without
+// the constraint knowing it will fail the write.
+export const JOB_EDITABLE_FIELDS = [
+  "title",
+  "companyName",
+  "companyLocation",
+  "description",
+  "applyUrl",
+  "isRemote",
+  "jobPostedAt",
+] as const;
+
+export type JobEditableField = (typeof JOB_EDITABLE_FIELDS)[number];
+
+/** camelCase payload key → the jobs column it writes (and protects). */
+export const JOB_FIELD_COLUMNS: Record<JobEditableField, string> = {
+  title: "title",
+  companyName: "company_name",
+  companyLocation: "company_location",
+  description: "description",
+  applyUrl: "apply_url",
+  isRemote: "is_remote",
+  jobPostedAt: "job_posted_at",
+};
+
+export const updateJobSchema = z
+  .object({
+    title: z.string().trim().min(1, "Title is required.").max(300).optional(),
+    companyName: z.string().trim().min(1, "Company is required.").max(200).optional(),
+    // Nullable: clearing an optional field is a real edit, and still counts
+    // as an override so the cron won't refill it.
+    companyLocation: z.string().trim().max(300).nullable().optional(),
+    description: z.string().trim().max(20000).nullable().optional(),
+    applyUrl: z.string().trim().max(2000).nullable().optional(),
+    isRemote: z.boolean().nullable().optional(),
+    jobPostedAt: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date.")
+      .refine(isRealCalendarDate, { message: "Enter a valid date." })
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (data) => JOB_EDITABLE_FIELDS.some((field) => data[field] !== undefined),
+    { message: "Provide at least one field to update." },
+  );
+
 export const updateLeadSchema = z
   .object({
     notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),

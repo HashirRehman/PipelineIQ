@@ -58,6 +58,7 @@ interface LeadsResponse {
   pipelineStages: { id: string; name: string; orderIndex: number }[];
   currentUser: { id: string; name: string };
   canManageLeadNotes: boolean;
+  canEditJobs: boolean;
   totalCount: number;
   page: number;
   pageSize: number;
@@ -159,6 +160,7 @@ export default function LeadsTab() {
   const stages = data?.pipelineStages ?? [];
   const currentUser = data?.currentUser ?? null;
   const canManageLeadNotes = data?.canManageLeadNotes ?? false;
+  const canEditJobs = data?.canEditJobs ?? false;
 
   // The terminal stage — the last one in the ordered pipeline. Marking a lead
   // "done" moves it here; unticking returns it to its previous stage.
@@ -185,6 +187,19 @@ export default function LeadsTab() {
   const changeDateRange = (v: DateRange) => setDateRange(v);
   const changeSort = (v: SortOption) => setSort(v);
   const changeEngagement = (v: EngagementType | "") => setEngagementFilter(v);
+
+  // The drawer shows a synthetic job whose id is the LEAD id, so the edit has
+  // to target the real jobId — patching selectedLead.id would 404.
+  const saveJobFields = async (patch: Record<string, string | boolean | null>) => {
+    if (!selectedLead) return "No lead selected.";
+    try {
+      await apiPatch<{ success: boolean }>(`/api/jobs/${selectedLead.jobId}`, patch);
+      await refreshLeads();
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    }
+  };
 
   const isActiveFilter =
     statusFilter !== "all" ||
@@ -488,6 +503,8 @@ export default function LeadsTab() {
           if (selectedLead) saveNote(selectedLead.id, value);
         }}
         canEditNotes={canEditNotes}
+        canEditJob={canEditJobs}
+        onJobFieldSave={saveJobFields}
         stages={stages.map((s) => ({ id: s.id, name: s.name }))}
         onStageChange={(stage) => {
           if (selectedLead) updateStatus(selectedLead.id, stage);
