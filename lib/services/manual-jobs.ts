@@ -151,7 +151,6 @@ export function prepareManualJob(
   };
   if (input.budget) parsedData.budget = input.budget;
   if (input.source) parsedData.source = input.source;
-  if (input.developer) parsedData.developer = input.developer;
 
   let applyUrl = input.url ?? "";
   if (applyUrl && !/^https?:\/\//i.test(applyUrl)) {
@@ -194,6 +193,9 @@ export function prepareManualJob(
             pipeline_stage_id: input.pipelineStageId,
             applied_at: appliedAt,
             notes: input.comment ?? "",
+            // The developer is a lead attribute (one developer per lead, but
+            // a job can have many leads) — stored here, not on the job.
+            developer: input.developer ?? null,
             user_id: profile.user_id as string,
           }
         : null,

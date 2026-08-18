@@ -36,11 +36,14 @@ export interface ApiLead {
    * developer. Null when the profile has no assigned user. */
   assignedTo: string | null;
   notes: string;
+  /** Who handles this lead — a lead attribute, not the job's (a job can
+   * have many leads, one per applying profile). */
+  developer: string | null;
   parser: string;
   applyUrl: string;
   /** Raw jobs.parsed_data (jsonb) — includes the manual/imported extras
-   * (budget, source, developer, salaryRange) so the job drawer can show
-   * everything that was added. */
+   * (budget, source, salaryRange) so the job drawer can show everything
+   * that was added. */
   parsedData: unknown | null;
   /** How the originating job reached us; null when unclassified. */
   engagementType: EngagementType | null;
@@ -63,6 +66,7 @@ type LeadRow = {
   user_id: string | null;
   pipeline_stage_id: string;
   notes: string;
+  developer: string | null;
   jobs: {
     title: string;
     company_name: string;
@@ -93,6 +97,7 @@ function toApiLead(row: LeadRow): ApiLead {
     profileName: row.profiles?.full_name ?? "",
     assignedTo: row.profiles?.user_id ?? null,
     notes: row.notes ?? "",
+    developer: row.developer ?? null,
     parser: row.jobs?.scrapers?.name ?? "",
     applyUrl: row.jobs?.apply_url ?? "",
     parsedData: row.jobs?.parsed_data ?? null,
@@ -157,7 +162,7 @@ export async function GET(request: Request) {
   let leadsQuery = supabase
     .from("leads")
     .select(
-      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
+      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, developer, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
     )
     .eq("organization_id", organizationId)
     .is("deleted_at", null);
@@ -386,12 +391,19 @@ export async function POST(request: Request) {
   // (jobs are world-readable under RLS, so scope the reference explicitly).
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, organization_id, title, company_name")
+    .select("id, organization_id, title, company_name, parsed_data")
     .eq("id", jobId)
     .maybeSingle();
   if (!job || job.organization_id !== organizationId) {
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
+
+  // Legacy developer text (jobs.parsed_data -> 'developer') is copied onto
+  // the new lead so nothing is lost when a pre-migration job is converted.
+  // New jobs never carry it — developer lives on the lead (migration
+  // 20260818090000).
+  const legacyDeveloper =
+    (job.parsed_data as { developer?: string | null } | null)?.developer ?? null;
 
   // Only applied pairs become leads; the state row also pins applied_at and
   // the job_profile_state_id for the lead.
@@ -460,6 +472,7 @@ export async function POST(request: Request) {
         pipeline_stage_id: firstStage.id,
         applied_at: state.created_at,
         notes: "",
+        developer: legacyDeveloper,
       })
       .select("id")
       .single();

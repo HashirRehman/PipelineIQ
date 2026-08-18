@@ -36,6 +36,7 @@ export type ActivityAction =
   | "job_comment_deleted"
   | "lead_created"
   | "lead_stage_updated"
+  | "lead_developer_updated"
   | "lead_notes_updated"
   | "discovery_dismissed"
   | "discovery_mark_applied"
@@ -63,6 +64,7 @@ export const ACTIVITY_ACTIONS: readonly ActivityAction[] = [
   "job_comment_deleted",
   "lead_created",
   "lead_stage_updated",
+  "lead_developer_updated",
   "lead_notes_updated",
   "discovery_dismissed",
   "discovery_mark_applied",
@@ -133,6 +135,7 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   job_comment_deleted: "Comment deleted",
   lead_created: "Lead created",
   lead_stage_updated: "Lead stage updated",
+  lead_developer_updated: "Developer updated",
   lead_notes_updated: "Lead notes updated",
   discovery_dismissed: "Job dismissed",
   discovery_mark_applied: "Marked applied",

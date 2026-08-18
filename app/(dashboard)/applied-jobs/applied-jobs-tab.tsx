@@ -15,7 +15,7 @@ import { JobListView } from "@/components/jobs/job-list-view"
 import { Pagination } from "@/components/jobs/pagination"
 import { ViewToggle } from "@/components/jobs/view-toggle"
 import { useJobView } from "@/hooks/use-job-view"
-import JobDrawer, { type Job } from "@/components/job-drawer"
+import JobDrawer, { type Job, type JobFieldPatch } from "@/components/job-drawer"
 import { ProfileUserFilters } from "@/components/leads/profile-user-filters"
 import { ResultsCount } from "@/components/results-count"
 import {
@@ -207,7 +207,7 @@ export default function AppliedJobsTab() {
   // Returns an error message to keep the inline editor open, or null on
   // success. The edited job is refetched so manual_overrides and the new value
   // come back from the server rather than being guessed here.
-  const saveJobFields = async (patch: Record<string, string | boolean | null>) => {
+  const saveJobFields = async (patch: JobFieldPatch) => {
     if (!selectedJob) return "No job selected."
     try {
       await apiPatch<{ success: boolean }>(`/api/jobs/${selectedJob.id}`, patch)

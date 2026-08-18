@@ -19,6 +19,8 @@ export interface Lead {
   /** Applier's Notes — writable by the profile's current assigned user
    * (assignedTo) plus Admin / BD Manager (canManageLeadNotes). */
   notes: string
+  /** Who handles this lead — lead-specific (a job can have many leads). */
+  developer: string | null
   salary: string | null
   parser: string
   applyUrl: string

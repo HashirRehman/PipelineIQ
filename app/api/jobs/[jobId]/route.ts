@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
+import type { Json } from "@/lib/supabase/database.types";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import {
   JOB_EDITABLE_FIELDS,
   JOB_FIELD_COLUMNS,
+  JOB_PARSED_DATA_FIELDS,
+  JOB_PARSED_DATA_KEYS,
   updateJobSchema,
   type JobEditableField,
+  type JobParsedDataField,
 } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -69,7 +73,7 @@ export async function PATCH(
   // RLS turn it into a confusing zero-row update.
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, title, company_name, manual_overrides")
+    .select("id, title, company_name, manual_overrides, parsed_data")
     .eq("id", jobId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -79,6 +83,7 @@ export async function PATCH(
 
   const updates: Record<string, string | boolean | null> = {};
   const editedColumns: string[] = [];
+  const editedLabels: string[] = [];
 
   for (const field of JOB_EDITABLE_FIELDS) {
     const value = parsed.data[field as JobEditableField];
@@ -97,15 +102,49 @@ export async function PATCH(
     }
 
     editedColumns.push(column);
+    editedLabels.push(field);
+  }
+
+  // Parsed-data extras are merged into the existing jsonb object — never
+  // replaced wholesale, so a skills edit can't drop the developer value.
+  // An empty list means "cleared", same as "" on a text field.
+  const parsedDataPatch: Record<string, Json> = {};
+  for (const field of JOB_PARSED_DATA_FIELDS) {
+    const value = parsed.data[field as JobParsedDataField];
+    if (value === undefined) continue;
+    const key = JOB_PARSED_DATA_KEYS[field];
+    parsedDataPatch[key] =
+      Array.isArray(value) && value.length === 0
+        ? null
+        : value === ""
+          ? null
+          : (value as Json);
+    editedLabels.push(field);
   }
 
   // Union, not replace: editing the title today must not hand yesterday's
-  // edited description back to the cron.
+  // edited description back to the cron. Only the ingest-written columns are
+  // protected — parsed_data edits are excluded (the constraint wouldn't know
+  // them, and the enrichment that writes parsed_data runs once per job).
   const overrides = Array.from(new Set([...(job.manual_overrides ?? []), ...editedColumns]));
 
   const { error } = await supabase
     .from("jobs")
-    .update({ ...updates, manual_overrides: overrides })
+    .update({
+      ...updates,
+      manual_overrides: overrides,
+      // Only attach parsed_data when a parsed field was actually edited — an
+      // empty object would otherwise be written (and null out the column's
+      // whole jsonb, since update() sets whatever keys it's given).
+      ...(Object.keys(parsedDataPatch).length > 0
+        ? {
+            parsed_data: {
+              ...((job.parsed_data ?? {}) as Record<string, Json>),
+              ...parsedDataPatch,
+            },
+          }
+        : {}),
+    })
     .eq("id", jobId);
   if (error) {
     console.error("api/jobs/[jobId]: update failed", error);
@@ -122,11 +161,11 @@ export async function PATCH(
     actorUserId: user.id,
     actorName: actorNameFromUser(user),
     action: "job_updated",
-    description: `Edited ${editedColumns.join(", ")} on job "${entityLabel}"`,
+    description: `Edited ${editedLabels.join(", ")} on job "${entityLabel}"`,
     entityType: "job",
     entityId: jobId,
     entityLabel,
-    metadata: { fields: editedColumns },
+    metadata: { fields: editedLabels },
     request,
   });
 

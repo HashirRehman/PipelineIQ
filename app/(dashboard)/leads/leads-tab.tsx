@@ -36,7 +36,7 @@ import {
 import { apiGet, apiPatch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { getDateWindow } from "@/lib/date-window";
-import JobDrawer, { type Job } from "@/components/job-drawer";
+import JobDrawer, { type Job, type JobFieldPatch } from "@/components/job-drawer";
 import dynamic from "next/dynamic";
 
 // Loaded on demand — the Excel parser (SheetJS) is a ~330 KB chunk that
@@ -109,6 +109,7 @@ function toLead(a: ApiLead): Lead {
     status: a.status,
     assignedTo: a.assignedTo,
     notes: a.notes,
+    developer: a.developer,
     parsedData: a.parsedData,
     engagementType: a.engagementType,
     salary: null,
@@ -190,7 +191,7 @@ export default function LeadsTab() {
 
   // The drawer shows a synthetic job whose id is the LEAD id, so the edit has
   // to target the real jobId — patching selectedLead.id would 404.
-  const saveJobFields = async (patch: Record<string, string | boolean | null>) => {
+  const saveJobFields = async (patch: JobFieldPatch) => {
     if (!selectedLead) return "No lead selected.";
     try {
       await apiPatch<{ success: boolean }>(`/api/jobs/${selectedLead.jobId}`, patch);
@@ -258,6 +259,22 @@ export default function LeadsTab() {
   // Applier's Notes: the profile's current assigned user (assignedTo — leads
   // follow the profile) may write or edit them — plus Admins and BD
   // Managers, who manage the whole pipeline (canManageLeadNotes).
+  // The developer is a LEAD field (not the job's), so it patches
+  // /api/leads/{id} rather than /api/jobs/{id}. Admin/BD Manager only — the
+  // same canEditJobs gate that shows the row in the drawer.
+  const saveDeveloper = async (value: string) => {
+    if (!selectedLead) return "No lead selected.";
+    try {
+      await apiPatch<{ success: boolean }>(`/api/leads/${selectedLead.id}`, {
+        developer: value,
+      });
+      await refreshLeads();
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    }
+  };
+
   const canEditNotes = Boolean(
     currentUser &&
     selectedLead &&
@@ -298,7 +315,12 @@ export default function LeadsTab() {
     stage: lead.status,
     applyUrl: lead.applyUrl,
     isLead: true,
-    parsedData: (lead.parsedData ?? null) as Job["parsedData"],
+    // The lead's own developer rides on the job's parsedData so the drawer
+    // renders it in the same spot — it's stored on the lead, not the job.
+    parsedData: {
+      ...((lead.parsedData ?? {}) as Record<string, unknown>),
+      developer: lead.developer,
+    } as Job["parsedData"],
     engagementType: lead.engagementType,
     profiles: [],
   });
@@ -505,6 +527,8 @@ export default function LeadsTab() {
         canEditNotes={canEditNotes}
         canEditJob={canEditJobs}
         onJobFieldSave={saveJobFields}
+        isLeadsView
+        onDeveloperSave={saveDeveloper}
         stages={stages.map((s) => ({ id: s.id, name: s.name }))}
         onStageChange={(stage) => {
           if (selectedLead) updateStatus(selectedLead.id, stage);

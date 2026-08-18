@@ -299,20 +299,72 @@ export const updateJobSchema = z
       .refine(isRealCalendarDate, { message: "Enter a valid date." })
       .nullable()
       .optional(),
+    // Parsed-data extras — the structured fields on jobs.parsed_data (jsonb):
+    // skills, technologies, experience, compensation, budget, source.
+    // Edited by the same job editor as the columns above.
+    skills: z.array(z.string().trim().min(1)).max(100).optional(),
+    technologies: z.array(z.string().trim().min(1)).max(100).optional(),
+    minExperience: z.number().nullable().optional(),
+    expCompensation: z.string().trim().max(300).nullable().optional(),
+    budget: z.string().trim().max(300).nullable().optional(),
+    source: z.string().trim().max(300).nullable().optional(),
   })
   .refine(
-    (data) => JOB_EDITABLE_FIELDS.some((field) => data[field] !== undefined),
+    (data) =>
+      [...JOB_EDITABLE_FIELDS, ...JOB_PARSED_DATA_FIELDS].some(
+        (field) => data[field] !== undefined,
+      ),
     { message: "Provide at least one field to update." },
   );
+
+// The structured extras stored inside jobs.parsed_data (jsonb) rather than
+// as columns. They're merged at write time and never join manual_overrides
+// — its check constraint only knows the ingest-written columns (migration
+// 20260812130222), and parsed_data is only ever written by the one-shot AI
+// enrichment, never the nightly upsert, so an edit survives by construction.
+// Developer is deliberately NOT here: it belongs to the lead, not the job
+// (a job can have many leads, one per applying profile) — see migration
+// 20260818090000 and leads.developer.
+export const JOB_PARSED_DATA_FIELDS = [
+  "skills",
+  "technologies",
+  "minExperience",
+  "expCompensation",
+  "budget",
+  "source",
+] as const;
+
+export type JobParsedDataField = (typeof JOB_PARSED_DATA_FIELDS)[number];
+
+/** camelCase payload key → the jobs.parsed_data key it writes. */
+export const JOB_PARSED_DATA_KEYS: Record<JobParsedDataField, string> = {
+  skills: "skills",
+  technologies: "technologies",
+  minExperience: "experienceYears",
+  expCompensation: "salaryRange",
+  budget: "budget",
+  source: "source",
+};
 
 export const updateLeadSchema = z
   .object({
     notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),
     pipelineStageId: z.uuid("Invalid stage.").optional(),
+    // Who handles the lead. Lead-specific (a job can have many leads, one
+    // per applying profile) — empty string clears it; absent means leave alone.
+    developer: z
+      .string()
+      .trim()
+      .max(300)
+      .transform((value) => (value ? value : null))
+      .optional(),
   })
   .refine(
-    (data) => data.notes !== undefined || data.pipelineStageId !== undefined,
-    { message: "Provide notes or a stage to update." },
+    (data) =>
+      data.notes !== undefined ||
+      data.pipelineStageId !== undefined ||
+      data.developer !== undefined,
+    { message: "Provide notes, a stage, or a developer to update." },
   );
 
 export const createCommentSchema = z.object({

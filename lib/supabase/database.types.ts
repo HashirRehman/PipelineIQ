@@ -411,6 +411,7 @@ export type Database = {
           applied_at: string
           created_at: string
           deleted_at: string | null
+          developer: string | null
           id: string
           job_id: string
           job_profile_state_id: string | null
@@ -426,6 +427,7 @@ export type Database = {
           applied_at?: string
           created_at?: string
           deleted_at?: string | null
+          developer?: string | null
           id?: string
           job_id: string
           job_profile_state_id?: string | null
@@ -441,6 +443,7 @@ export type Database = {
           applied_at?: string
           created_at?: string
           deleted_at?: string | null
+          developer?: string | null
           id?: string
           job_id?: string
           job_profile_state_id?: string | null

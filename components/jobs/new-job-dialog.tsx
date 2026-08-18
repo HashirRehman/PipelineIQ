@@ -292,14 +292,16 @@ export function NewJobDialog({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="developer">Developer</Label>
-              <Input
-                id="developer"
-                value={form.developer}
-                onChange={(e) => set("developer")(e.target.value)}
-              />
-            </div>
+            {state === "lead" && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="developer">Developer</Label>
+                <Input
+                  id="developer"
+                  value={form.developer}
+                  onChange={(e) => set("developer")(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="profileId">Profile *</Label>
