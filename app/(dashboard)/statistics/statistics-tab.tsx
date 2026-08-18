@@ -178,13 +178,6 @@ export default function StatisticsTab() {
     const d = new Date(l.appliedAt);
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   }).length;
-  // "Avg / BD" divides by the number of users in scope: with a user or
-  // profile filter active the selection already pins the work to one user,
-  // so the denominator is 1 — dividing by the whole team would under-report
-  // (e.g. one user's 4 leads ÷ 6 members = 0.7).
-  const avgDenominator =
-    userFilter !== "all" || profileFilter !== "all" ? 1 : bdUsers.length;
-  const avgPerUser = bdUsers.length > 0 ? (totalLeads / avgDenominator).toFixed(1) : "0";
 
   // Exact label for the active date control, e.g. "This year", "August", "2025".
   const dateFilterLabel = monthFilter !== null
@@ -208,7 +201,6 @@ export default function StatisticsTab() {
       ? { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` }
       : { label: "My Profiles", value: profiles.length, sub: "assigned to you" },
     { label: "Leads This Month", value: leadsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
-    { label: "Avg / BD", value: avgPerUser, sub: `${bdUsers.length} team member${bdUsers.length === 1 ? "" : "s"}` },
   ];
 
   // Status breakdown — every DB stage with leads, colored by pipeline
@@ -321,14 +313,10 @@ export default function StatisticsTab() {
   );
 
   const totalApplications = filteredApplications.length;
-  const jobsApplied = new Set(filteredApplications.map((a) => a.jobId)).size;
   const appsThisMonth = filteredApplications.filter((a) => {
     const d = new Date(a.appliedAt);
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   }).length;
-  // Same denominator rule as the leads Avg / BD card.
-  const avgAppsPerUser =
-    bdUsers.length > 0 ? (totalApplications / avgDenominator).toFixed(1) : "0";
 
   // Applications over time — reuses the exact buckets as the leads chart so
   // the two lines share a time axis.
@@ -392,9 +380,7 @@ export default function StatisticsTab() {
 
   const appsStatCards = [
     { label: "Total Applications", value: totalApplications, sub: dateFilterLabel },
-    { label: "Jobs Applied", value: jobsApplied, sub: "distinct jobs" },
-    { label: "Applications This Month", value: appsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
-    { label: "Avg / BD", value: avgAppsPerUser, sub: `${bdUsers.length} team member${bdUsers.length === 1 ? "" : "s"}` },
+    { label: "Job Applications This Month", value: appsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
   ];
 
   const changeDateRange = (v: DateRange) => {

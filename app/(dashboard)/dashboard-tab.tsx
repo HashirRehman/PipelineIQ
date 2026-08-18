@@ -1,11 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { FunnelChart } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip } from "@/components/tooltip";
 import { SERIES_PALETTE, stageColor } from "@/lib/constants";
 import { businessWeekStart } from "@/lib/date-window";
 import { useAllLeads } from "@/hooks/use-all-leads";
@@ -134,8 +135,11 @@ export default function DashboardTab() {
   const teamMax = Math.max(...teamWeek.map((e) => e.total), 1);
 
   const recent = useMemo(
-    () => [...leads].sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)).slice(0, 6),
-    [leads],
+    () => [...leads]
+      .filter((l) => l.assignedTo === currentUser?.id)
+      .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
+      .slice(0, 6),
+    [leads, currentUser?.id],
   );
 
   // Per-stage lead counts for the funnel — today's snapshot across the whole
@@ -158,7 +162,7 @@ export default function DashboardTab() {
       ? { label: "My Profiles", value: profiles.length, sub: "assigned to you" }
       : { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` },
     { label: "Offers Out", value: offerLeads.length, sub: "waiting on decision" },
-    { label: "New This Week", value: newThisWeek, sub: weekLabel },
+    { label: "New Leads This Week", value: newThisWeek, sub: weekLabel },
     { label: "Applied This Week", value: appsThisWeek, sub: "job applications" },
   ];
 
@@ -199,7 +203,17 @@ export default function DashboardTab() {
               {/* Needs attention */}
               <Card className="gap-0 p-5 flex flex-col">
                 <CardContent className="p-0 flex-1">
-                  <div className="text-sm font-semibold text-foreground mb-1">Needs Attention</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-foreground">Needs Attention</span>
+                    <Tooltip
+                      content={`Shows leads waiting on decisions (pending offers) and stalled leads (open for ${STALL_DAYS}+ days)`}
+                      side="top"
+                    >
+                      <button className="p-0 hover:text-primary transition-colors">
+                        <Info className="size-4" />
+                      </button>
+                    </Tooltip>
+                  </div>
                   <div className="text-meta text-muted-foreground mb-4">Stalled leads and pending decisions</div>
                   {hasAttention ? (
                     <div className="flex flex-col gap-4">
@@ -311,9 +325,7 @@ export default function DashboardTab() {
               <Card className={cn("gap-0 p-5", roleKey === "bd" && "lg:col-span-2")}>
                 <CardContent className="p-0">
                   <div className="text-sm font-semibold text-foreground mb-1">Recent Activity</div>
-                  <div className="text-meta text-muted-foreground mb-4">
-                    {roleKey === "bd" ? "Your latest leads" : "Latest leads across the team"}
-                  </div>
+                  <div className="text-meta text-muted-foreground mb-4">Your recent lead actions</div>
                   {recent.length > 0 ? (
                     <div className="flex flex-col">
                       {recent.map((l) => (

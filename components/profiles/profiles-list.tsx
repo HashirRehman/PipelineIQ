@@ -1,14 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MapPin, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { NewEditProfileDialog } from "./new-edit-profile-dialog";
 import { ProfilesListView } from "./profiles-list-view";
 import { Button } from "@/components/ui/button";
 import { GooeyInput } from "@/components/ui/gooey-input";
-import { ViewToggle } from "@/components/jobs/view-toggle";
 import { ResultsCount } from "@/components/results-count";
-import { usePersistedView } from "@/hooks/use-persisted-view";
 
 export type ProfileListItem = {
   id: string;
@@ -55,7 +53,6 @@ export function ProfilesList({
   onProfileCreated?: (profileId: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [view, setView] = usePersistedView("profiles");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -89,7 +86,6 @@ export function ProfilesList({
             expandedWidth={300}
           />
         </div>
-        <ViewToggle view={view} onChange={setView} />
         {canManage && onProfileCreated && (
           <NewEditProfileDialog
             seniorityLevels={seniorityLevels}
@@ -117,63 +113,10 @@ export function ProfilesList({
                 label={filtered.length === 1 ? "candidate" : "candidates"}
               />
             </div>
-            {view === "list" ? (
-              <ProfilesListView
-                profiles={filtered}
-                onSelectProfile={onSelectProfile}
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((profile) => (
-              <Button
-                key={profile.id}
-                type="button"
-                variant="ghost"
-                onClick={() => onSelectProfile(profile.id)}
-                className="group h-auto w-full rounded-xl border border-border bg-card p-5 text-left shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 hover:bg-card hover:shadow-lg"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-avatar-2 text-sm font-semibold text-white select-none">
-                    {getInitials(profile.fullName)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {profile.fullName}
-                    </h2>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {profile.email}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {profile.seniority && (
-                        <span className="rounded-md bg-info px-2 py-0.5 text-meta font-medium text-info-foreground">
-                          {profile.seniority}
-                        </span>
-                      )}
-                      {profile.assignedUserName && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-warning/15 px-2 py-0.5 text-meta font-medium text-warning-foreground">
-                          <UserRound className="size-3" />
-                          {profile.assignedUserName}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1 truncate">
-                    <MapPin className="size-3 shrink-0" />
-                    <span className="truncate">
-                      {profile.location || "Location not set"}
-                    </span>
-                  </span>
-                  <span className="shrink-0 font-medium text-foreground">
-                    {formatRate(profile)}
-                  </span>
-                </div>
-              </Button>
-            ))}
-              </div>
-            )}
+            <ProfilesListView
+              profiles={filtered}
+              onSelectProfile={onSelectProfile}
+            />
           </>
         )}
       </div>
