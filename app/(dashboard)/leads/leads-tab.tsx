@@ -19,6 +19,7 @@ import { FilterOption } from "@/components/jobs/filter-option";
 import { FilterSidebar } from "@/components/jobs/filter-sidebar";
 import {
   DateRangeSection,
+  EngagementSection,
   FilterSection,
   SortSection,
 } from "@/components/jobs/filter-sections";
@@ -29,12 +30,13 @@ import { cn } from "@/lib/utils";
 import {
   stageColor,
   type DateRange,
+  type EngagementType,
   type SortOption,
 } from "@/lib/constants";
 import { apiGet, apiPatch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { getDateWindow } from "@/lib/date-window";
-import JobDrawer, { type Job } from "@/components/job-drawer";
+import JobDrawer, { type Job, type JobFieldPatch } from "@/components/job-drawer";
 import dynamic from "next/dynamic";
 
 // Loaded on demand — the Excel parser (SheetJS) is a ~330 KB chunk that
@@ -56,6 +58,7 @@ interface LeadsResponse {
   pipelineStages: { id: string; name: string; orderIndex: number }[];
   currentUser: { id: string; name: string };
   canManageLeadNotes: boolean;
+  canEditJobs: boolean;
   totalCount: number;
   page: number;
   pageSize: number;
@@ -70,6 +73,7 @@ const buildQueryKey = (opts: {
   userId: string;
   dateRange: DateRange;
   sort: SortOption;
+  engagement: EngagementType | "";
 }) => {
   const params = new URLSearchParams({
     search: opts.search,
@@ -79,6 +83,7 @@ const buildQueryKey = (opts: {
     userId: opts.userId === "all" ? "" : opts.userId,
     dateRange: opts.dateRange,
     sort: opts.sort,
+    engagement: opts.engagement,
     pageSize: String(PAGE_SIZE),
   });
   // Exact week/month/year window (leads are dated by applied_at).
@@ -104,7 +109,9 @@ function toLead(a: ApiLead): Lead {
     status: a.status,
     assignedTo: a.assignedTo,
     notes: a.notes,
+    developer: a.developer,
     parsedData: a.parsedData,
+    engagementType: a.engagementType,
     salary: null,
     parser: a.parser,
     applyUrl: a.applyUrl,
@@ -117,6 +124,7 @@ export default function LeadsTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("");
+  const [engagementFilter, setEngagementFilter] = useState<EngagementType | "">("");
   const [profileFilter, setProfileFilter] = useState("all");
   const [bdFilter, setBdFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -138,6 +146,7 @@ export default function LeadsTab() {
     userId: bdFilter,
     dateRange,
     sort,
+    engagement: engagementFilter,
   });
   const leadsKey = queryKeys.leads.list(params);
 
@@ -152,6 +161,7 @@ export default function LeadsTab() {
   const stages = data?.pipelineStages ?? [];
   const currentUser = data?.currentUser ?? null;
   const canManageLeadNotes = data?.canManageLeadNotes ?? false;
+  const canEditJobs = data?.canEditJobs ?? false;
 
   // The terminal stage — the last one in the ordered pipeline. Marking a lead
   // "done" moves it here; unticking returns it to its previous stage.
@@ -177,10 +187,25 @@ export default function LeadsTab() {
   const changeBd = (v: string) => setBdFilter(v ?? "all");
   const changeDateRange = (v: DateRange) => setDateRange(v);
   const changeSort = (v: SortOption) => setSort(v);
+  const changeEngagement = (v: EngagementType | "") => setEngagementFilter(v);
+
+  // The drawer shows a synthetic job whose id is the LEAD id, so the edit has
+  // to target the real jobId — patching selectedLead.id would 404.
+  const saveJobFields = async (patch: JobFieldPatch) => {
+    if (!selectedLead) return "No lead selected.";
+    try {
+      await apiPatch<{ success: boolean }>(`/api/jobs/${selectedLead.jobId}`, patch);
+      await refreshLeads();
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    }
+  };
 
   const isActiveFilter =
     statusFilter !== "all" ||
     countryFilter !== "" ||
+    engagementFilter !== "" ||
     profileFilter !== "all" ||
     bdFilter !== "all" ||
     dateRange !== "all" ||
@@ -189,6 +214,7 @@ export default function LeadsTab() {
   const clearFilters = () => {
     setStatusFilter("all");
     setCountryFilter("");
+    setEngagementFilter("");
     setProfileFilter("all");
     setBdFilter("all");
     setDateRange("all");
@@ -233,6 +259,22 @@ export default function LeadsTab() {
   // Applier's Notes: the profile's current assigned user (assignedTo — leads
   // follow the profile) may write or edit them — plus Admins and BD
   // Managers, who manage the whole pipeline (canManageLeadNotes).
+  // The developer is a LEAD field (not the job's), so it patches
+  // /api/leads/{id} rather than /api/jobs/{id}. Admin/BD Manager only — the
+  // same canEditJobs gate that shows the row in the drawer.
+  const saveDeveloper = async (value: string) => {
+    if (!selectedLead) return "No lead selected.";
+    try {
+      await apiPatch<{ success: boolean }>(`/api/leads/${selectedLead.id}`, {
+        developer: value,
+      });
+      await refreshLeads();
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Something went wrong. Please try again.";
+    }
+  };
+
   const canEditNotes = Boolean(
     currentUser &&
     selectedLead &&
@@ -273,7 +315,13 @@ export default function LeadsTab() {
     stage: lead.status,
     applyUrl: lead.applyUrl,
     isLead: true,
-    parsedData: (lead.parsedData ?? null) as Job["parsedData"],
+    // The lead's own developer rides on the job's parsedData so the drawer
+    // renders it in the same spot — it's stored on the lead, not the job.
+    parsedData: {
+      ...((lead.parsedData ?? {}) as Record<string, unknown>),
+      developer: lead.developer,
+    } as Job["parsedData"],
+    engagementType: lead.engagementType,
     profiles: [],
   });
 
@@ -448,6 +496,9 @@ export default function LeadsTab() {
           />
         </div>
 
+        {/* Type — how the originating job reached us */}
+        <EngagementSection value={engagementFilter} onValueChange={changeEngagement} />
+
         {/* Time + Sort (shared with Discovery / Pipeline) */}
         <DateRangeSection value={dateRange} onValueChange={changeDateRange} />
         <SortSection
@@ -474,6 +525,10 @@ export default function LeadsTab() {
           if (selectedLead) saveNote(selectedLead.id, value);
         }}
         canEditNotes={canEditNotes}
+        canEditJob={canEditJobs}
+        onJobFieldSave={saveJobFields}
+        isLeadsView
+        onDeveloperSave={saveDeveloper}
         stages={stages.map((s) => ({ id: s.id, name: s.name }))}
         onStageChange={(stage) => {
           if (selectedLead) updateStatus(selectedLead.id, stage);

@@ -27,7 +27,7 @@ export function LeadNotesPanel({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-xs font-semibold text-foreground">Applier&apos;s Notes</div>
+      <div className="text-xs font-semibold text-foreground">Notes</div>
       <Textarea
         rows={4}
         value={draft}

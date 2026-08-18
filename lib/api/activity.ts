@@ -29,12 +29,14 @@ export type ActivityAction =
   | "profile_cv_deleted"
   | "profile_cv_parsed"
   | "job_created"
+  | "job_updated"
   | "job_imported"
   | "job_comment_posted"
   | "job_comment_updated"
   | "job_comment_deleted"
   | "lead_created"
   | "lead_stage_updated"
+  | "lead_developer_updated"
   | "lead_notes_updated"
   | "discovery_dismissed"
   | "discovery_mark_applied"
@@ -55,12 +57,14 @@ export const ACTIVITY_ACTIONS: readonly ActivityAction[] = [
   "profile_cv_deleted",
   "profile_cv_parsed",
   "job_created",
+  "job_updated",
   "job_imported",
   "job_comment_posted",
   "job_comment_updated",
   "job_comment_deleted",
   "lead_created",
   "lead_stage_updated",
+  "lead_developer_updated",
   "lead_notes_updated",
   "discovery_dismissed",
   "discovery_mark_applied",
@@ -124,12 +128,14 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   profile_cv_deleted: "CV deleted",
   profile_cv_parsed: "CV parsed",
   job_created: "Job added",
+  job_updated: "Job edited",
   job_imported: "Jobs imported",
   job_comment_posted: "Comment posted",
   job_comment_updated: "Comment edited",
   job_comment_deleted: "Comment deleted",
   lead_created: "Lead created",
   lead_stage_updated: "Lead stage updated",
+  lead_developer_updated: "Developer updated",
   lead_notes_updated: "Lead notes updated",
   discovery_dismissed: "Job dismissed",
   discovery_mark_applied: "Marked applied",

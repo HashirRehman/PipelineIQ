@@ -39,7 +39,7 @@ export async function PATCH(
     );
   }
 
-  const { notes, pipelineStageId } = parsed.data;
+  const { notes, pipelineStageId, developer } = parsed.data;
 
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
@@ -70,11 +70,27 @@ export async function PATCH(
     );
   }
 
-  const updates: { notes?: string; pipeline_stage_id?: string; last_activity_at: string } = {
+  // Who handles the lead — an assignment decision, so Admin + BD Manager
+  // only (same rule as editing a job's fields; the UI gates the row on
+  // canEditJob too). "" clears the developer.
+  if (developer !== undefined && !perms.canEditJobs) {
+    return NextResponse.json(
+      { error: "Only an admin or a manager can assign the developer." },
+      { status: 403 },
+    );
+  }
+
+  const updates: {
+    notes?: string;
+    pipeline_stage_id?: string;
+    developer?: string | null;
+    last_activity_at: string;
+  } = {
     last_activity_at: new Date().toISOString(),
   };
   if (notes !== undefined) updates.notes = notes;
   if (pipelineStageId !== undefined) updates.pipeline_stage_id = pipelineStageId;
+  if (developer !== undefined) updates.developer = developer === "" ? null : developer;
 
   const { error } = await supabase.from("leads").update(updates).eq("id", leadId);
   if (error) {
@@ -126,6 +142,23 @@ export async function PATCH(
       entityId: leadId,
       entityLabel,
       metadata: { pipelineStageId },
+      request,
+    });
+  }
+
+  if (developer !== undefined) {
+    await logActivity({
+      supabase,
+      organizationId: org.organizationId,
+      actorUserId,
+      actorName,
+      action: "lead_developer_updated",
+      description: developer
+        ? `Assigned "${developer}" as developer for lead "${entityLabel}"`
+        : `Cleared the developer for lead "${entityLabel}"`,
+      entityType: "lead",
+      entityId: leadId,
+      entityLabel,
       request,
     });
   }

@@ -408,6 +408,11 @@ export function ProfileDetailSheet({
               <div className="text-xs font-semibold text-foreground">
                 Details
               </div>
+              {canManage && (
+                <span className="text-caption text-muted-foreground">
+                  Click a value to edit
+                </span>
+              )}
             </div>
 
             <ProfileFields

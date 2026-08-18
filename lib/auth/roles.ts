@@ -48,6 +48,10 @@ export type RolePermissionSet = {
   canAccessProfiles: boolean;
   /** Job pages — Discovery / Pipeline / Leads / Statistics. */
   canAccessJobs: boolean;
+  /** Editing a job's own fields (title, company, description…). Mirrors the
+   * jobs_update RLS policy (migration 20260812130222: is_admin() or
+   * is_bd_manager()) — Business Developers may create a job but not edit one. */
+  canEditJobs: boolean;
   /** Content moderation — delete other users' comments. */
   canModerateComments: boolean;
   /** Pipeline management — edit other users' lead notes. */
@@ -69,6 +73,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canInviteUsers: true,
     canAccessProfiles: true,
     canAccessJobs: true,
+    canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
     homeSection: "/",
@@ -84,6 +89,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canInviteUsers: false,
     canAccessProfiles: true,
     canAccessJobs: true,
+    canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
     homeSection: "/",
@@ -96,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canInviteUsers: false,
     canAccessProfiles: false,
     canAccessJobs: true,
+    canEditJobs: false,
     canModerateComments: false,
     canManageLeadNotes: false,
     homeSection: "/",

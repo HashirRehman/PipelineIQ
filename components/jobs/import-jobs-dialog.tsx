@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiPost } from "@/lib/api/client";
+import { ENGAGEMENT_TYPES, type EngagementType } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
   IMPORT_FIELDS,
@@ -60,6 +61,9 @@ type ReviewRow = {
 type Step = "upload" | "map" | "review" | "done";
 
 const CLEAR = "__none__";
+
+// Base UI's Select can't carry "" as an item value; mapped back to unset.
+const UNSET_ENGAGEMENT = "unset";
 
 const KIND_OPTIONS: readonly { value: ImportKind; label: string; hint: string }[] = [
   {
@@ -394,6 +398,7 @@ export function ImportJobsDialog({
           skills: skills.length > 0 ? skills : undefined,
           budget: v.budget.trim() || undefined,
           expCompensation: v.expCompensation.trim() || undefined,
+          engagementType: v.engagement || undefined,
           developer: isLead ? (v.developer.trim() || undefined) : undefined,
           profileId: v.profileId,
           state: importKind,
@@ -873,6 +878,7 @@ export function ImportJobsDialog({
                         <th className="px-2 py-2 font-medium">Stage</th>
                       )}
                       <th className="px-2 py-2 font-medium">Date</th>
+                      <th className="px-2 py-2 font-medium">Type</th>
                       <th className="px-2 py-2 font-medium">Source</th>
                       {isLead && (
                         <th className="px-2 py-2 font-medium">Developer</th>
@@ -1041,6 +1047,34 @@ export function ImportJobsDialog({
                                 </span>
                               )}
                             </div>
+                          </td>
+                          {/* Optional inbound/outbound. Unrecognised sheet
+                              values arrive as "" (unset) rather than an issue,
+                              so this is where they get corrected by hand. */}
+                          <td className="px-2 py-1.5">
+                            <Select
+                              value={row.values.engagement || UNSET_ENGAGEMENT}
+                              onValueChange={(v) =>
+                                updateReviewRow(i, {
+                                  engagement:
+                                    !v || v === UNSET_ENGAGEMENT
+                                      ? ""
+                                      : (v as EngagementType),
+                                })
+                              }
+                            >
+                              <SelectTrigger size="sm" className="h-7 w-32">
+                                <SelectValue placeholder="Not set" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={UNSET_ENGAGEMENT}>Not set</SelectItem>
+                                {ENGAGEMENT_TYPES.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </td>
                           {visibleTextColumns.map(([key, width]) => (
                             <td key={key} className="px-2 py-1.5">
