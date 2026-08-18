@@ -32,14 +32,14 @@ interface UserModalProps {
   isSelf?: boolean // edit only
   allowedDomain?: string | null
   onClose: () => void
-  onSubmit: (values: { name: string; email: string; roleId: string | null }) => Promise<void>
+  onSubmit: (values: { name: string; email: string; roleId: string }) => Promise<void>
 }
 
 function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, onSubmit }: UserModalProps) {
   const isInvite = mode === "invite"
   const [name, setName] = useState(user?.name ?? "")
   const [email, setEmail] = useState(user?.email ?? "")
-  const [roleId, setRoleId] = useState<string | null>(isInvite ? (roles[0]?.id ?? null) : (user?.roleId ?? null))
+  const [roleId, setRoleId] = useState<string>(isInvite ? (roles[0]?.id ?? "") : (user?.roleId ?? ""))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
@@ -176,6 +176,11 @@ export default function UsersTab() {
 
   const rawUsers: ApiAppUser[] = data?.users ?? []
   const users = Array.from(new Map(rawUsers.map(u => [u.id, u])).values())
+
+  // Log if deduplication occurred (indicates potential API issue)
+  if (users.length < rawUsers.length) {
+    console.warn(`User list deduplication: ${rawUsers.length} raw users → ${users.length} unique users`);
+  }
   const roles: RoleOption[] = data?.roles ?? []
   const activeUser = data?.currentUser ?? null
   const isAdmin = data?.isAdmin ?? false
@@ -407,7 +412,7 @@ export default function UsersTab() {
                       <td className="px-4 py-3">
                         <span className="rounded-md px-2 py-0.5 text-meta font-medium capitalize"
                           style={{ background: `color-mix(in srgb, ${roleColor} 9%, transparent)`, color: roleColor }}>
-                          {roles.find(r => r.id === user.roleId)?.name ?? user.role ?? "N/A"}
+                          {roles.find(r => r.id === user.roleId)?.name ?? user.role}
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
@@ -505,7 +510,7 @@ export default function UsersTab() {
           onSubmit={async ({ name, roleId }) => {
             await saveUserEdit(editingUser.id, {
               name,
-              roleId: roleId !== editingUser.roleId ? (roleId ?? undefined) : undefined,
+              roleId: roleId !== editingUser.roleId ? roleId : undefined,
             })
           }}
         />

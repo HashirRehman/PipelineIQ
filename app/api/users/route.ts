@@ -15,7 +15,7 @@ export interface ApiAppUser {
   id: string;
   name: string;
   email: string;
-  roleId: string | null;
+  roleId: string;
   role: "admin" | "lead" | "bd";
   status: "active" | "inactive";
   joinedAt: string;
@@ -105,7 +105,13 @@ export async function GET(request: Request) {
 
   const users: ApiAppUser[] = (usersRes.data ?? []).map((p) => {
     const roleId = p.role_id;
-    const roleName = p.roles?.name ?? "";
+    const roleName = p.roles?.name;
+
+    if (!roleId || !roleName) {
+      console.error(
+        `User ${p.id} (${p.email}) has null role_id or role name — this should never happen after the NOT NULL constraint.`
+      );
+    }
 
     const joinedAt = p.created_at
       ? p.created_at.split("T")[0]
@@ -122,15 +128,14 @@ export async function GET(request: Request) {
     };
   });
 
-  const currentUserObj = users.find((u) => u.id === user.id) ?? {
-    id: user.id,
-    name: user.user_metadata?.full_name || user.email || "Admin",
-    email: user.email ?? "",
-    roleId: null,
-    role: "admin" as const,
-    status: "active" as const,
-    joinedAt: new Date().toISOString().split("T")[0],
-  };
+  const currentUserObj = users.find((u) => u.id === user.id);
+  if (!currentUserObj) {
+    console.error(`Current user ${user.id} not found in users list — this should never happen`);
+    return NextResponse.json(
+      { error: "Current user not found." },
+      { status: 500 }
+    );
+  }
 
   // isAdmin gates row actions; canInvite gates the invite button. BD Managers
   // see the roster only.

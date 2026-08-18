@@ -50,12 +50,6 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
     href: "/statistics",
   },
   { id: "activity", label: "Activity", icon: Activity, href: "/activity" },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Settings,
-    href: "/settings",
-  },
 ];
 
 
@@ -231,15 +225,36 @@ export default function Sidebar({ counts, user }: SidebarProps) {
 
       {/* Bottom section */}
       <div className="border-t border-sidebar-border px-3 py-3 space-y-1">
+        {/* Settings button — always available at the bottom */}
+        <Link
+          href="/settings"
+          title="Settings"
+          className={cn(
+            "group/item relative flex w-full items-center rounded-lg text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            collapsed
+              ? "justify-center px-0 py-2"
+              : "gap-3 px-2.5 py-2",
+            "text-muted-foreground hover:bg-accent hover:text-foreground font-normal",
+          )}
+        >
+          <Settings
+            className={cn(
+              "size-4 shrink-0 transition-transform duration-150",
+              "text-muted-foreground/70 group-hover/item:scale-110",
+            )}
+            strokeWidth={1.8}
+          />
+          {!collapsed && <span className="leading-none">Settings</span>}
+        </Link>
+
         {/* User row — hover reveals a mini sign-out when expanded */}
         {user && (
           <div
             className={cn(
               "flex items-center rounded-md group",
-              collapsed ? "justify-center px-0 py-1.5" : "gap-2.5 px-2 py-1.5",
+              collapsed ? "justify-center px-2 py-2" : "gap-2.5 px-2 py-1.5",
             )}
           >
-            <Link href="/settings" title="Open Settings" className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
               <Avatar name={user.name} size={26} />
               {!collapsed && (
                 <div className="min-w-0 flex-1">
@@ -253,7 +268,6 @@ export default function Sidebar({ counts, user }: SidebarProps) {
                   )}
                 </div>
               )}
-            </Link>
             {!collapsed && (
               <Button
                 type="button"

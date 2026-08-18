@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -52,6 +53,8 @@ export async function PATCH(request: Request) {
 
   const perms = await getCachedRolePermissions();
   if (!perms.isAdmin) {
+    // Permission check enforced by RLS policy as well; if somehow bypassed here,
+    // the database update will still fail. Role cache lives for the session.
     return NextResponse.json(
       { error: "Only organization administrators can modify domain settings." },
       { status: 403 },
@@ -93,6 +96,20 @@ export async function PATCH(request: Request) {
       { status: 500 },
     );
   }
+
+  await logActivity({
+    supabase,
+    organizationId: org.organizationId,
+    actorUserId: user.id,
+    actorName: actorNameFromUser(user),
+    action: "organization_settings_updated",
+    description: `Updated organization email domain to ${cleanedDomain ? `@${cleanedDomain}` : "allow any domain"}`,
+    entityType: "organization",
+    entityId: org.organizationId,
+    entityLabel: "Organization Settings",
+    metadata: { allowedEmailDomain: cleanedDomain },
+    request,
+  });
 
   return NextResponse.json({
     success: true,

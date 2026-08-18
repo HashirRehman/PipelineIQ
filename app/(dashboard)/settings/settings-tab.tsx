@@ -26,8 +26,8 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { useMounted } from "@/hooks/use-mounted"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 import { apiRequest, withOrgId } from "@/lib/api/client"
+import { getRolePermissionsByKey } from "@/lib/auth/roles"
 import {
   applyPalette,
   DEFAULT_PALETTE_ID,
@@ -162,6 +162,9 @@ function PreviewShell({
   )
 }
 
+// Tab type definition
+type SettingsTab = "profile" | "security" | "appearance" | "organization"
+
 const PALETTE_CHANGED_EVENT = "app-palette-changed"
 const PATTERN_CHANGED_EVENT = "app-pattern-changed"
 
@@ -183,32 +186,28 @@ function subscribePattern(callback: () => void) {
   }
 }
 
-import { useSearchParams } from "next/navigation"
+interface SettingsTabProps {
+  user: {
+    email: string
+    name?: string
+    role: string | null
+  }
+}
 
-export default function SettingsTab() {
+export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
   const mounted = useMounted()
   const { resolvedTheme } = useTheme()
   const mode = (resolvedTheme === "dark" ? "dark" : "light") as "light" | "dark"
 
-  const searchParams = useSearchParams()
-  const tabParam = searchParams?.get("tab")
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile")
 
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "appearance" | "organization">(
-    tabParam === "appearance" ? "appearance" : tabParam === "security" ? "security" : tabParam === "organization" ? "organization" : "profile"
-  )
-
-  useEffect(() => {
-    if (tabParam === "appearance" || tabParam === "security" || tabParam === "profile" || tabParam === "organization") {
-      setActiveTab(tabParam)
-    }
-  }, [tabParam])
-
-  // Current user state
+  // Current user state — use passed-in user info for immediate role/admin check
   const [userId, setUserId] = useState<string>("")
-  const [email, setEmail] = useState<string>("")
-  const [name, setName] = useState<string>("")
-  const [userRole, setUserRole] = useState<string>("")
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [name, setName] = useState<string>(initialUser.name ?? "")
+  const email = initialUser.email
+  const userRole = initialUser.role
+  const perms = getRolePermissionsByKey(userRole)
+  const isAdmin = perms.canManageUsers
 
   // Profile Form state
   const [savingProfile, setSavingProfile] = useState(false)
@@ -226,6 +225,8 @@ export default function SettingsTab() {
   // Organization settings state (Admin only)
   const [orgDomainMode, setOrgDomainMode] = useState<"restricted" | "any">("restricted")
   const [orgDomainInput, setOrgDomainInput] = useState("")
+  const [originalOrgDomainMode, setOriginalOrgDomainMode] = useState<"restricted" | "any">("restricted")
+  const [originalOrgDomainInput, setOriginalOrgDomainInput] = useState("")
   const [savingOrgSettings, setSavingOrgSettings] = useState(false)
   const [orgSuccess, setOrgSuccess] = useState("")
   const [orgError, setOrgError] = useState("")
@@ -246,70 +247,72 @@ export default function SettingsTab() {
   const [previewId, setPreviewId] = useState<string | null>(null)
 
   useEffect(() => {
+    // Use AbortController to prevent state updates if component unmounts
+    // during async operations (race condition prevention)
+    const ctrl = new AbortController()
+    let mounted = true
+
     async function loadUser() {
       try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setUserId(user.id)
-          setEmail(user.email ?? "")
-          setName(user.user_metadata?.full_name ?? user.user_metadata?.name ?? "")
+        // Fetch current user ID via API
+        const meRes = await fetch("/api/me", { signal: ctrl.signal })
+        if (!mounted) return
 
-          // Direct DB query via Supabase client to fetch assigned role & name
-          const { data: dbUser } = await supabase
-            .from("users")
-            .select("full_name, roles(name)")
-            .eq("id", user.id)
-            .maybeSingle()
-
-          if (dbUser) {
-            if (dbUser.full_name) setName(dbUser.full_name)
-            const rName = (dbUser as unknown as { roles?: { name: string } | { name: string }[] }).roles
-            const roleName = Array.isArray(rName) ? rName[0]?.name : rName?.name
-            if (roleName) {
-              setUserRole(roleName)
-              if (roleName.toLowerCase().includes("admin")) setIsAdmin(true)
-            }
-          }
+        if (meRes.ok) {
+          const { id } = await meRes.json()
+          if (!mounted) return
+          setUserId(id)
+        } else if (meRes.status === 401) {
+          console.error("Unauthorized: no active session")
+        } else {
+          console.error("Failed to fetch current user:", meRes.status, meRes.statusText)
         }
 
         // Fetch Organization settings
-        const orgRes = await fetch(withOrgId("/api/organization/settings"))
-        if (orgRes.ok) {
-          const orgData = await orgRes.json()
-          if (orgData?.allowedEmailDomain && typeof orgData.allowedEmailDomain === "string" && orgData.allowedEmailDomain.trim() !== "") {
-            setOrgDomainMode("restricted")
-            setOrgDomainInput(orgData.allowedEmailDomain)
+        try {
+          const orgUrl = withOrgId("/api/organization/settings")
+          console.log("Fetching organization settings from:", orgUrl)
+          const orgRes = await fetch(orgUrl, { signal: ctrl.signal })
+          if (!mounted) return
+
+          if (orgRes.ok) {
+            const orgData = await orgRes.json()
+            console.log("Organization data received:", orgData)
+            if (!mounted) return
+
+            if (orgData?.allowedEmailDomain && typeof orgData.allowedEmailDomain === "string" && orgData.allowedEmailDomain.trim() !== "") {
+              console.log("Setting domain to:", orgData.allowedEmailDomain)
+              setOrgDomainMode("restricted")
+              setOrgDomainInput(orgData.allowedEmailDomain)
+              setOriginalOrgDomainMode("restricted")
+              setOriginalOrgDomainInput(orgData.allowedEmailDomain)
+            } else {
+              console.log("No domain or empty domain, setting to 'any'")
+              setOrgDomainMode("any")
+              setOriginalOrgDomainMode("any")
+              setOriginalOrgDomainInput("")
+            }
           } else {
-            setOrgDomainMode("any")
+            console.error("Failed to fetch organization settings:", orgRes.status, orgRes.statusText)
+            const errorData = await orgRes.text()
+            console.error("Error response:", errorData)
           }
+        } catch (orgErr) {
+          if (orgErr instanceof DOMException && orgErr.name === "AbortError") return
+          console.error("Error fetching organization settings:", orgErr)
         }
 
-        // Fetch DB user record for role & details with org scoping
-        const res = await fetch(withOrgId("/api/users"))
-        if (res.ok) {
-          const data = await res.json()
-          if (data.isAdmin !== undefined) {
-            setIsAdmin(Boolean(data.isAdmin))
-          }
-          const current = data?.currentUser || (data?.users && user ? data.users.find((u: { id: string }) => u.id === user.id) : null)
-          if (current) {
-            const rawRole = (current.role || "").toLowerCase()
-            if (rawRole === "admin") setIsAdmin(true)
-            const formattedRole =
-              rawRole === "bd" ? "BD Manager" :
-              rawRole === "admin" ? "Admin" :
-              rawRole === "lead" ? "Business Developer" :
-              current.role
-            setUserRole(formattedRole)
-            if (current.name) setName(current.name)
-          }
-        }
       } catch (err) {
-        console.error("Failed to load user info:", err)
+        if (err instanceof DOMException && err.name === "AbortError") return
+        if (mounted) console.error("Failed to load user info:", err)
       }
     }
+
     loadUser()
+    return () => {
+      mounted = false
+      ctrl.abort()
+    }
   }, [])
 
   const handleUpdateOrgSettings = async (e: React.FormEvent) => {
@@ -358,14 +361,15 @@ export default function SettingsTab() {
     setProfileSuccess("")
 
     try {
-      const supabase = createClient()
-      const { error: authErr } = await supabase.auth.updateUser({
-        data: { full_name: name.trim() },
+      const res = await fetch(withOrgId("/api/me/profile"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
       })
-      if (authErr) throw authErr
 
-      if (userId) {
-        await apiRequest("/api/users", "PATCH", { userId, name: name.trim() })
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to update profile name.")
       }
 
       setProfileSuccess("Your name has been updated successfully!")
@@ -395,9 +399,36 @@ export default function SettingsTab() {
     setSavingPassword(true)
 
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
+      // Step 1: Update password
+      const passwordRes = await fetch(withOrgId("/api/me/password"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      })
+
+      if (!passwordRes.ok) {
+        const errorData = await passwordRes.json()
+        throw new Error(errorData.error || "Failed to update password.")
+      }
+
+      // Step 2: Re-authenticate to get new session tokens
+      const sessionRes = await fetch(withOrgId("/api/me/session"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: initialUser.email,
+          password: newPassword,
+        }),
+      })
+
+      if (!sessionRes.ok) {
+        console.error("Failed to re-authenticate after password change")
+        // Password was changed successfully, re-auth is best-effort
+        // User will be logged out on next page load if session expired
+      } else {
+        const sessionData = await sessionRes.json()
+        // Session tokens are handled by Supabase cookie middleware
+      }
 
       setPasswordSuccess("Your password has been changed successfully!")
       setNewPassword("")
@@ -457,16 +488,17 @@ export default function SettingsTab() {
     window.dispatchEvent(new Event(PATTERN_CHANGED_EVENT))
   }
 
-  const handleTabChange = (tab: "profile" | "security" | "appearance" | "organization") => {
+  const handleTabChange = (tab: SettingsTab) => {
     setActiveTab(tab)
-    if (typeof window !== "undefined") {
-      const newUrl = tab === "profile" ? "/settings" : `/settings?tab=${tab}`
-      window.history.replaceState(null, "", newUrl)
-    }
   }
 
+  // Check if org settings have changed
+  const orgSettingsChanged =
+    orgDomainMode !== originalOrgDomainMode ||
+    orgDomainInput !== originalOrgDomainInput
+
   return (
-    <div className="flex flex-1 min-h-0 flex-col bg-background">
+    <div className="flex flex-1 min-h-0 flex-col">
       {/* Header Banner */}
       <div className="flex flex-col gap-3 border-b border-border bg-card px-6 py-4 shrink-0">
         <div className="flex items-center justify-between">
@@ -611,14 +643,21 @@ export default function SettingsTab() {
                     {orgDomainMode === "restricted" && (
                       <div className="pt-2">
                         <label className="text-xs font-semibold text-foreground/90 block mb-1">Allowed Domain Name</label>
-                        <Input
-                          value={orgDomainInput}
-                          onChange={e => setOrgDomainInput(e.target.value)}
-                          placeholder="company.com"
-                          className="w-full max-w-md h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background transition-all"
-                        />
+                        <div className="flex items-center gap-2 w-full max-w-md relative">
+                          <span className="text-sm font-medium text-foreground/70">@</span>
+                          <Input
+                            value={orgDomainInput}
+                            onChange={e => setOrgDomainInput(e.target.value)}
+                            placeholder="company.com"
+                            disabled={!mounted}
+                            className="flex-1 h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background transition-all"
+                          />
+                          {!mounted && (
+                            <Loader2 className="absolute right-3 size-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-1">
-                          Specify the domain without @ (for example: company.com).
+                          Enter the domain without @ (example: company.com).
                         </p>
                       </div>
                     )}
@@ -653,7 +692,7 @@ export default function SettingsTab() {
               </div>
 
               <div className="pt-4 border-t border-border/70 flex justify-end">
-                <Button type="submit" disabled={savingOrgSettings} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                <Button type="submit" disabled={savingOrgSettings || !orgSettingsChanged} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
                   {savingOrgSettings && <Loader2 className="size-3.5 animate-spin mr-2" />}
                   Save Organization Settings
                 </Button>
@@ -700,12 +739,18 @@ export default function SettingsTab() {
 
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-foreground/90 block">Email Address</label>
-                  <Input
-                    value={email}
-                    readOnly
-                    disabled
-                    className="w-full max-w-xl h-10 text-sm bg-muted/40 cursor-not-allowed opacity-75 border-border/60"
-                  />
+                  <div className="relative">
+                    <Input
+                      value={email}
+                      readOnly
+                      disabled
+                      placeholder={!mounted ? "Loading..." : ""}
+                      className="w-full max-w-xl h-10 text-sm bg-muted/40 cursor-not-allowed opacity-75 border-border/60"
+                    />
+                    {!mounted && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
                   <p className="text-caption text-muted-foreground">
                     Email address is managed by your organization account and cannot be modified directly.
                   </p>
@@ -807,7 +852,7 @@ export default function SettingsTab() {
         )}
 
         {/* TAB 3: APPEARANCE & THEME */}
-        {activeTab === "appearance" && (
+        {activeTab === "appearance" && mounted && (
           <div className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
             {/* Palette grid */}
             <div className="min-w-0">
@@ -902,11 +947,9 @@ export default function SettingsTab() {
                           : "border-border hover:border-primary/40 hover:shadow-sm",
                       )}
                     >
-                      {isSel && (
-                        <span className="absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                          <Check className="size-3" strokeWidth={3} />
-                        </span>
-                      )}
+                      <span className={cn("absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-all", isSel ? "bg-primary text-primary-foreground" : "bg-transparent")}>
+                        <Check className={cn("size-3 transition-opacity", isSel ? "opacity-100" : "opacity-0")} strokeWidth={3} />
+                      </span>
 
                       <div className="flex items-center justify-between pr-6">
                         <span className="text-item font-semibold text-foreground">{pat.name}</span>

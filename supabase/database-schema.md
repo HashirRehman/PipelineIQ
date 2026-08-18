@@ -2,7 +2,7 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 25 · **Tables:** 16 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 26 · **Tables:** 16 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
 - **Last updated:** 2026-08-13
 
@@ -52,6 +52,7 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 23 | `20260812110000_trim_rls_to_tenant_tables.sql` | Revokes the seed's blanket `authenticated` CRUD grant; disables RLS on the 4 pure-catalog tables (`roles`, `pipeline_stages`, `seniority_level`, `scrapers`) and on `organizations`/`cron_run_locks` (no authenticated access), replacing it with per-table grants matching what the app actually issues — RLS stays the boundary only on genuinely tenant-scoped tables |
 | 24 | `20260812120000_close_anon_grants.sql` | Revokes all `anon` privileges on every public table (defense-in-depth — RLS already masked them, but a table with a residual `anon` grant is one `disable row level security` away from exposure) and sets default privileges so future tables don't re-inherit `anon` access |
 | 25 | `20260813075322_user_activities.sql` | `user_activities` — the product's business-activity feed (profiles/jobs/leads/comments/discovery), deliberately separate from `audit_logs`'s Admin-only security trail; visible org-wide to Admin/BD Manager, self-only to everyone else; append-only enforced by grants (no update/delete/truncate to `authenticated`) AND a BEFORE UPDATE/DELETE/TRUNCATE trigger (`prevent_user_activity_mutation()`) so not even `service_role` can rewrite history |
+| 26 | `20260818110241_make_role_id_not_null.sql` | `users.role_id` made NOT NULL (was nullable); any existing rows with NULL role_id are set to Business Developer as a safe default; FK now has ON DELETE RESTRICT to prevent a role from being deleted while users reference it — ensures every user always has a valid role |
 
 > Rows 11 and 18 (`drop_job_comments_parent_id`, `add_parsed_data_to_jobs`) were previously missing from this table entirely — a pre-existing documentation gap unrelated to this update, found and fixed while adding row 25. Rows 20–24 were added to the codebase by a separate PR (multi-tenant RLS scoping, the audit log, and the last-admin guard) and were likewise undocumented here until now.
 
@@ -91,7 +92,7 @@ Authenticated users (staff: admins and BD executives). One row per Supabase auth
 |---|---|---|
 | id | uuid | PK, FK → `auth.users(id)` ON DELETE CASCADE |
 | organization_id | uuid | NOT NULL, FK → `organizations(id)` |
-| role_id | uuid | FK → `roles(id)` ON DELETE SET NULL — nullable, at most one role |
+| role_id | uuid | NOT NULL, FK → `roles(id)` ON DELETE RESTRICT — every user must have exactly one role |
 | full_name | text | NOT NULL |
 | email | text | NOT NULL, UNIQUE |
 | is_active | boolean | NOT NULL, default `true` |
