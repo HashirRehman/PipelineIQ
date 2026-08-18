@@ -14,6 +14,8 @@ const DASHBOARD_PATHS = [
   "/leads",
   "/users",
   "/statistics",
+  "/activity",
+  "/settings",
 ];
 
 function applySecurityHeaders(

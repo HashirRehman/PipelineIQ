@@ -3,7 +3,7 @@ import { ENGAGEMENT_TYPE_VALUES } from "@/lib/constants";
 
 export const createUserSchema = z.object({
   name: z.string().trim().min(1, "Full name is required."),
-  email: z.email("Enter a valid email address."),
+  email: z.string().trim().email("Enter a valid email address."),
   roleId: z.uuid("Select a role."),
 });
 

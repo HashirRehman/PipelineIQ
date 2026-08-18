@@ -1,12 +1,22 @@
 "use client"
 
-import { useMemo, useState, useSyncExternalStore } from "react"
+import { useMemo, useState, useEffect, useSyncExternalStore } from "react"
 import {
   Check,
   Layers,
   Palette,
   RotateCcw,
   Settings2,
+  User,
+  Lock,
+  Loader2,
+  AlertCircle,
+  ShieldCheck,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Building2,
+  Globe,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -16,6 +26,8 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { useMounted } from "@/hooks/use-mounted"
 import { cn } from "@/lib/utils"
+import { apiRequest, withOrgId } from "@/lib/api/client"
+import { getRolePermissionsByKey } from "@/lib/auth/roles"
 import {
   applyPalette,
   DEFAULT_PALETTE_ID,
@@ -32,12 +44,6 @@ import {
   PATTERNS,
   setStoredPatternId,
 } from "@/lib/theme/patterns"
-
-/* ── Scoped preview helpers ──────────────────────────────────────────────
-   A preview panel renders real components inside a wrapper that carries a
-   palette's CSS variables as inline styles. Utilities like `bg-primary`
-   resolve through `@theme inline` → var(--primary), so the scoped vars
-   re-skin the preview without touching the app's real theme. */
 
 function paletteVarsForMode(palette: ThemePalette | null, mode: "light" | "dark") {
   if (!palette) return undefined
@@ -98,365 +104,922 @@ function paletteSwatches(p: PaletteColors) {
   ]
 }
 
-/* ── Preview components ──────────────────────────────────────────────────
-   A miniature app shell + sample components that show a palette's real
-   look. Wrapped in the scoped palette vars. */
-
-function PreviewShell({ palette, mode }: { palette: ThemePalette | null; mode: "light" | "dark" }) {
+function PreviewShell({
+  palette,
+  mode,
+}: {
+  palette: ThemePalette
+  mode: "light" | "dark"
+}) {
   const vars = paletteVarsForMode(palette, mode)
-
   return (
     <div
       style={vars}
-      className="overflow-hidden rounded-xl border border-border bg-background text-foreground"
+      className="rounded-lg border border-border bg-card p-4 text-foreground shadow-sm transition-colors"
     >
-      {/* Mini sidebar */}
-      <div className="flex">
-        <div className="w-32 shrink-0 border-r border-sidebar-border bg-sidebar p-2.5 space-y-1">
-          <div className="flex items-center gap-1.5 px-1.5 pb-1.5">
-            <span className="flex size-4 items-center justify-center rounded bg-primary text-primary-foreground font-bold text-caption">P</span>
-            <span className="text-item font-semibold text-sidebar-foreground leading-none">PipelineIQ</span>
-          </div>
-          {["Profiles", "Discovery", "Leads"].map((item, i) => (
-            <div
-              key={item}
-              className={cn(
-                "rounded-md px-2 py-1 text-caption leading-none",
-                i === 0
-                  ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              {item}
-            </div>
-          ))}
+      <div className="flex items-center justify-between gap-2 border-b border-border pb-3 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="size-3 rounded-full bg-primary" />
+          <span className="text-item font-semibold">Dashboard preview</span>
+        </div>
+        <Badge variant="outline" className="h-5 text-caption">
+          {palette.name}
+        </Badge>
+      </div>
+
+      <div className="grid gap-2 mb-3 grid-cols-2">
+        <div className="rounded-md border border-border bg-background p-2.5">
+          <p className="text-caption text-muted-foreground">Active leads</p>
+
+          <p className="text-lg font-bold text-foreground">128</p>
         </div>
 
-        {/* Mini content */}
-        <div className="flex-1 min-w-0 p-3 space-y-3">
-          {/* Top bar */}
-          <div className="flex items-center justify-between">
-            <p className="text-item font-semibold text-foreground">Discovery</p>
-            <div className="flex items-center gap-1.5">
-              <span className="size-5 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-caption font-bold">S</span>
-            </div>
-          </div>
+        <div className="rounded-md border border-border bg-background p-2.5">
+          <p className="text-caption text-muted-foreground">Conversion rate</p>
 
-          {/* Stat card */}
-          <div className="rounded-lg border border-border bg-card p-2.5">
-            <p className="text-caption text-muted-foreground">Relevance</p>
-            <p className="text-lg font-bold text-foreground tabular-nums leading-tight">86</p>
-            <Progress value={86} className="mt-1.5" />
-          </div>
-
-          {/* Job card */}
-          <div className="rounded-lg border border-border bg-card p-2.5 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-item font-semibold text-foreground truncate">Senior Frontend Engineer</p>
-              <Badge>New</Badge>
-            </div>
-            <p className="text-caption text-muted-foreground">Acme Inc · Remote</p>
-            <div className="flex items-center gap-1.5">
-              <Badge variant="secondary">Remote</Badge>
-              <Badge variant="outline">LinkedIn</Badge>
-            </div>
-            <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" className="h-6 px-2 text-caption">Apply</Button>
-              <Button size="sm" variant="outline" className="h-6 px-2 text-caption">Dismiss</Button>
-            </div>
-          </div>
-
-          {/* Input + alert */}
-          <Input placeholder="Search jobs…" className="h-7 text-caption" />
-          <div className="rounded-md border border-border bg-card px-2 py-1.5 text-caption text-muted-foreground">
-            <span className="font-semibold text-foreground">Note:</span> matches your profile.
-          </div>
+          <p className="text-lg font-bold text-primary">34.2%</p>
         </div>
+      </div>
+
+      <div className="space-y-1.5 mb-3">
+
+        <div className="flex items-center justify-between text-caption text-muted-foreground">
+          <span>Weekly target progress</span>
+          <span>78%</span>
+        </div>
+        <Progress value={78} className="h-1.5" />
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button size="sm" className="h-7 text-caption font-semibold">
+          Primary action
+        </Button>
+        <Button size="sm" variant="outline" className="h-7 text-caption">
+          Secondary
+        </Button>
       </div>
     </div>
   )
 }
 
-/* ── Main tab ──────────────────────────────────────────────────────────── */
+// Tab type definition
+type SettingsTab = "profile" | "security" | "appearance" | "organization"
 
-// Re-renders on both cross-tab storage events and same-tab writes.
-function onStorageChange(events: string[], callback: () => void) {
+const PALETTE_CHANGED_EVENT = "app-palette-changed"
+const PATTERN_CHANGED_EVENT = "app-pattern-changed"
+
+function subscribePalette(callback: () => void) {
+  window.addEventListener(PALETTE_CHANGED_EVENT, callback)
   window.addEventListener("storage", callback)
-  events.forEach(e => window.addEventListener(e, callback))
   return () => {
+    window.removeEventListener(PALETTE_CHANGED_EVENT, callback)
     window.removeEventListener("storage", callback)
-    events.forEach(e => window.removeEventListener(e, callback))
   }
 }
 
-const PALETTE_CHANGED_EVENT = "pipelineiq:palette-changed"
-const PATTERN_CHANGED_EVENT = "pipelineiq:pattern-changed"
+function subscribePattern(callback: () => void) {
+  window.addEventListener(PATTERN_CHANGED_EVENT, callback)
+  window.addEventListener("storage", callback)
+  return () => {
+    window.removeEventListener(PATTERN_CHANGED_EVENT, callback)
+    window.removeEventListener("storage", callback)
+  }
+}
 
-export default function SettingsTab() {
-  const { resolvedTheme } = useTheme()
+interface SettingsTabProps {
+  user: {
+    email: string
+    name?: string
+    role: string | null
+  }
+}
+
+export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
   const mounted = useMounted()
-  // Gate theme-dependent rendering on mount so SSR/hydration stay in sync
-  // (resolvedTheme is undefined on the server).
-  const mode: "light" | "dark" =
-    mounted && resolvedTheme === "dark" ? "dark" : "light"
+  const { resolvedTheme } = useTheme()
+  const mode = (resolvedTheme === "dark" ? "dark" : "light") as "light" | "dark"
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile")
+
+  // Current user state — use passed-in user info for immediate role/admin check
+  const [userId, setUserId] = useState<string>("")
+  const [name, setName] = useState<string>(initialUser.name ?? "")
+  const email = initialUser.email
+  const userRole = initialUser.role
+  const perms = getRolePermissionsByKey(userRole)
+  const isAdmin = perms.canManageUsers
+
+  // Profile Form state
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileSuccess, setProfileSuccess] = useState("")
+  const [profileError, setProfileError] = useState("")
+
+  // Password Form state
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [passwordSuccess, setPasswordSuccess] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+
+  // Organization settings state (Admin only)
+  const [orgDomainMode, setOrgDomainMode] = useState<"restricted" | "any">("restricted")
+  const [orgDomainInput, setOrgDomainInput] = useState("")
+  const [originalOrgDomainMode, setOriginalOrgDomainMode] = useState<"restricted" | "any">("restricted")
+  const [originalOrgDomainInput, setOriginalOrgDomainInput] = useState("")
+  const [savingOrgSettings, setSavingOrgSettings] = useState(false)
+  const [orgSuccess, setOrgSuccess] = useState("")
+  const [orgError, setOrgError] = useState("")
+
+  // Theme states
+  const selectedId = useSyncExternalStore(
+    subscribePalette,
+    getStoredPaletteId,
+    getStoredPaletteId,
+  )
+
+  const selectedPatternId = useSyncExternalStore(
+    subscribePattern,
+    getStoredPatternId,
+    getStoredPatternId,
+  )
 
   const [previewId, setPreviewId] = useState<string | null>(null)
-  const [patternPreviewId, setPatternPreviewId] = useState<string | null>(null)
 
-  // Hydration-safe snapshot of the stored palette: returns null on the
-  // server, the real id on the client, and re-renders on storage events.
-  const selectedId = useSyncExternalStore(
-    cb => onStorageChange([PALETTE_CHANGED_EVENT], cb),
-    getStoredPaletteId,
-    () => null,
-  )
+  useEffect(() => {
+    // Use AbortController to prevent state updates if component unmounts
+    // during async operations (race condition prevention)
+    const ctrl = new AbortController()
+    let mounted = true
 
-  // Same as above for the background pattern.
-  const selectedPatternId = useSyncExternalStore(
-    cb => onStorageChange([PATTERN_CHANGED_EVENT], cb),
-    getStoredPatternId,
-    () => null,
-  )
+    async function loadUser() {
+      try {
+        // Fetch current user ID via API
+        const meRes = await fetch("/api/me", { signal: ctrl.signal })
+        if (!mounted) return
 
-  // DEFAULT_PALETTE_ID is always in PALETTES, so these are never undefined.
-  const preview =
-    PALETTES.find(p => p.id === (previewId ?? selectedId ?? DEFAULT_PALETTE_ID)) ??
-    PALETTES[0]
+        if (meRes.ok) {
+          const { id } = await meRes.json()
+          if (!mounted) return
+          setUserId(id)
+        } else if (meRes.status === 401) {
+          console.error("Unauthorized: no active session")
+        } else {
+          console.error("Failed to fetch current user:", meRes.status, meRes.statusText)
+        }
 
-  const selectPalette = (id: string) => {
-    setStoredPaletteId(id)
-    applyPalette(id)
-    // Same-tab writes don't fire the storage event — notify the store.
-    window.dispatchEvent(new Event(PALETTE_CHANGED_EVENT))
+        // Fetch Organization settings
+        try {
+          const orgUrl = withOrgId("/api/organization/settings")
+          console.log("Fetching organization settings from:", orgUrl)
+          const orgRes = await fetch(orgUrl, { signal: ctrl.signal })
+          if (!mounted) return
+
+          if (orgRes.ok) {
+            const orgData = await orgRes.json()
+            console.log("Organization data received:", orgData)
+            if (!mounted) return
+
+            if (orgData?.allowedEmailDomain && typeof orgData.allowedEmailDomain === "string" && orgData.allowedEmailDomain.trim() !== "") {
+              console.log("Setting domain to:", orgData.allowedEmailDomain)
+              setOrgDomainMode("restricted")
+              setOrgDomainInput(orgData.allowedEmailDomain)
+              setOriginalOrgDomainMode("restricted")
+              setOriginalOrgDomainInput(orgData.allowedEmailDomain)
+            } else {
+              console.log("No domain or empty domain, setting to 'any'")
+              setOrgDomainMode("any")
+              setOriginalOrgDomainMode("any")
+              setOriginalOrgDomainInput("")
+            }
+          } else {
+            console.error("Failed to fetch organization settings:", orgRes.status, orgRes.statusText)
+            const errorData = await orgRes.text()
+            console.error("Error response:", errorData)
+          }
+        } catch (orgErr) {
+          if (orgErr instanceof DOMException && orgErr.name === "AbortError") return
+          console.error("Error fetching organization settings:", orgErr)
+        }
+
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return
+        if (mounted) console.error("Failed to load user info:", err)
+      }
+    }
+
+    loadUser()
+    return () => {
+      mounted = false
+      ctrl.abort()
+    }
+  }, [])
+
+  const handleUpdateOrgSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setOrgError("")
+    setOrgSuccess("")
+
+    if (orgDomainMode === "restricted" && !orgDomainInput.trim()) {
+      setOrgError("Please enter a valid domain name (e.g. recursolabs.com).")
+      return
+    }
+
+    setSavingOrgSettings(true)
+
+    try {
+      const targetDomain = orgDomainMode === "any" ? null : orgDomainInput.trim()
+      const data = await apiRequest<{ success: boolean; allowedEmailDomain: string | null }>(
+        "/api/organization/settings",
+        "PATCH",
+        { allowedEmailDomain: targetDomain }
+      )
+
+      if (data.allowedEmailDomain) {
+        setOrgDomainMode("restricted")
+        setOrgDomainInput(data.allowedEmailDomain)
+      } else {
+        setOrgDomainMode("any")
+      }
+
+      setOrgSuccess("Organization email domain settings updated successfully!")
+    } catch (err) {
+      setOrgError(err instanceof Error ? err.message : "Failed to update organization settings.")
+    } finally {
+      setSavingOrgSettings(false)
+    }
   }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) {
+      setProfileError("Full name cannot be empty.")
+      return
+    }
+    setSavingProfile(true)
+    setProfileError("")
+    setProfileSuccess("")
+
+    try {
+      const res = await fetch(withOrgId("/api/me/profile"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to update profile name.")
+      }
+
+      setProfileSuccess("Your name has been updated successfully!")
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to update profile name.")
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setProfileSuccess("")
+    setPasswordError("")
+    setPasswordSuccess("")
+
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters long.")
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.")
+      return
+    }
+
+    setSavingPassword(true)
+
+    try {
+      // Step 1: Update password
+      const passwordRes = await fetch(withOrgId("/api/me/password"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      })
+
+      if (!passwordRes.ok) {
+        const errorData = await passwordRes.json()
+        throw new Error(errorData.error || "Failed to update password.")
+      }
+
+      // Step 2: Re-authenticate to get new session tokens
+      const sessionRes = await fetch(withOrgId("/api/me/session"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: initialUser.email,
+          password: newPassword,
+        }),
+      })
+
+      if (!sessionRes.ok) {
+        console.error("Failed to re-authenticate after password change")
+        // Password was changed successfully, re-auth is best-effort
+        // User will be logged out on next page load if session expired
+      } else {
+        const sessionData = await sessionRes.json()
+        // Session tokens are handled by Supabase cookie middleware
+      }
+
+      setPasswordSuccess("Your password has been changed successfully!")
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : "Failed to update password.")
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  const activePalette = useMemo(() => {
+    return (
+      PALETTES.find(p => p.id === (selectedId ?? DEFAULT_PALETTE_ID)) ??
+      PALETTES[0]
+    )
+  }, [selectedId])
+
+  const preview = useMemo(() => {
+    if (!previewId) return activePalette
+    return PALETTES.find(p => p.id === previewId) ?? activePalette
+  }, [previewId, activePalette])
 
   const isDefault = (selectedId ?? DEFAULT_PALETTE_ID) === DEFAULT_PALETTE_ID
 
   const previewCaption = useMemo(() => {
     if (preview.id === DEFAULT_PALETTE_ID) return "Built-in look"
     if (preview.id === selectedId) return "Currently applied"
-    return "Hover to preview, click to apply"
+    return "Hover preview — click to apply"
   }, [preview, selectedId])
 
-  // DEFAULT_PATTERN_ID is always in PATTERNS, so this is never undefined.
-  const previewPattern =
-    PATTERNS.find(p => p.id === (patternPreviewId ?? selectedPatternId ?? DEFAULT_PATTERN_ID)) ??
-    PATTERNS[0]
+  const activePattern = useMemo(() => {
+    return (
+      PATTERNS.find(p => p.id === (selectedPatternId ?? DEFAULT_PATTERN_ID)) ??
+      PATTERNS[0]
+    )
+  }, [selectedPatternId])
 
-  const selectPattern = (id: string) => {
-    setStoredPatternId(id)
-    applyPattern(id)
-    // Same-tab writes don't fire the storage event — notify the store.
-    window.dispatchEvent(new Event(PATTERN_CHANGED_EVENT))
-  }
-
+  const previewPattern = activePattern
   const isPatternDefault = (selectedPatternId ?? DEFAULT_PATTERN_ID) === DEFAULT_PATTERN_ID
 
   const patternPreviewCaption = useMemo(() => {
     if (previewPattern.id === DEFAULT_PATTERN_ID) return "Built-in look"
     if (previewPattern.id === selectedPatternId) return "Currently applied"
-    return "Hover to preview, click to apply"
+    return "Hover preview — click to apply"
   }, [previewPattern, selectedPatternId])
+
+  function selectPalette(id: string) {
+    setStoredPaletteId(id)
+    applyPalette(id)
+    window.dispatchEvent(new Event(PALETTE_CHANGED_EVENT))
+  }
+
+  function selectPattern(id: string) {
+    setStoredPatternId(id)
+    applyPattern(id)
+    window.dispatchEvent(new Event(PATTERN_CHANGED_EVENT))
+  }
+
+  const handleTabChange = (tab: SettingsTab) => {
+    setActiveTab(tab)
+  }
+
+  // Check if org settings have changed
+  const orgSettingsChanged =
+    orgDomainMode !== originalOrgDomainMode ||
+    orgDomainInput !== originalOrgDomainInput
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      {/* Header */}
-      <div className="flex items-start justify-between border-b border-border bg-background px-6 py-4 shrink-0">
-        <div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Personalize colors and the app shell background. Applied instantly and saved to this browser.
-          </p>
+      {/* Header Banner */}
+      <div className="flex flex-col gap-3 border-b border-border bg-card px-6 py-4 shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-foreground">User Settings</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage your personal profile, security preferences, and dashboard appearance.
+            </p>
+          </div>
+
+          {activeTab === "appearance" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => selectPalette(DEFAULT_PALETTE_ID)}
+              disabled={isDefault}
+              className="shrink-0"
+            >
+              <RotateCcw className="size-3.5" />
+              Reset theme
+            </Button>
+          )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => selectPalette(DEFAULT_PALETTE_ID)}
-          disabled={isDefault}
-          className="shrink-0"
-        >
-          <RotateCcw className="size-3.5" />
-          Reset to default
-        </Button>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-2 border-t border-border pt-3">
+          <button
+            type="button"
+            onClick={() => handleTabChange("profile")}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+              activeTab === "profile"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <User className="size-3.5" />
+            Profile & Account
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange("security")}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+              activeTab === "security"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <Lock className="size-3.5" />
+            Security & Password
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange("appearance")}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+              activeTab === "appearance"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <Palette className="size-3.5" />
+            Appearance & Theme
+          </button>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => handleTabChange("organization")}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                activeTab === "organization"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Building2 className="size-3.5" />
+              Organization Domain
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
-          {/* Palette grid */}
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-3">
-              <Palette className="size-4 text-primary" />
-              <h2 className="text-item font-semibold text-foreground">Color palettes</h2>
-              <span className="text-caption text-muted-foreground">
-                from Tailwind CSS, Radix UI, Nord, Dracula, Solarized, Catppuccin
-              </span>
-            </div>
+        {/* TAB 4: ORGANIZATION DOMAIN SETTINGS (ADMIN ONLY) */}
+        {activeTab === "organization" && isAdmin && (
+          <div className="max-w-2xl space-y-6">
+            <form onSubmit={handleUpdateOrgSettings} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+                <Building2 className="size-4.5 text-primary" />
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Organization Email Domain Policy</h2>
+                  <p className="text-caption text-muted-foreground mt-0.5">Control allowed email domains for member invitations across your organization.</p>
+                </div>
+              </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {PALETTES.map(palette => {
-                const id = palette.id
-                const isSelected = (selectedId ?? DEFAULT_PALETTE_ID) === id
-                const isPreviewing = previewId === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => selectPalette(id)}
-                    onMouseEnter={() => setPreviewId(id)}
-                    onMouseLeave={() => setPreviewId(null)}
-                    className={cn(
-                      "group relative flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 text-left transition-all cursor-pointer",
-                      isSelected
-                        ? "border-primary ring-1 ring-primary"
-                        : "border-border hover:border-primary/40 hover:shadow-sm",
-                      isPreviewing && !isSelected && "border-primary/50",
-                    )}
-                    aria-pressed={isSelected}
-                  >
-                    {isSelected && (
-                      <span className="absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Check className="size-3" strokeWidth={3} />
-                      </span>
-                    )}
+              {orgSuccess && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  <span>{orgSuccess}</span>
+                </div>
+              )}
 
-                    <div className="flex items-center gap-2 pr-6">
-                      <span className="text-item font-semibold text-foreground">{palette.name}</span>
-                      <Badge variant="outline" className="h-4 px-1.5 text-caption text-muted-foreground">
-                        {palette.source}
-                      </Badge>
+              {orgError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{orgError}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div
+                  onClick={() => setOrgDomainMode("restricted")}
+                  className={cn(
+                    "rounded-xl border p-4 transition-all cursor-pointer flex items-start gap-3",
+                    orgDomainMode === "restricted"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border/70 bg-background/50 hover:border-border"
+                  )}
+                >
+                  <div className="mt-0.5">
+                    <input
+                      type="radio"
+                      name="orgDomainMode"
+                      checked={orgDomainMode === "restricted"}
+                      onChange={() => setOrgDomainMode("restricted")}
+                      className="size-4 text-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Restrict user invitations to a specific domain</p>
+                      <p className="text-caption text-muted-foreground mt-0.5">
+                        Only users with email addresses matching this domain can be invited.
+                      </p>
                     </div>
 
-                    <p className="text-caption text-muted-foreground leading-snug">
-                      {palette.description}
-                    </p>
+                    {orgDomainMode === "restricted" && (
+                      <div className="pt-2">
+                        <label className="text-xs font-semibold text-foreground/90 block mb-1">Allowed Domain Name</label>
+                        <div className="flex items-center gap-2 w-full max-w-md relative">
+                          <span className="text-sm font-medium text-foreground/70">@</span>
+                          <Input
+                            value={orgDomainInput}
+                            onChange={e => setOrgDomainInput(e.target.value)}
+                            placeholder="company.com"
+                            disabled={!mounted}
+                            className="flex-1 h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background transition-all"
+                          />
+                          {!mounted && (
+                            <Loader2 className="absolute right-3 size-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Enter the domain without @ (example: company.com).
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                    <div className="flex items-center gap-2.5 pt-0.5">
-                      {paletteSwatches(palette[mode]).map(s => (
+                <div
+                  onClick={() => setOrgDomainMode("any")}
+                  className={cn(
+                    "rounded-xl border p-4 transition-all cursor-pointer flex items-start gap-3",
+                    orgDomainMode === "any"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border/70 bg-background/50 hover:border-border"
+                  )}
+                >
+                  <div className="mt-0.5">
+                    <input
+                      type="radio"
+                      name="orgDomainMode"
+                      checked={orgDomainMode === "any"}
+                      onChange={() => setOrgDomainMode("any")}
+                      className="size-4 text-primary cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-foreground">Allow invitations from ANY email domain</p>
+                    <p className="text-caption text-muted-foreground mt-0.5">
+                      Members with any valid email domain (Gmail, Yahoo, custom) can be invited.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border/70 flex justify-end">
+                <Button type="submit" disabled={savingOrgSettings || !orgSettingsChanged} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                  {savingOrgSettings && <Loader2 className="size-3.5 animate-spin mr-2" />}
+                  Save Organization Settings
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+        {/* TAB 1: PROFILE & ACCOUNT */}
+        {activeTab === "profile" && (
+          <div className="max-w-2xl space-y-6">
+            <form onSubmit={handleUpdateProfile} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+                <User className="size-4.5 text-primary" />
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Personal Information</h2>
+                  <p className="text-caption text-muted-foreground mt-0.5">Update your display name and view account details.</p>
+                </div>
+              </div>
+
+              {profileSuccess && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  <span>{profileSuccess}</span>
+                </div>
+              )}
+
+              {profileError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{profileError}</span>
+                </div>
+              )}
+
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">Full Name</label>
+                  <Input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full max-w-xl h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">Email Address</label>
+                  <div className="relative">
+                    <Input
+                      value={email}
+                      readOnly
+                      disabled
+                      placeholder={!mounted ? "Loading..." : ""}
+                      className="w-full max-w-xl h-10 text-sm bg-muted/40 cursor-not-allowed opacity-75 border-border/60"
+                    />
+                    {!mounted && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="text-caption text-muted-foreground">
+                    Email address is managed by your organization account and cannot be modified directly.
+                  </p>
+                </div>
+
+                {userRole && (
+                  <div className="space-y-2 pt-1">
+                    <label className="text-xs font-semibold text-foreground/90 block">Assigned Role</label>
+                    <Badge variant="outline" className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary border-primary/20 rounded-md">
+                      {userRole}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-border/70 flex justify-end">
+                <Button type="submit" disabled={savingProfile || !name.trim()} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                  {savingProfile && <Loader2 className="size-3.5 animate-spin mr-2" />}
+                  Save Profile Name
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 2: SECURITY & PASSWORD */}
+        {activeTab === "security" && (
+          <div className="max-w-2xl space-y-6">
+            <form onSubmit={handleUpdatePassword} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
+              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+                <KeyRound className="size-4.5 text-primary" />
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Change Password</h2>
+                  <p className="text-caption text-muted-foreground mt-0.5">Ensure your account uses a strong, secure password.</p>
+                </div>
+              </div>
+
+              {passwordSuccess && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                  <ShieldCheck className="size-4 shrink-0" />
+                  <span>{passwordSuccess}</span>
+                </div>
+              )}
+
+              {passwordError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">New Password</label>
+                  <div className="relative w-full max-w-xl">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (min. 8 characters)"
+                      className="w-full h-10 text-sm pr-10 px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground/90 block">Confirm New Password</label>
+                  <div className="relative w-full max-w-xl">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="w-full h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-caption text-muted-foreground leading-relaxed pt-1">
+                  Ensure your password is at least 8 characters long and includes a combination of letters, numbers, and symbols for maximum security.
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-border/70 flex justify-end">
+                <Button type="submit" disabled={savingPassword || !newPassword || !confirmPassword} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
+                  {savingPassword && <Loader2 className="size-3.5 animate-spin mr-2" />}
+                  Update Password
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 3: APPEARANCE & THEME */}
+        {activeTab === "appearance" && mounted && (
+          <div className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
+            {/* Palette grid */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-3">
+                <Palette className="size-4 text-primary" />
+                <h2 className="text-item font-semibold text-foreground">Color palettes</h2>
+                <span className="text-caption text-muted-foreground">
+                  — Tailwind, Radix UI, Nord, Dracula, Solarized, Catppuccin
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {PALETTES.map(palette => {
+                  const id = palette.id
+                  const isSelected = (selectedId ?? DEFAULT_PALETTE_ID) === id
+                  const isPreviewing = previewId === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => selectPalette(id)}
+                      onMouseEnter={() => setPreviewId(id)}
+                      onMouseLeave={() => setPreviewId(null)}
+                      className={cn(
+                        "group relative flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 text-left transition-all cursor-pointer",
+                        isSelected
+                          ? "border-primary ring-1 ring-primary"
+                          : "border-border hover:border-primary/40 hover:shadow-sm",
+                        isPreviewing && !isSelected && "border-primary/50",
+                      )}
+                      aria-pressed={isSelected}
+                    >
+                      {isSelected && (
+                        <span className="absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                          <Check className="size-3" strokeWidth={3} />
+                        </span>
+                      )}
+
+                      <div className="flex items-center gap-2 pr-6">
+                        <span className="text-item font-semibold text-foreground">{palette.name}</span>
+                        <Badge variant="outline" className="h-4 px-1.5 text-caption text-muted-foreground">
+                          {palette.source}
+                        </Badge>
+                      </div>
+
+                      <p className="text-caption text-muted-foreground leading-snug">
+                        {palette.description}
+                      </p>
+
+                      <div className="flex items-center gap-2.5 pt-0.5">
+                        {mounted && paletteSwatches(palette[mode]).map(s => (
+                          <Swatch key={s.label} color={s.color} label={s.label} />
+                        ))}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Pattern grid */}
+              <div className="flex items-center gap-2 mb-3 mt-8">
+                <Layers className="size-4 text-primary" />
+                <h2 className="text-item font-semibold text-foreground">Background patterns</h2>
+                <span className="text-caption text-muted-foreground">
+                  — textures for the app shell
+                </span>
+                {mounted && !isPatternDefault && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectPattern(DEFAULT_PATTERN_ID)}
+                    className="ml-auto h-7 px-2.5 text-caption"
+                  >
+                    <RotateCcw className="size-3" />
+                    Reset pattern
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {PATTERNS.map(pat => {
+                  const isSel = (selectedPatternId ?? DEFAULT_PATTERN_ID) === pat.id
+                  return (
+                    <button
+                      key={pat.id}
+                      type="button"
+                      onClick={() => selectPattern(pat.id)}
+                      className={cn(
+                        "group relative flex flex-col gap-2 rounded-lg border bg-card p-3 text-left transition-all cursor-pointer",
+                        isSel
+                          ? "border-primary ring-1 ring-primary"
+                          : "border-border hover:border-primary/40 hover:shadow-sm",
+                      )}
+                    >
+                      <span className={cn("absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-all", isSel ? "bg-primary text-primary-foreground" : "bg-transparent")}>
+                        <Check className={cn("size-3 transition-opacity", isSel ? "opacity-100" : "opacity-0")} strokeWidth={3} />
+                      </span>
+
+                      <div className="flex items-center justify-between pr-6">
+                        <span className="text-item font-semibold text-foreground">{pat.name}</span>
+                      </div>
+
+                      <div
+                        className="h-20 rounded-md border border-border"
+                        style={{ background: pat.css }}
+                      />
+
+                      <p className="text-caption text-muted-foreground leading-snug">
+                        {pat.description}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Live preview side panel */}
+            <div className="min-w-0">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="size-4 text-primary" />
+                  <h2 className="text-item font-semibold text-foreground">Preview</h2>
+                </div>
+                {mounted && (
+                  <span className="text-caption text-muted-foreground">{previewCaption}</span>
+                )}
+              </div>
+
+              <div className="sticky top-0 space-y-3">
+                {mounted && <PreviewShell palette={preview} mode={mode} />}
+
+                {/* Pattern preview */}
+                <div className="rounded-lg border border-border bg-card p-3.5">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-caption font-semibold text-foreground">
+                      {previewPattern.name} pattern
+                    </p>
+                    {mounted && (
+                      <span className="text-caption text-muted-foreground">{patternPreviewCaption}</span>
+                    )}
+                  </div>
+                  <div
+                    className="h-32 rounded-md border border-border"
+                    style={{ background: previewPattern.css }}
+                  />
+                  <p className="text-caption text-muted-foreground mt-2 leading-relaxed">
+                    {previewPattern.description}
+                  </p>
+                </div>
+
+                {/* Swatch legend */}
+                {mounted && (
+                  <div className="rounded-lg border border-border bg-card p-3.5">
+                    <p className="text-caption font-semibold text-foreground mb-2">
+                      {preview.name} — {mode === "dark" ? "Dark" : "Light"} tokens
+                    </p>
+                    <div className="flex items-center gap-2.5">
+                      {paletteSwatches(preview[mode]).map(s => (
                         <Swatch key={s.label} color={s.color} label={s.label} />
                       ))}
                     </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Pattern grid */}
-            <div className="flex items-center gap-2 mb-3 mt-8">
-              <Layers className="size-4 text-primary" />
-              <h2 className="text-item font-semibold text-foreground">Background patterns</h2>
-              <span className="text-caption text-muted-foreground">
-                textures for the app shell
-              </span>
-              {!isPatternDefault && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto h-6 px-2 text-caption"
-                  onClick={() => selectPattern(DEFAULT_PATTERN_ID)}
-                >
-                  <RotateCcw className="size-3" />
-                  Reset
-                </Button>
-              )}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {PATTERNS.map(pattern => {
-                const isSelected = (selectedPatternId ?? DEFAULT_PATTERN_ID) === pattern.id
-                const isPreviewing = patternPreviewId === pattern.id
-                return (
-                  <button
-                    key={pattern.id}
-                    type="button"
-                    onClick={() => selectPattern(pattern.id)}
-                    onMouseEnter={() => setPatternPreviewId(pattern.id)}
-                    onMouseLeave={() => setPatternPreviewId(null)}
-                    className={cn(
-                      "group relative flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 text-left transition-all cursor-pointer",
-                      isSelected
-                        ? "border-primary ring-1 ring-primary"
-                        : "border-border hover:border-primary/40 hover:shadow-sm",
-                      isPreviewing && !isSelected && "border-primary/50",
-                    )}
-                    aria-pressed={isSelected}
-                  >
-                    {isSelected && (
-                      <span className="absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Check className="size-3" strokeWidth={3} />
-                      </span>
-                    )}
-
-                    <div
-                      className="h-16 rounded-md border border-border overflow-hidden"
-                      style={{ background: pattern.css }}
-                    />
-
-                    <div className="flex items-center gap-2 pr-6">
-                      <span className="text-item font-semibold text-foreground">{pattern.name}</span>
-                    </div>
-
-                    <p className="text-caption text-muted-foreground leading-snug">
-                      {pattern.description}
-                    </p>
-                  </button>
-                )
-              })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Live preview */}
-          <div className="min-w-0">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Settings2 className="size-4 text-primary" />
-                <h2 className="text-item font-semibold text-foreground">Preview</h2>
-              </div>
-              {mounted && (
-                <span className="text-caption text-muted-foreground">{previewCaption}</span>
-              )}
-            </div>
-
-            <div className="sticky top-0 space-y-3">
-              <PreviewShell palette={preview} mode={mode} />
-
-              {/* Pattern preview */}
-              <div className="rounded-lg border border-border bg-card p-3.5">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="text-caption font-semibold text-foreground">
-                    {previewPattern.name} pattern
-                  </p>
-                  {mounted && (
-                    <span className="text-caption text-muted-foreground">{patternPreviewCaption}</span>
-                  )}
-                </div>
-                <div
-                  className="h-32 rounded-md border border-border"
-                  style={{ background: previewPattern.css }}
-                />
-                <p className="text-caption text-muted-foreground mt-2 leading-relaxed">
-                  {previewPattern.description}
-                </p>
-              </div>
-
-              {/* Swatch legend for the previewing palette */}
-              <div className="rounded-lg border border-border bg-card p-3.5">
-                <p className="text-caption font-semibold text-foreground mb-2">
-                  {preview.name} · {mode === "dark" ? "Dark" : "Light"} tokens
-                </p>
-                <div className="flex items-center gap-2.5">
-                  {paletteSwatches(preview[mode]).map(s => (
-                    <Swatch key={s.label} color={s.color} label={s.label} />
-                  ))}
-                </div>
-              </div>
-
-              <p className="text-caption text-muted-foreground leading-relaxed">
-                Preview panels are scoped to this screen. Hover a palette or pattern to preview
-                it, then click to apply it app-wide. Your choices are stored in localStorage and
-                restored on next visit.
-              </p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

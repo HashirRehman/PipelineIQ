@@ -15,7 +15,7 @@ export interface ApiAppUser {
   id: string;
   name: string;
   email: string;
-  roleId: string | null;
+  roleId: string;
   role: "admin" | "lead" | "bd";
   status: "active" | "inactive";
   joinedAt: string;
@@ -32,6 +32,7 @@ export interface UsersApiResponse {
   currentUser: ApiAppUser | null;
   isAdmin: boolean;
   canInvite: boolean;
+  allowedEmailDomain?: string | null;
 }
 
 
@@ -74,13 +75,18 @@ export async function GET(request: Request) {
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  const [usersRes, rolesRes] = await Promise.all([
+  const [usersRes, rolesRes, orgRes] = await Promise.all([
     supabase
       .from("users")
       .select("id, email, full_name, is_active, created_at, role_id, roles(name, id)")
       .eq("organization_id", org.organizationId)
       .order("created_at", { ascending: false }),
     supabase.from("roles").select("id, name").order("name"),
+    supabase
+      .from("organizations")
+      .select("allowed_email_domain")
+      .eq("id", org.organizationId)
+      .maybeSingle(),
   ]);
 
   if (usersRes.error) {
@@ -99,7 +105,13 @@ export async function GET(request: Request) {
 
   const users: ApiAppUser[] = (usersRes.data ?? []).map((p) => {
     const roleId = p.role_id;
-    const roleName = p.roles?.name ?? "";
+    const roleName = p.roles?.name;
+
+    if (!roleId || !roleName) {
+      console.error(
+        `User ${p.id} (${p.email}) has null role_id or role name — this should never happen after the NOT NULL constraint.`
+      );
+    }
 
     const joinedAt = p.created_at
       ? p.created_at.split("T")[0]
@@ -116,15 +128,14 @@ export async function GET(request: Request) {
     };
   });
 
-  const currentUserObj = users.find((u) => u.id === user.id) ?? {
-    id: user.id,
-    name: user.user_metadata?.full_name || user.email || "Admin",
-    email: user.email ?? "",
-    roleId: null,
-    role: "admin" as const,
-    status: "active" as const,
-    joinedAt: new Date().toISOString().split("T")[0],
-  };
+  const currentUserObj = users.find((u) => u.id === user.id);
+  if (!currentUserObj) {
+    console.error(`Current user ${user.id} not found in users list — this should never happen`);
+    return NextResponse.json(
+      { error: "Current user not found." },
+      { status: 500 }
+    );
+  }
 
   // isAdmin gates row actions; canInvite gates the invite button. BD Managers
   // see the roster only.
@@ -134,6 +145,7 @@ export async function GET(request: Request) {
     currentUser: currentUserObj,
     isAdmin: perms.isAdmin,
     canInvite: perms.canInviteUsers,
+    allowedEmailDomain: orgRes.data?.allowed_email_domain ?? null,
   };
 
   return NextResponse.json(response);
@@ -176,6 +188,24 @@ export async function POST(request: Request) {
 
   const { name, email, roleId } = parsed.data;
 
+  // Validate Organization Allowed Email Domain dynamically
+  const { data: orgData } = await supabase
+    .from("organizations")
+    .select("allowed_email_domain")
+    .eq("id", org.organizationId)
+    .maybeSingle();
+
+  const domainSetting = orgData?.allowed_email_domain?.trim().toLowerCase();
+  if (domainSetting) {
+    const domainSuffix = domainSetting.startsWith("@") ? domainSetting : `@${domainSetting}`;
+    if (!email.trim().toLowerCase().endsWith(domainSuffix)) {
+      return NextResponse.json(
+        { error: `Only ${domainSuffix} email domain is allowed for user invitations.` },
+        { status: 400 },
+      );
+    }
+  }
+
   const roleResult = await findRoleById(supabase, roleId);
   if (!roleResult.ok) {
     if (roleResult.reason === "not_found") {
@@ -211,7 +241,7 @@ export async function POST(request: Request) {
     });
 
   if (inviteError) {
-    if (inviteError.code === "email_exists") {
+    if (inviteError.code === "email_exists" || inviteError.message?.toLowerCase().includes("already registered") || inviteError.message?.toLowerCase().includes("already exists")) {
       return NextResponse.json(
         { error: "An account with this email already exists." },
         { status: 400 },
@@ -219,8 +249,8 @@ export async function POST(request: Request) {
     }
     console.error("api/users: inviteUserByEmail failed", inviteError);
     return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 },
+      { error: inviteError.message || "Failed to send invitation email. Please check the email address and try again." },
+      { status: 400 },
     );
   }
 

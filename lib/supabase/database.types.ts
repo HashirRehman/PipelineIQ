@@ -830,7 +830,7 @@ export type Database = {
           id: string
           is_active: boolean
           organization_id: string
-          role_id: string | null
+          role_id: string
           updated_at: string
         }
         Insert: {
@@ -841,7 +841,7 @@ export type Database = {
           id: string
           is_active?: boolean
           organization_id: string
-          role_id?: string | null
+          role_id: string
           updated_at?: string
         }
         Update: {
@@ -852,7 +852,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           organization_id?: string
-          role_id?: string | null
+          role_id?: string
           updated_at?: string
         }
         Relationships: [

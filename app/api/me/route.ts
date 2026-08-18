@@ -4,7 +4,7 @@ import { getCachedUser } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 /**
- * Returns the signed-in user's id. Client components that used to call
+ * Returns the signed-in user's basic info. Client components that used to call
  * supabase.auth.getUser() in the browser (reading the session cookie via
  * document.cookie) can call this instead — the cookie stays HttpOnly.
  */
@@ -13,5 +13,9 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json({ userId: user.id });
+  return NextResponse.json({
+    id: user.id,
+    email: user.email,
+    name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+  });
 }

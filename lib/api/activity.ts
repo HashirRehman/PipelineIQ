@@ -43,7 +43,9 @@ export type ActivityAction =
   | "discovery_run_triggered"
   | "user_invited"
   | "user_updated"
-  | "user_deleted";
+  | "user_deleted"
+  | "password_changed"
+  | "organization_settings_updated";
 
 /** Every value of ActivityAction, for validating the ?action= filter and
  *  building the UI's filter dropdown without a second hardcoded list. */
@@ -72,6 +74,8 @@ export const ACTIVITY_ACTIONS: readonly ActivityAction[] = [
   "user_invited",
   "user_updated",
   "user_deleted",
+  "password_changed",
+  "organization_settings_updated",
 ];
 
 export interface LogActivityParams {
@@ -91,7 +95,7 @@ export interface LogActivityParams {
   description: string;
   /** What the action was about (no FK — the subject may be deleted later
    *  and the row must survive that). */
-  entityType?: "profile" | "job" | "lead" | "profile_cv" | "job_comment" | "user" | null;
+  entityType?: "profile" | "job" | "lead" | "profile_cv" | "job_comment" | "user" | "organization" | null;
   entityId?: string | null;
   /** Snapshot of the subject's name/title at the time. */
   entityLabel?: string | null;
@@ -143,6 +147,8 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   user_invited: "Member invited",
   user_updated: "Member updated",
   user_deleted: "Member removed",
+  password_changed: "Password changed",
+  organization_settings_updated: "Organization settings updated",
 };
 
 export async function logActivity(params: LogActivityParams): Promise<void> {

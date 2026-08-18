@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Moon, Palette, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
@@ -18,10 +17,11 @@ const PAGE_NAMES: Record<string, string> = {
   "/leads": "Leads",
   "/profiles": "Profiles",
   "/discovery": "Discovery",
+  "/pipeline": "Pipeline",
   "/applied-jobs": "Pipeline",
   "/users": "Team",
   "/statistics": "Statistics",
-  "/settings": "Theme",
+  "/settings": "Settings",
 };
 
 export function TopBar({ user }: TopBarProps) {
@@ -32,7 +32,6 @@ export function TopBar({ user }: TopBarProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
   const isDark = mounted && resolvedTheme === "dark";
-  const isSettings = segment === "/settings";
 
   return (
     <header className="flex h-[57px] shrink-0 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-sm">
@@ -40,20 +39,6 @@ export function TopBar({ user }: TopBarProps) {
         {pageName}
       </h1>
       <div className="flex items-center gap-3">
-        {/* Theme page link */}
-        <Link
-          href="/settings"
-          aria-label="Theme settings"
-          title="Theme settings"
-          aria-current={isSettings ? "page" : undefined}
-          className={cn(
-            "flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer",
-            isSettings && "bg-accent text-primary",
-          )}
-        >
-          <Palette className="size-4" strokeWidth={1.8} />
-        </Link>
-
         {/* Mode toggle — light / dark */}
         <Button
           type="button"

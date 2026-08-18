@@ -14,6 +14,7 @@ import {
   ChevronsRight,
   ChevronsLeft,
   Search,
+  Settings,
   UserRound,
   Users,
 } from "lucide-react";
@@ -224,27 +225,49 @@ export default function Sidebar({ counts, user }: SidebarProps) {
 
       {/* Bottom section */}
       <div className="border-t border-sidebar-border px-3 py-3 space-y-1">
+        {/* Settings button — always available at the bottom */}
+        <Link
+          href="/settings"
+          title="Settings"
+          className={cn(
+            "group/item relative flex w-full items-center rounded-lg text-sm transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            collapsed
+              ? "justify-center px-0 py-2"
+              : "gap-3 px-2.5 py-2",
+            "text-muted-foreground hover:bg-accent hover:text-foreground font-normal",
+          )}
+        >
+          <Settings
+            className={cn(
+              "size-4 shrink-0 transition-transform duration-150",
+              "text-muted-foreground/70 group-hover/item:scale-110",
+            )}
+            strokeWidth={1.8}
+          />
+          {!collapsed && <span className="leading-none">Settings</span>}
+        </Link>
+
         {/* User row — hover reveals a mini sign-out when expanded */}
         {user && (
           <div
             className={cn(
               "flex items-center rounded-md group",
-              collapsed ? "justify-center px-0 py-1.5" : "gap-2.5 px-2 py-1.5",
+              collapsed ? "justify-center px-2 py-2" : "gap-2.5 px-2 py-1.5",
             )}
           >
-            <Avatar name={user.name} size={26} />
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-item font-medium text-sidebar-foreground truncate leading-none">
-                  {user.name}
-                </p>
-                {user.role && (
-                  <p className="text-caption text-primary/80 mt-0.5 font-medium capitalize">
-                    {perms.label}
+              <Avatar name={user.name} size={26} />
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="text-item font-medium text-sidebar-foreground truncate leading-none">
+                    {user.name}
                   </p>
-                )}
-              </div>
-            )}
+                  {user.role && (
+                    <p className="text-caption text-primary/80 mt-0.5 font-medium capitalize">
+                      {perms.label}
+                    </p>
+                  )}
+                </div>
+              )}
             {!collapsed && (
               <Button
                 type="button"

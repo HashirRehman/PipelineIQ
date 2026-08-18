@@ -30,23 +30,32 @@ interface UserModalProps {
   roles: RoleOption[]
   user?: ApiAppUser // edit only
   isSelf?: boolean // edit only
+  allowedDomain?: string | null
   onClose: () => void
-  onSubmit: (values: { name: string; email: string; roleId: string | null }) => Promise<void>
+  onSubmit: (values: { name: string; email: string; roleId: string }) => Promise<void>
 }
 
-function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: UserModalProps) {
+function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, onSubmit }: UserModalProps) {
   const isInvite = mode === "invite"
   const [name, setName] = useState(user?.name ?? "")
   const [email, setEmail] = useState(user?.email ?? "")
-  const [roleId, setRoleId] = useState<string | null>(isInvite ? (roles[0]?.id ?? null) : (user?.roleId ?? null))
+  const [roleId, setRoleId] = useState<string>(isInvite ? (roles[0]?.id ?? "") : (user?.roleId ?? ""))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
+
+  const domainSuffix = allowedDomain?.trim()
+    ? (allowedDomain.trim().startsWith("@") ? allowedDomain.trim() : `@${allowedDomain.trim()}`)
+    : null
 
   const canSubmit = isInvite ? Boolean(name && email && roleId) : Boolean(name.trim())
 
   const handleSubmit = async () => {
     if (!canSubmit || loading) return
+    if (isInvite && domainSuffix && !email.trim().toLowerCase().endsWith(domainSuffix.toLowerCase())) {
+      setError(`Only ${domainSuffix} email domain is allowed.`)
+      return
+    }
     setLoading(true); setError("")
     try {
       await onSubmit({ name: name.trim(), email: email.trim(), roleId })
@@ -112,9 +121,14 @@ function UserModal({ mode, roles, user, isSelf = false, onClose, onSubmit }: Use
                 className={isInvite ? inputClass : `${inputClass} opacity-60 cursor-not-allowed`}
                 value={email}
                 onChange={isInvite ? e => setEmail(e.target.value) : undefined}
-                placeholder={isInvite ? "jane@company.com" : undefined}
+                placeholder={isInvite ? (domainSuffix ? `jane${domainSuffix}` : "jane@company.com") : undefined}
                 readOnly={!isInvite}
               />
+              {isInvite && domainSuffix && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Only <b>{domainSuffix}</b> email domain is allowed.
+                </p>
+              )}
             </div>
             {isSelf && !isInvite ? (
               <p className="text-caption text-muted-foreground">You cannot change your own role.</p>
@@ -154,19 +168,28 @@ export default function UsersTab() {
   const [deleteError, setDeleteError] = useState("")
 
   const usersKey = queryKeys.users.list()
-  const { data, isPending, error } = useQuery({
+  const { data, isPending, error: queryErr } = useQuery({
     queryKey: usersKey,
     queryFn: ({ signal }) => apiGet<UsersApiResponse>("/api/users", signal),
   })
+  const loading = isPending
 
-  const users = data?.users ?? []
+  const rawUsers: ApiAppUser[] = data?.users ?? []
+  const users = Array.from(new Map(rawUsers.map(u => [u.id, u])).values())
+
+  // Log if deduplication occurred (indicates potential API issue)
+  if (users.length < rawUsers.length) {
+    console.warn(`User list deduplication: ${rawUsers.length} raw users → ${users.length} unique users`);
+  }
   const roles: RoleOption[] = data?.roles ?? []
   const activeUser = data?.currentUser ?? null
   const isAdmin = data?.isAdmin ?? false
   const canInvite = data?.canInvite ?? false
+  const allowedDomain = data?.allowedEmailDomain ?? null
 
   // 403 = role may not see the roster; a real answer, not a failure.
-  const accessDenied = error instanceof ApiError && error.status === 403
+  const accessDenied = queryErr instanceof ApiError && queryErr.status === 403
+  const error = queryErr && !accessDenied ? "Unable to load team members." : null
 
   const refreshUsers = () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
 
@@ -368,12 +391,12 @@ export default function UsersTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
-                {filtered.map(user => {
+                {filtered.map((user, idx) => {
                   const roleColor = ROLE_COLOR[user.role ?? "bd"]
                   const statusColor = USER_STATUS_COLOR[user.status ?? "inactive"]
                   const isSelf = user.id === activeUser?.id
                   return (
-                    <tr key={user.id} className="bg-background transition-colors hover:bg-accent/40">
+                    <tr key={`${user.id}-${idx}`} className="bg-background transition-colors hover:bg-accent/40">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Avatar name={user.name} size={32} />
@@ -389,7 +412,7 @@ export default function UsersTab() {
                       <td className="px-4 py-3">
                         <span className="rounded-md px-2 py-0.5 text-meta font-medium capitalize"
                           style={{ background: `color-mix(in srgb, ${roleColor} 9%, transparent)`, color: roleColor }}>
-                          {roles.find(r => r.id === user.roleId)?.name ?? user.role ?? "N/A"}
+                          {roles.find(r => r.id === user.roleId)?.name ?? user.role}
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
@@ -468,6 +491,7 @@ export default function UsersTab() {
         <UserModal
           mode="invite"
           roles={roles}
+          allowedDomain={allowedDomain}
           onClose={() => setShowInvite(false)}
           onSubmit={async ({ name, email, roleId }) => {
             await apiPost<{ success: boolean; user: ApiAppUser }>("/api/users", { name, email, roleId })
@@ -486,7 +510,7 @@ export default function UsersTab() {
           onSubmit={async ({ name, roleId }) => {
             await saveUserEdit(editingUser.id, {
               name,
-              roleId: roleId !== editingUser.roleId ? (roleId ?? undefined) : undefined,
+              roleId: roleId !== editingUser.roleId ? roleId : undefined,
             })
           }}
         />
