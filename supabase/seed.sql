@@ -19,18 +19,23 @@ grant usage on type public.application_status to authenticated, service_role;
 
 
 -- Organizations -------------------------------------------------
-insert into public.organizations (id, name, is_active)
-values ('10000000-0000-4000-8000-000000000001', 'Recurso Labs', true)
+-- allowed_email_domain gates who may be invited into the org.
+insert into public.organizations (id, name, is_active, allowed_email_domain)
+values ('10000000-0000-4000-8000-000000000001', 'Recurso Labs', true, 'recursolabs.com')
 on conflict (id) do nothing;
 
 -- Roles ---------------------------------------------------------
+-- Must match lib/auth/roles.ts (ROLE_PERMISSIONS) exactly — the app looks
+-- roles up BY NAME, so a rename here silently changes permissions.
+-- NOTE: '...011' was named 'User' in the original seed and was renamed to
+-- 'Business Developer'; public.handle_new_user() still looks up 'User'.
 insert into public.roles (id, name, description) values
-  ('10000000-0000-4000-8000-000000000010', 'Admin', 'Full platform access'),
-  ('10000000-0000-4000-8000-000000000011', 'User',  'Standard user access')
+  ('10000000-0000-4000-8000-000000000010', 'Admin',              'Full platform access'),
+  ('d0e3e81c-92e7-4687-8aa7-c94e20be8937', 'BD Manager',         null),
+  ('10000000-0000-4000-8000-000000000011', 'Business Developer', 'Standard user access')
 on conflict (name) do nothing;
 
--- Seniority levels (old DB: seniority_levels, which also had a rank
--- column — rank was dropped in the fresh schema) -----------------
+-- Seniority levels ----------------------------------------------
 insert into public.seniority_level (id, name) values
   ('10000000-0000-4000-8000-000000000020', 'Lead'),
   ('10000000-0000-4000-8000-000000000021', 'Senior'),
@@ -40,25 +45,32 @@ on conflict (name) do nothing;
 
 -- Pipeline stages (lead pipeline after an employer reply) --------
 -- The frontend reads these dynamically (status select, board columns, list
--- sections, filters) — the order below drives both the UI order and the
--- stage colors, so keep it meaningful. The LAST stage is the terminal one
--- (the "mark done" target).
+-- sections, filters); order_index drives the UI order and the stage colors.
+-- The LAST stage is the terminal one (the "mark done" target).
+--
+-- order_index 1 ('Applied', id ...040) and 6 ('Tech Interview 2', id ...045)
+-- were deleted in the live database, and 'Tech Interview 1' was renamed to
+-- 'Tech Interview'. The gaps are kept deliberately so ids and order_index
+-- match production exactly — nothing reads these numbers as contiguous.
 insert into public.pipeline_stages (id, name, order_index) values
-  ('10000000-0000-4000-8000-000000000040', 'Applied',                1),
   ('10000000-0000-4000-8000-000000000041', 'Assessment Received',    2),
   ('10000000-0000-4000-8000-000000000042', 'Assessment Submitted',   3),
   ('10000000-0000-4000-8000-000000000043', 'HR Interview',           4),
-  ('10000000-0000-4000-8000-000000000044', 'Tech Interview 1',       5),
-  ('10000000-0000-4000-8000-000000000045', 'Tech Interview 2',       6),
+  ('10000000-0000-4000-8000-000000000044', 'Tech Interview',         5),
   ('10000000-0000-4000-8000-000000000046', 'Client Interview',       7),
   ('10000000-0000-4000-8000-000000000047', 'Offer Received',         8),
   ('10000000-0000-4000-8000-000000000048', 'Offer Accepted/Rejected',9),
   ('10000000-0000-4000-8000-000000000049', 'Closed',                10)
 on conflict (id) do nothing;
 
--- Scrapers (old DB: job_sources) --------------------------------
+-- Scrapers ------------------------------------------------------
+-- 'Manual' backs hand-added jobs (jobs.scraper_id is NOT NULL) and is also
+-- inserted by migration 20260811120000 — harmless to repeat.
 insert into public.scrapers (id, name, base_url) values
-  ('10000000-0000-4000-8000-000000000030', 'Jsearch', 'https://jsearch.p.rapidapi.com')
+  ('10000000-0000-4000-8000-000000000030', 'Jsearch',        'https://jsearch.p.rapidapi.com'),
+  ('10000000-0000-4000-8000-000000000031', 'Manual',         ''),
+  ('add37338-a62e-5985-8d37-5775c2ac5b05', 'RemoteOK',       'https://remoteok.com'),
+  ('02d65d10-c2bf-5203-a4f5-75b8af2771ee', 'WeWorkRemotely', 'https://weworkremotely.com')
 on conflict (id) do nothing;
 
 -- Profiles (old DB: engineers) -----------------------------------

@@ -109,19 +109,10 @@ async function main() {
     process.exit(1);
   }
 
-  // 2) public.users row (id = auth user id, FK enforced)
-  const { error: usersErr } = await supabase
-    .from('users')
-    .upsert(
-      { id: userId, organization_id: org.id, full_name: fullName, email, is_active: true },
-      { onConflict: 'id' }
-    );
-  if (usersErr) {
-    console.error('users upsert error:', usersErr.message);
-    process.exit(1);
-  }
-
-  // 3) Role assignment — a user has exactly one role (users.role_id)
+  // 2) Role FIRST — a user has exactly one role (users.role_id), and that
+  // column is NOT NULL as of migration 20260818110241. It used to be assigned
+  // in a second step after the insert; that ordering now fails the insert
+  // outright, so the role has to be resolved before the row is written.
   const { data: roleRow, error: roleErr } = await supabase
     .from('roles')
     .select('id, name')
@@ -132,19 +123,31 @@ async function main() {
     process.exit(1);
   }
   if (!roleRow) {
-    console.warn(
-      `Role '${DEFAULTS.role}' not found in DB (run supabase/seed.sql first) — user created without a role.`
+    console.error(
+      `Role '${DEFAULTS.role}' not found. Apply supabase/seed.sql first — users.role_id is NOT NULL, so the user cannot be created without it.`
     );
-  } else {
-    const { error: assignErr } = await supabase
-      .from('users')
-      .update({ role_id: roleRow.id })
-      .eq('id', userId);
-    if (assignErr) {
-      console.error('users role assignment error:', assignErr.message);
-      process.exit(1);
-    }
+    process.exit(1);
   }
+
+  // 3) public.users row (id = auth user id, FK enforced)
+  const { error: usersErr } = await supabase
+    .from('users')
+    .upsert(
+      {
+        id: userId,
+        organization_id: org.id,
+        role_id: roleRow.id,
+        full_name: fullName,
+        email,
+        is_active: true,
+      },
+      { onConflict: 'id' }
+    );
+  if (usersErr) {
+    console.error('users upsert error:', usersErr.message);
+    process.exit(1);
+  }
+  console.log(`Role: ${roleRow.name}`);
 
   // 4) Link the demo profile to this user (ownership — only if unassigned)
   const { data: profile, error: profErr } = await supabase
