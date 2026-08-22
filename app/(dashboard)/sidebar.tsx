@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
   BarChart3,
   Briefcase,
   CheckCircle2,
@@ -49,7 +48,6 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
     icon: BarChart3,
     href: "/statistics",
   },
-  { id: "activity", label: "Activity", icon: Activity, href: "/activity" },
 ];
 
 

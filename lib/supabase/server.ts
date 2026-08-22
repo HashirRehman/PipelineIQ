@@ -52,11 +52,33 @@ export async function createClient() {
 // anyway, and getUser() (vs. getSession()) revalidating against the Auth
 // server rather than trusting a possibly-stale/revoked cookie is a
 // deliberate existing security choice, not renegotiated here.
+//
+// Deactivation (users.is_active) is enforced here rather than in
+// middleware: middleware only runs the auth check for dashboard page
+// requests now (see proxy.ts), while this function runs on every API
+// route and every dashboard render regardless, so it's the one place
+// that's guaranteed to catch a deactivated account everywhere. Mirrors
+// the login gate (app/api/auth/login) — a row that exists but is flagged
+// inactive blocks; a missing row does not, so an invited user whose users
+// row isn't inserted yet isn't locked out of the confirm flow.
 export const getCachedUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (userRow && !userRow.is_active) {
+    await supabase.auth.signOut();
+    return null;
+  }
+
   return user;
 });
 

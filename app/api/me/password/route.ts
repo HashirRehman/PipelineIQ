@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { readOrganizationId } from "@/lib/api/organization";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -65,19 +64,6 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "password_changed",
-    description: "Changed password",
-    entityType: "user",
-    entityId: user.id,
-    entityLabel: user.email ?? "User",
-    request,
-  });
 
   return NextResponse.json({ success: true });
 }

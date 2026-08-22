@@ -10,7 +10,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { GroqAiClient } from "@/lib/ai/groq-client";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { parseAndStoreCv } from "@/lib/cv-parsing/parse-cv";
@@ -54,7 +53,7 @@ export async function POST(
   // the caller's org — profile_cvs has no organization_id of its own.
   const { data: cvRow } = await supabase
     .from("profile_cvs")
-    .select("id, file_name, file_type, storage_path, profiles!inner(id, organization_id, full_name)")
+    .select("id, file_type, storage_path, profiles!inner(id, organization_id)")
     .eq("id", cvId)
     .eq("profile_id", profileId)
     .eq("profiles.organization_id", org.organizationId)
@@ -84,23 +83,6 @@ export async function POST(
     // error status implying it should retry blindly.
     return NextResponse.json({ success: false, status: "failed", error: outcome.error });
   }
-
-  // profiles is a to-one embed (one profile per CV) despite the generated
-  // type's array shape — see the "no generated types embed" gotcha; the
-  // runtime always hands back a single object here.
-  const profileRow = cvRow.profiles as unknown as { full_name: string };
-
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "profile_cv_parsed",
-    description: `Parsed CV "${cvRow.file_name}" for profile "${profileRow.full_name}"`,
-    entityType: "profile_cv",
-    entityId: cvRow.id,
-    entityLabel: cvRow.file_name,
-  });
 
   revalidatePath("/");
 

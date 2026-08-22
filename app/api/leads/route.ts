@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { isWithinWindow, parseDateWindow, parseSort } from "@/lib/api/job-filters";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
@@ -486,18 +485,6 @@ export async function POST(request: Request) {
     }
     leadIds.push(inserted.id);
 
-    await logActivity({
-      supabase,
-      organizationId,
-      actorUserId: user.id,
-      actorName: actorNameFromUser(user),
-      action: "lead_created",
-      description: `Added lead for "${job.title} — ${job.company_name}" (${profile.full_name})`,
-      entityType: "lead",
-      entityId: inserted.id,
-      entityLabel: `${job.title} — ${job.company_name}`,
-      request,
-    });
   }
 
   return NextResponse.json({ success: true, created: leadIds.length, leadIds });

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Sidebar from "./sidebar";
 import { TopBar } from "@/components/top-bar";
 import { OrganizationProvider } from "@/components/organization-provider";
@@ -31,6 +32,14 @@ export default async function DashboardLayout({
     getCachedUserRole(),
     getCachedOrganizationId(),
   ]);
+
+  // Middleware's own auth gate only checks session validity, not
+  // deactivation (see proxy.ts + lib/supabase/server.ts). A deactivated
+  // user's getCachedUser() returns null here — redirect rather than
+  // rendering the shell for a signed-out user.
+  if (!user) {
+    redirect("/login");
+  }
 
   const name =
     (user?.user_metadata?.full_name as string | undefined) ||

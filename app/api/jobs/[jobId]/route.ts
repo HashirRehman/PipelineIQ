@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import type { Json } from "@/lib/supabase/database.types";
@@ -83,7 +82,6 @@ export async function PATCH(
 
   const updates: Record<string, string | boolean | null> = {};
   const editedColumns: string[] = [];
-  const editedLabels: string[] = [];
 
   for (const field of JOB_EDITABLE_FIELDS) {
     const value = parsed.data[field as JobEditableField];
@@ -102,7 +100,6 @@ export async function PATCH(
     }
 
     editedColumns.push(column);
-    editedLabels.push(field);
   }
 
   // Parsed-data extras are merged into the existing jsonb object — never
@@ -119,7 +116,6 @@ export async function PATCH(
         : value === ""
           ? null
           : (value as Json);
-    editedLabels.push(field);
   }
 
   // Union, not replace: editing the title today must not hand yesterday's
@@ -153,21 +149,6 @@ export async function PATCH(
       { status: 500 },
     );
   }
-
-  const entityLabel = `${job.title} — ${job.company_name}`;
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "job_updated",
-    description: `Edited ${editedLabels.join(", ")} on job "${entityLabel}"`,
-    entityType: "job",
-    entityId: jobId,
-    entityLabel,
-    metadata: { fields: editedLabels },
-    request,
-  });
 
   return NextResponse.json({ success: true, manualOverrides: overrides });
 }
