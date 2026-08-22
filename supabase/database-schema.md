@@ -2,9 +2,9 @@
 
 The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
-- **Migrations:** 26 · **Tables:** 16 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
+- **Migrations:** 27 · **Tables:** 16 · **Status:** schema + seed data + RLS policies + helper/transition functions all in place
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)
-- **Last updated:** 2026-08-13
+- **Last updated:** 2026-08-18
 
 > Migrations are intentionally comment-free; this document is the single source of truth for schema reasoning, old-DB mappings, and open questions. Keep it in sync when migrations change.
 
@@ -53,6 +53,7 @@ The database schema for the redesigned PipelineIQ platform. It replaces the old 
 | 24 | `20260812120000_close_anon_grants.sql` | Revokes all `anon` privileges on every public table (defense-in-depth — RLS already masked them, but a table with a residual `anon` grant is one `disable row level security` away from exposure) and sets default privileges so future tables don't re-inherit `anon` access |
 | 25 | `20260813075322_user_activities.sql` | `user_activities` — the product's business-activity feed (profiles/jobs/leads/comments/discovery), deliberately separate from `audit_logs`'s Admin-only security trail; visible org-wide to Admin/BD Manager, self-only to everyone else; append-only enforced by grants (no update/delete/truncate to `authenticated`) AND a BEFORE UPDATE/DELETE/TRUNCATE trigger (`prevent_user_activity_mutation()`) so not even `service_role` can rewrite history |
 | 26 | `20260818110241_make_role_id_not_null.sql` | `users.role_id` made NOT NULL (was nullable); any existing rows with NULL role_id are set to Business Developer as a safe default; FK now has ON DELETE RESTRICT to prevent a role from being deleted while users reference it — ensures every user always has a valid role |
+| 27 | `20260818125255_profile_cvs_storage_bucket.sql` | Private `profile-cvs` Storage bucket (10 MiB limit, PDF/DOC/DOCX only) replacing Cloudinary for CV files; 3 `storage.objects` RLS policies (SELECT/INSERT/DELETE) mirroring `profile_cvs`'s own `is_privileged_in(organization_id)` + owner-branch shape exactly, via `(storage.foldername(name))[1]` reading the profile id back out of the object path |
 
 > Rows 11 and 18 (`drop_job_comments_parent_id`, `add_parsed_data_to_jobs`) were previously missing from this table entirely — a pre-existing documentation gap unrelated to this update, found and fixed while adding row 25. Rows 20–24 were added to the codebase by a separate PR (multi-tenant RLS scoping, the audit log, and the last-admin guard) and were likewise undocumented here until now.
 
@@ -157,7 +158,7 @@ CVs attached to a profile. A profile can have **multiple** CVs; files live in a 
 |---|---|---|
 | id | uuid | PK |
 | profile_id | uuid | NOT NULL, FK → `profiles(id)` ON DELETE CASCADE |
-| storage_path | text | NOT NULL — Cloudinary CDN URL for uploaded CVs; seeded rows carry dummy paths |
+| storage_path | text | NOT NULL — object key in the private `profile-cvs` Storage bucket (`<profileId>/<cvId>-<fileName>`); seeded rows carry paths in the same shape with no object behind them |
 | file_name | text | NOT NULL |
 | file_type | text | NOT NULL |
 | file_size_bytes | bigint | NOT NULL |
@@ -479,6 +480,8 @@ organizations 1─N user_activities, users 1─N user_activities (actor only —
 
 17. **Two audit tables, split by audience, not one.** `audit_logs` (migration 21) is the security/team-management trail — logins, invites, member changes — and stays Admin-only to read, on purpose. `user_activities` (migration 25) is the product's business-activity feed — profiles, jobs, leads, comments, discovery — visible org-wide to Admin **and** BD Manager, matching the Business Developer permission model everywhere else. They were kept as separate tables specifically so that widening the feed's audience (as the product requires) could never widen access to the security trail (which must not). Both are append-only by construction — see §3.15/§3.16 for the three-layer enforcement (RLS, grants, and a mutation-blocking trigger that also covers `service_role` and `TRUNCATE`, neither of which RLS can reach).
 
+18. **CV files moved from Cloudinary to Supabase Storage (migration 27).** `profile_cvs.storage_path` used to hold a full, unsigned Cloudinary CDN URL — file access lived entirely outside RLS's reach, on a link that worked for anyone who had it. The private `profile-cvs` bucket replaces that: `storage.objects` carries its own RLS, hand-written to mirror `profile_cvs`'s existing policies exactly (`is_privileged_in(organization_id)` for insert/delete, plus the assigned-owner branch for select) rather than inventing a separate access model for the same data. The object key's first path segment is the profile id on purpose — `(storage.foldername(name))[1]` is how the policies recover it, so `lib/supabase/storage.ts`'s `cvObjectPath()` and these policies change together. Every code path that already has an authenticated user (upload, delete, the manual re-parse route) uses that user's own client for the Storage call, so `storage.objects` RLS is genuinely the boundary; only the cron sweep (no user session) uses the service-role client, the same carve-out already established for that route. Downloads are short-lived signed URLs (`createSignedUrl`, 15-minute TTL — see `CV_DOWNLOAD_URL_TTL_SECONDS`'s comment for why that length), generated per request rather than stored, since a private bucket has no permanent public URL to hand out.
+
 ---
 
 ## 6. Renames from the old database
@@ -542,4 +545,3 @@ organizations 1─N user_activities, users 1─N user_activities (actor only —
 **Not yet built:**
 
 - The old leads module — the static `LeadsTab` is the current UI; a fresh leads module will be built against this schema when real data lands
-- CV file storage — CVs are uploaded to Cloudinary (raw assets, `profiles/<profileId>/` folder) and `profile_cvs.storage_path` holds the CDN secure URL; seeded rows carry dummy paths until real files are uploaded through the app

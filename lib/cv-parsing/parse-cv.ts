@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiClient } from "@/lib/ai/client";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { downloadCvFile } from "@/lib/supabase/storage";
 import { CvExtractionError, extractCvText } from "./extract-text";
 import { PARSED_CV_SCHEMA_VERSION } from "./parsed-cv";
 
@@ -18,25 +19,9 @@ export type CvParseTarget = {
   fileType: string;
   /** The uploaded bytes, when the caller already has them in memory. */
   buffer?: Buffer;
-  /** Cloudinary URL from profile_cvs.storage_path, for re-parses. */
+  /** profile_cvs.storage_path — the object key in the profile-cvs bucket, for re-parses. */
   storagePath?: string;
 };
-
-/** Only for re-parses and the sweep; uploads pass their buffer in directly. */
-async function downloadCvBytes(storagePath: string): Promise<Buffer> {
-  if (!storagePath.startsWith("https://")) {
-    throw new Error(
-      "This CV has no downloadable file (its storage path is a placeholder, not a URL).",
-    );
-  }
-
-  const response = await fetch(storagePath);
-  if (!response.ok) {
-    throw new Error(`Could not download the stored file (HTTP ${response.status}).`);
-  }
-
-  return Buffer.from(await response.arrayBuffer());
-}
 
 async function recordFailure(
   supabase: SupabaseClient<Database>,
@@ -61,6 +46,12 @@ export async function parseAndStoreCv(
   supabase: SupabaseClient<Database>,
   aiClient: AiClient,
   target: CvParseTarget,
+  // Storage reads default to the same client that writes the parse columns,
+  // which is right for the cron sweep (no user session -> service role). The
+  // manual re-parse route passes its USER-scoped client here so
+  // storage.objects RLS is the boundary for reading the file, even though the
+  // system-owned parse columns are still written with the service role.
+  storageClient: SupabaseClient<Database> = supabase,
 ): Promise<CvParseOutcome> {
   const { cvId, fileType } = target;
 
@@ -69,7 +60,7 @@ export async function parseAndStoreCv(
     bytes =
       target.buffer ??
       (target.storagePath
-        ? await downloadCvBytes(target.storagePath)
+        ? await downloadCvFile(storageClient, target.storagePath)
         : (() => {
             throw new Error("No file contents and no storage path to fetch them from.");
           })());

@@ -2,12 +2,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
-import {
-  CloudinaryConfigError,
-  deleteCvFile,
-  uploadCvFile,
-  type CvUploadResult,
-} from "@/lib/cloudinary";
+import { deleteCvFile, uploadCvFile } from "@/lib/supabase/storage";
 import { scheduleCvParse } from "@/lib/cv-parsing/schedule";
 import {
   archiveProfileSchema,
@@ -400,9 +395,10 @@ const CV_HARD_ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-// CVs are stored in Cloudinary (raw assets); profile_cvs.storage_path holds
-// the CDN secure URL returned by the upload. Seeded rows keep dummy paths
-// until real files are uploaded through the app.
+// CVs are stored in the private `profile-cvs` Storage bucket;
+// profile_cvs.storage_path holds the object key (<profileId>/<cvId>-<file>).
+// Seeded rows carry paths in the same shape with no object behind them, until
+// real files are uploaded through the app.
 export async function uploadProfileCv(
   supabase: Client,
   profileId: string,
@@ -455,28 +451,29 @@ export async function uploadProfileCv(
 
   const cvId = crypto.randomUUID();
 
-  // Read once and reuse: Cloudinary needs these bytes, and so does the parse
+  // Read once and reuse: the upload needs these bytes, and so does the parse
   // scheduled at the end of this function — re-downloading the file we just
   // uploaded would be a pointless round trip.
   const fileBytes = Buffer.from(await file.arrayBuffer());
 
-  let upload: CvUploadResult;
+  let storagePath: string;
   try {
-    upload = await uploadCvFile(
-      fileBytes,
+    // User-scoped client: the storage.objects insert policy re-checks that
+    // this caller is privileged in the owning profile's org, so the file and
+    // the row are gated by the same rule.
+    ({ path: storagePath } = await uploadCvFile(supabase, {
+      buffer: fileBytes,
       profileId,
       cvId,
-      file.name,
-    );
+      fileName: file.name,
+      contentType: file.type,
+    }));
   } catch (uploadError) {
-    console.error("uploadProfileCv: Cloudinary upload failed", uploadError);
+    console.error("uploadProfileCv: Storage upload failed", uploadError);
     return {
       success: false,
       status: 500,
-      error:
-        uploadError instanceof CloudinaryConfigError
-          ? uploadError.message
-          : "Something went wrong uploading the file. Please try again.",
+      error: "Something went wrong uploading the file. Please try again.",
     };
   }
 
@@ -485,7 +482,7 @@ export async function uploadProfileCv(
   const { error: insertError } = await supabase.from("profile_cvs").insert({
     id: cvId,
     profile_id: profileId,
-    storage_path: upload.secureUrl,
+    storage_path: storagePath,
     file_name: file.name,
     file_type: file.type,
     file_size_bytes: file.size,
@@ -493,12 +490,12 @@ export async function uploadProfileCv(
 
   if (insertError) {
     console.error("uploadProfileCv: profile_cvs insert failed", insertError);
-    // The file is already on Cloudinary — remove it so a failed row insert
-    // doesn't leave an orphaned asset behind.
+    // The bytes are already in the bucket — remove them so a failed row
+    // insert doesn't leave an orphaned object behind.
     try {
-      await deleteCvFile(upload.publicId);
+      await deleteCvFile(supabase, storagePath);
     } catch (cleanupError) {
-      console.error("uploadProfileCv: Cloudinary cleanup failed", cleanupError);
+      console.error("uploadProfileCv: Storage cleanup failed", cleanupError);
     }
     return {
       success: false,
@@ -527,40 +524,11 @@ export async function uploadProfileCv(
   return { success: true, profileId };
 }
 
-// Extracts the Cloudinary public_id from a CDN secure URL. Raw assets embed
-// the id in the path (…/upload/v<version>/<public_id>), so the upload's
-// public_id can be recovered from the URL stored in profile_cvs.storage_path.
-// Seeded rows carry dummy paths that are not Cloudinary URLs — returns null.
-function publicIdFromCvUrl(secureUrl: string): string | null {
-  if (!secureUrl.startsWith("https://res.cloudinary.com")) {
-    return null;
-  }
-
-  const uploadMarker = "/upload/";
-  const uploadIndex = secureUrl.indexOf(uploadMarker);
-  if (uploadIndex === -1) {
-    return null;
-  }
-
-  const publicId = secureUrl
-    .slice(uploadIndex + uploadMarker.length)
-    .replace(/^v\d+\//, "");
-
-  if (!publicId) {
-    return null;
-  }
-
-  try {
-    return decodeURIComponent(publicId);
-  } catch {
-    return publicId;
-  }
-}
-
 // CVs are soft-deleted (deleted_at) — RLS grants update but not delete on
 // profile_cvs, and hard deletes would break job_profile_matches FK rows.
-// The Cloudinary asset is removed best-effort afterwards; seeded rows with
-// dummy storage paths are simply unlinked.
+// The stored FILE is removed best-effort afterwards; seeded rows point at no
+// object, and Storage treats removing a missing key as a no-op, so they are
+// simply unlinked.
 export async function deleteProfileCv(
   supabase: Client,
   profileId: string,
@@ -628,16 +596,10 @@ export async function deleteProfileCv(
     };
   }
 
-  const publicId = publicIdFromCvUrl(cvRow.storage_path);
-  if (publicId) {
-    try {
-      await deleteCvFile(publicId);
-    } catch (cleanupError) {
-      console.error(
-        "deleteProfileCv: Cloudinary cleanup failed",
-        cleanupError,
-      );
-    }
+  try {
+    await deleteCvFile(supabase, cvRow.storage_path);
+  } catch (cleanupError) {
+    console.error("deleteProfileCv: Storage cleanup failed", cleanupError);
   }
 
   await logActivity({

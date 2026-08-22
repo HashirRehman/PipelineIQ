@@ -65,15 +65,18 @@ export async function POST(
     return NextResponse.json({ success: false, error: "CV not found." }, { status: 404 });
   }
 
-  // The write goes through the service-role client: profile_cvs_update is
-  // admin-only under RLS and this caller is an admin, but the parse columns
-  // are system-owned bookkeeping, written the same way the sweep and the
-  // upload's after() callback write them. One code path, one set of semantics.
-  const outcome = await parseAndStoreCv(createAdminClient(), new GroqAiClient(), {
-    cvId: cvRow.id,
-    fileType: cvRow.file_type,
-    storagePath: cvRow.storage_path,
-  });
+  // The parse columns are written through the service-role client:
+  // profile_cvs_update is admin-only under RLS and this caller is an admin,
+  // but the columns are system-owned bookkeeping, written the same way the
+  // sweep and the upload's after() callback write them. The FILE, though, is
+  // read with the caller's own client, so storage.objects RLS re-checks this
+  // admin's access to that profile's CV instead of trusting the route's gate.
+  const outcome = await parseAndStoreCv(
+    createAdminClient(),
+    new GroqAiClient(),
+    { cvId: cvRow.id, fileType: cvRow.file_type, storagePath: cvRow.storage_path },
+    supabase,
+  );
 
   if (outcome.status === "failed") {
     // 200, not 5xx: the request was handled correctly and the row now records
