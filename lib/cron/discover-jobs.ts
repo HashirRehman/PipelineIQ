@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiClient, JobListing, ProfileContext } from "@/lib/ai/client";
 import { getJobSourceAdapters } from "@/lib/job-sources/registry";
 import type { Database } from "@/lib/supabase/database.types";
+import { organizationName } from "@/lib/constants";
 
 type DiscoveryError = {
   stage: "fetch" | "ingest" | "enrich" | "score";
@@ -106,7 +107,7 @@ export async function runJobDiscovery(
   const { data: orgRow } = await supabase
     .from("organizations")
     .select("id")
-    .eq("name", "Recurso Labs")
+    .eq("name", organizationName)
     .maybeSingle();
   if (!orgRow) {
     throw new Error("No organization found — apply supabase/seed.sql first.");

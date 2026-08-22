@@ -62,11 +62,6 @@ export function LeadStatusSelect({
       <SelectContent
         className="text-item"
         container={container}
-        side="bottom"
-        align="start"
-        sideOffset={4}
-        alignOffset={0}
-        alignItemWithTrigger={false}
       >
         {stages.map((s, i) => {
           const dotColor = stageColor(i)

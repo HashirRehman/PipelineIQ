@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
+import { isAdminRole } from "@/lib/auth/roles";
 import { deleteCvFile, uploadCvFile } from "@/lib/supabase/storage";
 import { scheduleCvParse } from "@/lib/cv-parsing/schedule";
 import {
@@ -298,7 +299,7 @@ export async function setProfileAssignment(
     if (!userRow) {
       return { success: false, status: 400, error: "Selected user not found." };
     }
-    if (userRow.roles?.name === "Admin") {
+    if (isAdminRole(userRow.roles?.name)) {
       return { success: false, status: 400, error: "Admins cannot be assigned to profiles." };
     }
   }

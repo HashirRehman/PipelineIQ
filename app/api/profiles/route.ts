@@ -7,6 +7,7 @@ import {
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createProfile } from "@/lib/services/profiles";
+import { isAdminRole } from "@/lib/auth/roles";
 import {
   createClient,
   getCachedRolePermissions,
@@ -144,7 +145,7 @@ export async function GET(request: Request) {
   }
 
   const assignableUsers: AssignableUser[] = (userRows ?? [])
-    .filter((userRow) => userRow.roles?.name !== "Admin")
+    .filter((userRow) => !isAdminRole(userRow.roles?.name))
     .map((userRow) => ({
       id: userRow.id,
       name: userRow.full_name || userRow.email.split("@")[0] || "User",

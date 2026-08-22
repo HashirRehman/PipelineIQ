@@ -1,11 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Loader2, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
 import { FunnelChart } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/tooltip";
 import { SERIES_PALETTE, stageColor } from "@/lib/constants";
 import { businessWeekStart } from "@/lib/date-window";
@@ -26,6 +27,38 @@ function timeAgo(iso: string, nowMs: number): string {
   if (days < 7) return `${days}d ago`;
   if (days < 30) return `${Math.floor(days / 7)}w ago`;
   return `${Math.floor(days / 30)}mo ago`;
+}
+
+// Shared row shape for the offers/stalled/recent-activity lists below —
+// avatar + truncated title/subtitle + a trailing slot for whatever each
+// list needs to show (a relative time, a day count, a status dot). The team
+// leaderboard row isn't included here — its rank number + progress bar is a
+// different shape, not a variant of this one.
+function ActivityRow({
+  avatarName,
+  avatarSize = 24,
+  title,
+  subtitle,
+  trailing,
+  className,
+}: {
+  avatarName: string;
+  avatarSize?: number;
+  title: string;
+  subtitle: string;
+  trailing: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-2.5 py-2 border-b border-border last:border-b-0", className)}>
+      <Avatar name={avatarName} size={avatarSize} />
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-foreground truncate">{title}</div>
+        <div className="text-meta text-muted-foreground truncate">{subtitle}</div>
+      </div>
+      <span className="shrink-0">{trailing}</span>
+    </div>
+  );
 }
 
 export default function DashboardTab() {
@@ -157,11 +190,10 @@ export default function DashboardTab() {
   // BDs can't read the profiles API, so their profile KPI counts their own
   // profiles from the (scoped) leads response instead.
   const statsCards = [
-    { label: "Open Leads", value: openLeads.length, sub: "not yet closed" },
+    { label: "Active Leads", value: openLeads.length, sub: "not yet closed" },
     roleKey === "bd"
       ? { label: "My Profiles", value: profiles.length, sub: "assigned to you" }
       : { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` },
-    { label: "Offers Out", value: offerLeads.length, sub: "waiting on decision" },
     { label: "New Leads This Week", value: newThisWeek, sub: weekLabel },
     { label: "Applied This Week", value: appsThisWeek, sub: "job applications" },
   ];
@@ -174,13 +206,31 @@ export default function DashboardTab() {
             Failed to load dashboard
           </div>
         ) : isPending ? (
-          <div className="flex items-center justify-center py-24 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin text-primary" />
-          </div>
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-2">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-6 w-1/2" />
+                  <Skeleton className="h-2.5 w-3/4" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="rounded-lg border border-border bg-card p-5 lg:col-span-2 space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+              <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+            </div>
+          </>
         ) : (
           <>
             {/* KPI strip */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {statsCards.map((s, i) => (
                 <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} delay={i * 60} />
               ))}
@@ -225,14 +275,13 @@ export default function DashboardTab() {
                           </div>
                           <div className="flex flex-col">
                             {offerRows.map((l) => (
-                              <div key={l.id} className="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
-                                <Avatar name={l.profileName} size={24} />
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-xs font-medium text-foreground truncate">{l.profileName}</div>
-                                  <div className="text-meta text-muted-foreground truncate">{l.company}</div>
-                                </div>
-                                <span className="font-mono text-micro text-muted-foreground shrink-0">{timeAgo(l.appliedAt, nowMs)}</span>
-                              </div>
+                              <ActivityRow
+                                key={l.id}
+                                avatarName={l.profileName}
+                                title={l.profileName}
+                                subtitle={l.company}
+                                trailing={<span className="font-mono text-micro text-muted-foreground">{timeAgo(l.appliedAt, nowMs)}</span>}
+                              />
                             ))}
                           </div>
                         </div>
@@ -247,14 +296,13 @@ export default function DashboardTab() {
                             {stalledLeads.map((l) => {
                               const days = Math.floor((nowMs - new Date(l.appliedAt).getTime()) / 86_400_000);
                               return (
-                                <div key={l.id} className="flex items-center gap-2.5 py-2 border-b border-border last:border-b-0">
-                                  <Avatar name={l.profileName} size={24} />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-medium text-foreground truncate">{l.profileName}</div>
-                                    <div className="text-meta text-muted-foreground truncate">{l.status}</div>
-                                  </div>
-                                  <span className="font-mono text-micro text-amber-500 shrink-0">{days}d</span>
-                                </div>
+                                <ActivityRow
+                                  key={l.id}
+                                  avatarName={l.profileName}
+                                  title={l.profileName}
+                                  subtitle={l.status}
+                                  trailing={<span className="font-mono text-micro text-amber-500">{days}d</span>}
+                                />
                               );
                             })}
                           </div>
@@ -267,7 +315,7 @@ export default function DashboardTab() {
                 </CardContent>
                 <div className="mt-4 pt-3 border-t border-border">
                   <Link href="/leads" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                    Open Leads →
+                    Active Leads →
                   </Link>
                 </div>
               </Card>
@@ -329,20 +377,23 @@ export default function DashboardTab() {
                   {recent.length > 0 ? (
                     <div className="flex flex-col">
                       {recent.map((l) => (
-                        <div key={l.id} className="flex items-center gap-3 py-2.75 border-b border-border last:border-b-0">
-                          <Avatar name={l.profileName} size={28} />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-medium text-foreground truncate">{l.profileName}</div>
-                            <div className="text-meta text-muted-foreground truncate">{l.jobTitle} · {l.company}</div>
-                          </div>
-                          <div className="flex flex-col items-end gap-0.5 shrink-0">
-                            <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
-                              <span className="size-1.5 rounded-full shrink-0" style={{ background: stageColor(stageIndexOf(l.status)) }} />
-                              {l.status}
-                            </span>
-                            <span className="font-mono text-micro text-muted-foreground">{timeAgo(l.appliedAt, nowMs)}</span>
-                          </div>
-                        </div>
+                        <ActivityRow
+                          key={l.id}
+                          avatarName={l.profileName}
+                          avatarSize={28}
+                          className="gap-3 py-2.75"
+                          title={l.profileName}
+                          subtitle={`${l.jobTitle} · ${l.company}`}
+                          trailing={
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
+                                <span className="size-1.5 rounded-full shrink-0" style={{ background: stageColor(stageIndexOf(l.status)) }} />
+                                {l.status}
+                              </span>
+                              <span className="font-mono text-micro text-muted-foreground">{timeAgo(l.appliedAt, nowMs)}</span>
+                            </div>
+                          }
+                        />
                       ))}
                     </div>
                   ) : (

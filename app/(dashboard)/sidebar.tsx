@@ -1,7 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import Link from "next/link";
+import { useState, useSyncExternalStore } from "react";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import {
   Briefcase,
   CheckCircle2,
   LayoutDashboard,
+  Loader2,
   LogOut,
   ChevronsRight,
   ChevronsLeft,
@@ -66,6 +67,35 @@ function onCollapsedChange(callback: () => void) {
 const readCollapsed = () =>
   window.localStorage.getItem(COLLAPSED_KEY) === "1";
 
+// useLinkStatus() only reports a pending state from within a descendant of
+// the <Link> it's tracking, hence this as its own component rather than
+// inline in the Link's children — swaps the tab's icon for a spinner for
+// the moment its own navigation is actually in flight (on top of the
+// optimistic highlight, which flips instantly regardless).
+function NavIcon({
+  icon: Icon,
+  isActive,
+}: {
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
+  const { pending } = useLinkStatus();
+  if (pending) {
+    return <Loader2 className="size-4 shrink-0 animate-spin text-primary" />;
+  }
+  return (
+    <Icon
+      className={cn(
+        "size-4 shrink-0 transition-transform duration-150",
+        isActive
+          ? "text-primary"
+          : "text-muted-foreground/70 group-hover/item:scale-110",
+      )}
+      strokeWidth={isActive ? 2.2 : 1.8}
+    />
+  );
+}
+
 function getActiveTab(pathname: string): TabId | null {
   if (pathname === "/") return "dashboard";
   const segment = pathname.split("/")[1];
@@ -81,7 +111,20 @@ interface SidebarProps {
 
 export default function Sidebar({ counts, user }: SidebarProps) {
   const pathname = usePathname();
-  const activeTab = getActiveTab(pathname);
+
+  // usePathname() only updates once the target route actually commits, not
+  // the instant a nav item is clicked — leaving the highlight visibly lagging
+  // behind the click. Track the clicked tab optimistically, and drop the
+  // override the moment pathname has moved (adjusting state during render,
+  // not in an effect — see "You Might Not Need an Effect" in the React docs).
+  const [optimisticTab, setOptimisticTab] = useState<TabId | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setOptimisticTab(null);
+  }
+
+  const activeTab = optimisticTab ?? getActiveTab(pathname);
 
   // Nav visibility comes from the ROLE_PERMISSIONS matrix (lib/auth/roles.ts)
   // — the single source of truth for what each role may do. The layout passes
@@ -162,11 +205,11 @@ export default function Sidebar({ counts, user }: SidebarProps) {
           {visibleNav.map((item) => {
             const isActive = activeTab === item.id;
             const count = counts?.[item.id];
-            const Icon = item.icon;
             return (
               <li key={item.id}>
                 <Link
                   href={item.href}
+                  onClick={() => setOptimisticTab(item.id)}
                   aria-current={isActive ? "page" : undefined}
                   title={collapsed ? item.label : undefined}
                   className={cn(
@@ -179,15 +222,7 @@ export default function Sidebar({ counts, user }: SidebarProps) {
                       : "text-muted-foreground hover:bg-accent hover:text-foreground font-normal",
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      "size-4 shrink-0 transition-transform duration-150",
-                      isActive
-                        ? "text-primary"
-                        : "text-muted-foreground/70 group-hover/item:scale-110",
-                    )}
-                    strokeWidth={isActive ? 2.2 : 1.8}
-                  />
+                  <NavIcon icon={item.icon} isActive={isActive} />
                   {!collapsed && (
                     <span className="leading-none">{item.label}</span>
                   )}

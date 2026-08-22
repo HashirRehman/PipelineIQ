@@ -23,6 +23,7 @@ export interface ApiAppUser {
 export interface ApiRole {
   id: string;
   name: string;
+  description: string | null;
 }
 
 export interface UsersApiResponse {
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
       .select("id, email, full_name, is_active, created_at, role_id, roles(name, id)")
       .eq("organization_id", org.organizationId)
       .order("created_at", { ascending: false }),
-    supabase.from("roles").select("id, name").order("name"),
+    supabase.from("roles").select("id, name, description").order("name"),
     supabase
       .from("organizations")
       .select("allowed_email_domain")

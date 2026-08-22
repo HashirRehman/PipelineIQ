@@ -1,10 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { DonutChart, FunnelChart, LineChart, StackedBarChart } from "@/components/charts";
 import { ProfileUserFilters } from "@/components/leads/profile-user-filters";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -512,9 +512,27 @@ export default function StatisticsTab() {
             Failed to load statistics
           </div>
         ) : isPending ? (
-          <div className="flex items-center justify-center py-24 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin text-primary" />
-          </div>
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-2">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-6 w-1/2" />
+                  <Skeleton className="h-2.5 w-3/4" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+              <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+            </div>
+          </>
         ) : (
           <>
             {statsMode === "leads" ? (
@@ -665,8 +683,9 @@ export default function StatisticsTab() {
                     Failed to load application stats
                   </div>
                 ) : appsPending ? (
-                  <div className="flex items-center justify-center py-16 text-muted-foreground">
-                    <Loader2 className="size-5 animate-spin text-primary" />
+                  <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-40 w-full" />
                   </div>
                 ) : (
                   <>

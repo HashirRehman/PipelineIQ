@@ -18,6 +18,8 @@
      Radix UI, Nord, Dracula, Solarized, and Catppuccin.
    ════════════════════════════════════════════════════════════════════════ */
 
+import { organizationName } from "@/lib/constants"
+
 export interface PaletteColors {
   pageBg: string
   background: string
@@ -60,53 +62,53 @@ export const STYLE_ID = "pipelineiq-palette-style"
 /** The app's built-in look — selecting this clears any palette override. */
 const DEFAULT_PALETTE: ThemePalette = {
   id: DEFAULT_PALETTE_ID,
-  name: "Recurso Labs",
+  name: organizationName,
   source: "Built-in",
-  description: "The default PipelineIQ look. Dracula-inspired, but blue instead of purple.",
+  description: "The default PipelineIQ look. Neutral slate with a single blue accent.",
   light: {
-    pageBg: "#f6f7fb",
+    pageBg: "#f8fafc",
     background: "#ffffff",
     card: "#ffffff",
-    sidebar: "#f6f7fb",
+    sidebar: "#f8fafc",
     popover: "#ffffff",
-    foreground: "#282a36",
-    mutedForeground: "#6a6f84",
-    primary: "#3b82f6",
+    foreground: "#0f172a",
+    mutedForeground: "#64748b",
+    primary: "#2563eb",
     primaryForeground: "#ffffff",
-    ring: "#3b82f6",
-    accent: "#dbeafe",
+    ring: "#2563eb",
+    accent: "#eff6ff",
     accentForeground: "#1d4ed8",
-    secondary: "#f1f2f8",
-    muted: "#f1f2f8",
-    border: "#e2e4f0",
-    borderStrong: "#c7cbe0",
-    input: "#e2e4f0",
+    secondary: "#f1f5f9",
+    muted: "#f1f5f9",
+    border: "#e2e8f0",
+    borderStrong: "#cbd5e1",
+    input: "#e2e8f0",
     brandNavy: "#44475a",
     brandBlue: "#3b82f6",
     brandSky: "#7dd3fc",
   },
   dark: {
-    pageBg: "#1f2029",
-    background: "#282a36",
-    card: "#343746",
-    sidebar: "#2c2e3a",
-    popover: "#343746",
-    foreground: "#f8f8f2",
-    mutedForeground: "#a3a6bd",
-    primary: "#60a5fa",
-    primaryForeground: "#282a36",
-    ring: "#60a5fa",
-    accent: "#44475a",
+    pageBg: "#020617",
+    background: "#0f172a",
+    card: "#0f172a",
+    sidebar: "#020617",
+    popover: "#0f172a",
+    foreground: "#f1f5f9",
+    mutedForeground: "#94a3b8",
+    primary: "#3b82f6",
+    primaryForeground: "#ffffff",
+    ring: "#3b82f6",
+    accent: "#172554",
     accentForeground: "#93c5fd",
-    secondary: "#333d54",
-    muted: "#333d54",
-    border: "#44475a",
-    borderStrong: "#565b71",
-    input: "#44475a",
-    /* Light-mode navy (#44475a) is invisible on dark cards — lift it so the
-       first pipeline stage stays readable in dark mode. */
+    secondary: "#1e293b",
+    muted: "#1e293b",
+    border: "#1e293b",
+    borderStrong: "#334155",
+    input: "#1e293b",
+    /* Light-mode navy (#44475a) is dark-on-dark here — lift it so the first
+       pipeline stage stays readable in dark mode. */
     brandNavy: "#99a1b8",
-    brandBlue: "#60a5fa",
+    brandBlue: "#3b82f6",
     brandSky: "#93c5fd",
   },
 }

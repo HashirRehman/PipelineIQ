@@ -101,9 +101,12 @@ function SelectContent({
   children,
   side = "bottom",
   sideOffset = 4,
-  align = "center",
+  align = "start",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // Opens below the trigger like a normal dropdown instead of overlaying the
+  // selected item on top of it (Base UI's own default) — matches the Leads
+  // page pattern across every Select in the app.
+  alignItemWithTrigger = false,
   container,
   ...props
 }: SelectPrimitive.Popup.Props &

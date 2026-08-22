@@ -1,3 +1,8 @@
+/** The single source of truth for the org's display name — every UI string,
+ *  org-lookup query, and seed value should reference this instead of
+ *  hardcoding "Recurso Labs". */
+export const organizationName = "Recurso Labs";
+
 export type UserRole = "admin" | "lead" | "bd";
 
 export type TabId =
@@ -78,7 +83,7 @@ export function parseEngagementType(input: string | null | undefined): Engagemen
    so they follow the same variables.
    ════════════════════════════════════════════════════════════════════ */
 
-/** Recurso Labs brand palette (navy → bright blue → deep sky) */
+/** {@link organizationName} brand palette (navy → bright blue → deep sky) */
 export const BRAND = {
   navy: "var(--brand-navy)",
   blue: "var(--brand-blue)",

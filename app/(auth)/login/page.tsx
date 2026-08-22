@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { PipelineIQLogo } from "@/components/pipelineiq-logo"
+import { organizationName } from "@/lib/constants"
 import { LoginForm } from "./login-form"
 
 export default async function LoginPage({
@@ -51,7 +52,7 @@ export default async function LoginPage({
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          PipelineIQ · Recurso Labs
+          PipelineIQ · {organizationName}
         </p>
       </div>
     </div>

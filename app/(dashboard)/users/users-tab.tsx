@@ -13,11 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ResultsCount } from "@/components/results-count"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { roleUserKey } from "@/lib/auth/roles"
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 
-interface RoleOption { id: string; name: string }
+interface RoleOption { id: string; name: string; description: string | null }
 
 const labelClass = "block text-meta font-medium text-muted-foreground mb-1.5"
 const inputClass = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/50"
@@ -68,25 +67,26 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
     }
   }
 
-  const roleButtons = (
-    <div className="flex gap-2">
-      {roles.map(r => {
-        const color = ROLE_COLOR[roleUserKey(r.name)]
-        const sel = roleId === r.id
-        return (
-          <Button key={r.id} type="button" onClick={() => setRoleId(r.id)}
-            className="flex-1 h-9 rounded-md text-xs capitalize"
-            style={{
-              background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
-              border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
-              color: sel ? color : "var(--foreground)",
-              fontWeight: sel ? 700 : 400,
-            }}>
-            {r.name}
-          </Button>
-        )
-      })}
-    </div>
+  const roleSelect = (
+    <Select value={roleId} onValueChange={(v) => { if (v) setRoleId(v) }} name="role">
+      <SelectTrigger className="h-9 w-full rounded-lg text-sm">
+        <SelectValue placeholder="Select a role">
+          {() => roles.find(r => r.id === roleId)?.name ?? "Select a role"}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {roles.map(r => (
+          <SelectItem key={r.id} value={r.id}>
+            <div className="flex flex-col">
+              <span>{r.name}</span>
+              {r.description && (
+                <span className="text-xs text-muted-foreground">{r.description}</span>
+              )}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 
   return (
@@ -135,7 +135,7 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
             ) : (
               <div>
                 <label className={labelClass}>Role</label>
-                {roleButtons}
+                {roleSelect}
               </div>
             )}
             <div className="flex gap-2.5 pt-1">
