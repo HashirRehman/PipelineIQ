@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Info } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Briefcase, Info, TrendingUp, Users2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { StatCard } from "@/components/stat-card";
@@ -8,13 +8,13 @@ import { FunnelChart } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/tooltip";
-import { SERIES_PALETTE, stageColor } from "@/lib/constants";
+import { SERIES_PALETTE } from "@/lib/constants";
 import { businessWeekStart } from "@/lib/date-window";
 import { useAllLeads } from "@/hooks/use-all-leads";
 import { useApplications } from "@/hooks/use-applications";
 import { cn } from "@/lib/utils";
 
-const STALL_DAYS = 14;
+const STALL_DAYS = 4;
 
 // Compact "when" labels for activity lists: today / yesterday / Nd ago /
 // Nw ago / Nmo ago.
@@ -50,7 +50,12 @@ function ActivityRow({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-2.5 py-2 border-b border-border last:border-b-0", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2.5 py-2 border-b border-border last:border-b-0 rounded-md px-1.5 -mx-1.5 transition-colors duration-150 hover:bg-accent/60",
+        className,
+      )}
+    >
       <Avatar name={avatarName} size={avatarSize} />
       <div className="min-w-0 flex-1">
         <div className="text-xs font-medium text-foreground truncate">{title}</div>
@@ -132,18 +137,20 @@ export default function DashboardTab() {
   );
   const weekLabel = `${new Date(weekStartMs).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(weekEndMs).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
-  // Stalled: open, not waiting on an offer, applied STALL_DAYS+ ago. Oldest
-  // first — the longest-stuck leads surface at the top.
+  // Stalled: open, not waiting on an offer, with no activity (status change,
+  // note, etc.) in STALL_DAYS — using updatedAt rather than appliedAt so a
+  // lead that's actively being worked doesn't read as stalled just because
+  // it applied a while ago. Oldest first — the longest-stuck leads surface
+  // at the top. Unbounded — the card scrolls once it can't fit them all.
   const stalledLeads = useMemo(() => {
     const cutoff = nowMs - STALL_DAYS * 86_400_000;
     return openLeads
-      .filter((l) => !offerStages.includes(l.status) && new Date(l.appliedAt).getTime() <= cutoff)
-      .sort((a, b) => new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime())
-      .slice(0, 4);
+      .filter((l) => !offerStages.includes(l.status) && new Date(l.updatedAt).getTime() <= cutoff)
+      .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
   }, [openLeads, offerStages, nowMs]);
 
   const offerRows = useMemo(
-    () => [...offerLeads].sort((a, b) => a.appliedAt.localeCompare(b.appliedAt)).slice(0, 4),
+    () => [...offerLeads].sort((a, b) => a.appliedAt.localeCompare(b.appliedAt)),
     [offerLeads],
   );
 
@@ -167,14 +174,6 @@ export default function DashboardTab() {
   );
   const teamMax = Math.max(...teamWeek.map((e) => e.total), 1);
 
-  const recent = useMemo(
-    () => [...leads]
-      .filter((l) => l.assignedTo === currentUser?.id)
-      .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
-      .slice(0, 6),
-    [leads, currentUser?.id],
-  );
-
   // Per-stage lead counts for the funnel — today's snapshot across the whole
   // pipeline (no date window; this is a dashboard, not an explorer).
   const stageCounts = useMemo(
@@ -182,20 +181,15 @@ export default function DashboardTab() {
     [stages, leads],
   );
 
-  const stageIndexOf = (status: string) => {
-    const i = stages.findIndex((s) => s.name === status);
-    return i < 0 ? 0 : i;
-  };
-
   // BDs can't read the profiles API, so their profile KPI counts their own
   // profiles from the (scoped) leads response instead.
   const statsCards = [
-    { label: "Active Leads", value: openLeads.length, sub: "not yet closed" },
+    { label: "Active Leads", value: openLeads.length, sub: "not yet closed", icon: Briefcase, accent: "var(--brand-blue)" },
     roleKey === "bd"
-      ? { label: "My Profiles", value: profiles.length, sub: "assigned to you" }
-      : { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` },
-    { label: "New Leads This Week", value: newThisWeek, sub: weekLabel },
-    { label: "Applied This Week", value: appsThisWeek, sub: "job applications" },
+      ? { label: "My Profiles", value: profiles.length, sub: "assigned to you", icon: Users2, accent: "var(--status-slate)" }
+      : { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total`, icon: Users2, accent: "var(--status-slate)" },
+    { label: "New Leads This Week", value: newThisWeek, sub: weekLabel, icon: ArrowUpRight, accent: "var(--status-emerald)" },
+    { label: "Applied This Week", value: appsThisWeek, sub: "job applications", icon: TrendingUp, accent: "var(--status-amber-500)" },
   ];
 
   return (
@@ -232,31 +226,35 @@ export default function DashboardTab() {
             {/* KPI strip */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {statsCards.map((s, i) => (
-                <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} delay={i * 60} />
+                <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} icon={s.icon} accent={s.accent} delay={i * 60} />
               ))}
             </div>
 
-            {/* Pipeline health + needs attention */}
+            {/* Needs attention + pipeline health — attention leads since it's
+                the primary action surface; pipeline health is context. */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card className="gap-0 p-5 lg:col-span-2 overflow-visible">
-                <CardContent className="p-0">
-                  <div className="text-sm font-semibold text-foreground mb-1">Leads Health</div>
-                  <div className="text-meta text-muted-foreground mb-4">Leads currently in each stage — today&apos;s snapshot</div>
-                  {stageCounts.some((c) => c > 0) ? (
-                    <FunnelChart stages={stages} counts={stageCounts} />
-                  ) : (
-                    <div className="py-10 text-center text-sm text-muted-foreground">No leads yet</div>
-                  )}
-                </CardContent>
-              </Card>
-
               {/* Needs attention */}
-              <Card className="gap-0 p-5 flex flex-col">
+              <Card
+                className={cn(
+                  "gap-0 p-5 flex flex-col lg:col-span-1 transition-shadow duration-200",
+                  hasAttention && "ring-1 ring-amber-500/20 border-amber-500/30",
+                )}
+                style={{
+                  animation: "chart-rise 0.35s ease-out backwards",
+                  animationDelay: "240ms",
+                }}
+              >
                 <CardContent className="p-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className="flex size-6 items-center justify-center rounded-md"
+                      style={{ background: hasAttention ? "color-mix(in srgb, var(--status-amber-500) 15%, transparent)" : "color-mix(in srgb, var(--status-slate) 12%, transparent)" }}
+                    >
+                      <AlertTriangle className="size-3.5" style={{ color: hasAttention ? "var(--status-amber-500)" : "var(--status-slate)" }} strokeWidth={2} />
+                    </span>
                     <span className="text-sm font-semibold text-foreground">Needs Attention</span>
                     <Tooltip
-                      content={`Shows leads waiting on decisions (pending offers) and stalled leads (open for ${STALL_DAYS}+ days)`}
+                      content={`Shows leads waiting on decisions (pending offers) and stalled leads (no activity for ${STALL_DAYS}+ days)`}
                       side="top"
                     >
                       <button className="p-0 hover:text-primary transition-colors">
@@ -266,7 +264,7 @@ export default function DashboardTab() {
                   </div>
                   <div className="text-meta text-muted-foreground mb-4">Stalled leads and pending decisions</div>
                   {hasAttention ? (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto overflow-x-hidden pr-1">
                       {offerRows.length > 0 && (
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
@@ -294,7 +292,7 @@ export default function DashboardTab() {
                           </div>
                           <div className="flex flex-col">
                             {stalledLeads.map((l) => {
-                              const days = Math.floor((nowMs - new Date(l.appliedAt).getTime()) / 86_400_000);
+                              const days = Math.floor((nowMs - new Date(l.updatedAt).getTime()) / 86_400_000);
                               return (
                                 <ActivityRow
                                   key={l.id}
@@ -319,89 +317,73 @@ export default function DashboardTab() {
                   </Link>
                 </div>
               </Card>
-            </div>
 
-            {/* Team this week (admin/manager) + recent activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Team leaderboard — a manager/admin tool; BDs only see their
-                  own data, so the widget is hidden for them. */}
-              {roleKey !== "bd" && (
-                <Card className="gap-0 p-5">
-                  <CardContent className="p-0">
-                    <div className="text-sm font-semibold text-foreground mb-1">Team This Week</div>
-                    <div className="text-meta text-muted-foreground mb-4">New leads in the last 7 days</div>
-                    {teamWeek.length > 0 ? (
-                      <div className="flex flex-col">
-                        {teamWeek.map((e, i) => {
-                          const color = SERIES_PALETTE[i % SERIES_PALETTE.length];
-                          const isSelf = e.user.id === currentUser?.id;
-                          return (
-                            <div key={e.user.id} className="flex items-center gap-3 py-2.75 border-b border-border last:border-b-0">
-                              <span className="font-mono text-micro text-muted-foreground w-4 shrink-0">{i + 1}</span>
-                              <Avatar name={e.user.name} size={26} />
-                              <div className="min-w-0 flex-1">
-                                <div className={cn("text-xs font-medium truncate", isSelf ? "text-primary" : "text-foreground")}>
-                                  {e.user.name}
-                                  {isSelf && <span className="text-meta text-muted-foreground font-normal"> · you</span>}
-                                </div>
-                                <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
-                                  <div
-                                    className="h-full rounded-full"
-                                    style={{
-                                      width: `${(e.total / teamMax) * 100}%`,
-                                      background: color,
-                                      animation: "chart-grow-x 0.6s ease-out backwards",
-                                      animationDelay: `${i * 0.06}s`,
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="font-mono text-xs font-bold text-foreground shrink-0">{e.total}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="py-10 text-center text-sm text-muted-foreground">No new leads this week</div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Recent activity — BDs see only their own leads (the API
-                  scopes them), so the card spans full width for them. */}
-              <Card className={cn("gap-0 p-5", roleKey === "bd" && "lg:col-span-2")}>
+              <Card
+                className="gap-0 p-5 lg:col-span-2 overflow-visible"
+                style={{
+                  animation: "chart-rise 0.35s ease-out backwards",
+                  animationDelay: "300ms",
+                }}
+              >
                 <CardContent className="p-0">
-                  <div className="text-sm font-semibold text-foreground mb-1">Recent Activity</div>
-                  <div className="text-meta text-muted-foreground mb-4">Your recent lead actions</div>
-                  {recent.length > 0 ? (
-                    <div className="flex flex-col">
-                      {recent.map((l) => (
-                        <ActivityRow
-                          key={l.id}
-                          avatarName={l.profileName}
-                          avatarSize={28}
-                          className="gap-3 py-2.75"
-                          title={l.profileName}
-                          subtitle={`${l.jobTitle} · ${l.company}`}
-                          trailing={
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
-                                <span className="size-1.5 rounded-full shrink-0" style={{ background: stageColor(stageIndexOf(l.status)) }} />
-                                {l.status}
-                              </span>
-                              <span className="font-mono text-micro text-muted-foreground">{timeAgo(l.appliedAt, nowMs)}</span>
-                            </div>
-                          }
-                        />
-                      ))}
-                    </div>
+                  <div className="text-sm font-semibold text-foreground mb-1">Leads Health</div>
+                  <div className="text-meta text-muted-foreground mb-4">Leads currently in each stage — today&apos;s snapshot</div>
+                  {stageCounts.some((c) => c > 0) ? (
+                    <FunnelChart stages={stages} counts={stageCounts} maxVisible={8} />
                   ) : (
                     <div className="py-10 text-center text-sm text-muted-foreground">No leads yet</div>
                   )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* Team leaderboard — a manager/admin tool; BDs only see their
+                own data, so the widget is hidden for them. */}
+            {roleKey !== "bd" && (
+              <Card
+                className="gap-0 p-5"
+                style={{ animation: "chart-rise 0.35s ease-out backwards", animationDelay: "360ms" }}
+              >
+                <CardContent className="p-0">
+                  <div className="text-sm font-semibold text-foreground mb-1">Team This Week</div>
+                  <div className="text-meta text-muted-foreground mb-4">New leads in the last 7 days</div>
+                  {teamWeek.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                      {teamWeek.map((e, i) => {
+                        const color = SERIES_PALETTE[i % SERIES_PALETTE.length];
+                        const isSelf = e.user.id === currentUser?.id;
+                        return (
+                          <div key={e.user.id} className="flex items-center gap-3 py-2.75 border-b border-border last:border-b-0 rounded-md px-1.5 -mx-1.5 transition-colors duration-150 hover:bg-accent/60">
+                            <span className="font-mono text-micro text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                            <Avatar name={e.user.name} size={26} />
+                            <div className="min-w-0 flex-1">
+                              <div className={cn("text-xs font-medium truncate", isSelf ? "text-primary" : "text-foreground")}>
+                                {e.user.name}
+                                {isSelf && <span className="text-meta text-muted-foreground font-normal"> · you</span>}
+                              </div>
+                              <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${(e.total / teamMax) * 100}%`,
+                                    background: color,
+                                    animation: "chart-grow-x 0.6s ease-out backwards",
+                                    animationDelay: `${i * 0.06}s`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <span className="font-mono text-xs font-bold text-foreground shrink-0">{e.total}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-10 text-center text-sm text-muted-foreground">No new leads this week</div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </div>

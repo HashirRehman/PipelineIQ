@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -13,6 +14,10 @@ interface StatCardProps {
   labelClassName?: string;
   /** Entrance delay (ms) — lets a row of cards stagger in. */
   delay?: number;
+  /** Optional leading icon, shown in a tinted well above the label. */
+  icon?: LucideIcon;
+  /** Tint for the icon well — a CSS color value. Defaults to the brand accent. */
+  accent?: string;
 }
 
 /** Counts a numeric value up from the previous value using rAF — a
@@ -59,7 +64,7 @@ function useCountUp(value: number): number {
   return display;
 }
 
-export function StatCard({ label, value, sub, className, valueClassName, labelClassName, delay = 0 }: StatCardProps) {
+export function StatCard({ label, value, sub, className, valueClassName, labelClassName, delay = 0, icon: Icon, accent = "var(--brand-blue)" }: StatCardProps) {
   const isNumber = typeof value === "number";
   // Hook is always called (rules-of-hooks); result only used for numeric values.
   const display = useCountUp(isNumber ? value : 0);
@@ -70,11 +75,21 @@ export function StatCard({ label, value, sub, className, valueClassName, labelCl
         animationDelay: `${delay}ms`,
       }}
       className={cn(
-        "flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4 py-4",
+        "group/stat flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4 py-3.5 transition-all duration-150 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm",
         className,
       )}
     >
-      <span className={cn("text-caption font-medium uppercase tracking-wide text-muted-foreground", labelClassName)}>{label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn("text-caption font-medium uppercase tracking-wide text-muted-foreground", labelClassName)}>{label}</span>
+        {Icon && (
+          <div
+            className="flex size-6 shrink-0 items-center justify-center rounded-md transition-transform duration-150 ease-out group-hover/stat:scale-105"
+            style={{ background: `color-mix(in srgb, ${accent} 12%, transparent)` }}
+          >
+            <Icon className="size-3.5" style={{ color: accent }} strokeWidth={2} />
+          </div>
+        )}
+      </div>
       <div className={cn("font-mono text-2xl font-bold text-foreground tabular-nums tracking-tight leading-none", valueClassName)}>
         {isNumber ? display : value}
       </div>

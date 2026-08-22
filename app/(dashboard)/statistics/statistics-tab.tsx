@@ -115,10 +115,10 @@ export default function StatisticsTab() {
   // Pipeline-style date filters — three mutually exclusive controls: quick
   // ranges (this/last week, month, year, all time), months of this year, and
   // this/last year. Picking one clears the others (they'd otherwise conflict).
-  const [dateRange, setDateRange] = useState<DateRange>("this_year");
+  const [dateRange, setDateRange] = useState<DateRange>("this_week");
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
   const [yearFilter, setYearFilter] = useState<number | null>(null);
-  const [granularity, setGranularity] = useState<Granularity>("monthly");
+  const [granularity, setGranularity] = useState<Granularity>("daily");
   // What the widgets below show — leads (the pipeline) or applied jobs. One
   // dataset at a time, sharing the same filters and date buckets.
   const [statsMode, setStatsMode] = useState<"leads" | "applications">("leads");
@@ -196,7 +196,7 @@ export default function StatisticsTab() {
     dateRange !== "all";
 
   const statsCards = [
-    { label: "Total Leads", value: totalLeads, sub: dateFilterLabel },
+    { label: "Total Active Leads", value: totalLeads, sub: dateFilterLabel },
     canViewTeam
       ? { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` }
       : { label: "My Profiles", value: profiles.length, sub: "assigned to you" },
@@ -538,7 +538,7 @@ export default function StatisticsTab() {
             {statsMode === "leads" ? (
               <>
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
               {statsCards.map((s, i) => (
                 <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} delay={i * 60} />
               ))}

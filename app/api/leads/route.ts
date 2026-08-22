@@ -26,6 +26,10 @@ export interface ApiLead {
   jobLocation: string;
   workType: "remote" | "onsite" | "hybrid";
   appliedAt: string;
+  /** Last time this lead row changed (status, notes, etc.) — used to detect
+   * stalled leads instead of appliedAt, so a lead that's actively being
+   * worked doesn't read as stalled just because it applied a while ago. */
+  updatedAt: string;
   status: string;
   profileId: string;
   profileName: string;
@@ -60,6 +64,7 @@ export interface ApiLeadUser {
 type LeadRow = {
   id: string;
   applied_at: string;
+  updated_at: string;
   job_id: string;
   profile_id: string;
   user_id: string | null;
@@ -91,6 +96,7 @@ function toApiLead(row: LeadRow): ApiLead {
     engagementType: row.jobs?.engagement_type ?? null,
     workType: row.jobs?.is_remote ? "remote" : "onsite",
     appliedAt: row.applied_at,
+    updatedAt: row.updated_at,
     status: row.pipeline_stages?.name ?? "",
     profileId: row.profile_id,
     profileName: row.profiles?.full_name ?? "",
@@ -161,7 +167,7 @@ export async function GET(request: Request) {
   let leadsQuery = supabase
     .from("leads")
     .select(
-      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, developer, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
+      "id, applied_at, updated_at, job_id, profile_id, user_id, pipeline_stage_id, notes, developer, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
     )
     .eq("organization_id", organizationId)
     .is("deleted_at", null);
