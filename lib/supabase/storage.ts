@@ -56,12 +56,13 @@ function isLegacyUrl(storagePath: string): boolean {
 }
 
 // storage-api has returned both 400 and 404 for a missing object across
-// versions; check both rather than matching on the error message.
+// versions, but a bare 400 also covers unrelated failures (bad key, auth,
+// malformed request) — only treat it as "not found" when the code/message
+// actually says so, so a real error doesn't get silently swallowed.
 function isNotFound(error: unknown): boolean {
-  return (
-    error instanceof StorageApiError &&
-    (error.code === "NoSuchKey" || error.status === 404 || error.status === 400)
-  );
+  if (!(error instanceof StorageApiError)) return false;
+  if (error.code === "NoSuchKey" || error.status === 404) return true;
+  return error.status === 400 && /not.?found/i.test(error.message ?? "");
 }
 
 // Uploads a CV and returns the object key to store in profile_cvs.storage_path.
