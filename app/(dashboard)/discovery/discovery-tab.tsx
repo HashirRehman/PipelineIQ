@@ -73,7 +73,7 @@ const buildQueryKey = (opts: {
 interface DiscoveryResponse {
   jobs: Job[];
   profiles: DiscoveryProfile[];
-  /** Admin / BD Manager may edit job fields (the jobs_update RLS policy). */
+  /** Admin / BD Manager may edit job fields (enforced by canEditJobs in the jobs API route). */
   canEditJobs: boolean;
   totalCount: number;
   page: number;

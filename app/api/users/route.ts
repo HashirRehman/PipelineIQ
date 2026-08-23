@@ -331,8 +331,8 @@ export async function PATCH(request: Request) {
 
   // BD Managers mirror Admins except user management: editing/deactivating/
   // deleting OTHER team members is Admin-only, but anyone may edit their own
-  // name (RLS users_update grants exactly that — own full_name only). The
-  // self-check below still blocks own status/role changes.
+  // name (the isSelfNameEdit carve-out below — name only, no status/role).
+  // The check below still blocks own status/role changes.
   const isSelfNameEdit =
     userId === user.id &&
     name !== undefined &&
@@ -452,8 +452,9 @@ export async function DELETE(request: Request) {
     );
   }
 
-  // The target must be a member of the caller's org (users_select lets
-  // admins see every row, so this lookup passes RLS).
+  // The target must be a member of the caller's org — the organization_id
+  // filter is what enforces that (RLS is disabled, so there is no
+  // additional table-level restriction on this select).
   const { data: target, error: targetError } = await supabase
     .from("users")
     .select("id, email")

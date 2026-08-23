@@ -46,8 +46,9 @@ export async function GET(request: Request) {
 
   // Profiles in scope — the same gate the discovery feed uses: Admins and BD
   // Managers see every org profile's applications; Business Developers only
-  // their own assigned profiles (RLS on job_profile_states agrees, but the
-  // explicit .in() keeps the scope obvious and the query cheap).
+  // their own assigned profiles, via the user_id filter below (RLS is
+  // disabled, so this filter is the actual scoping mechanism, not a
+  // redundant optimization on top of a DB-level one).
   let profileQuery = supabase
     .from("profiles")
     .select("id")

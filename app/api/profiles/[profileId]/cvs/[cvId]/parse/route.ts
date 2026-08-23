@@ -48,9 +48,9 @@ export async function POST(
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  // Read through the user-scoped client so RLS applies to the lookup, and
-  // join the profile to enforce that this CV really belongs to a profile in
-  // the caller's org — profile_cvs has no organization_id of its own.
+  // profile_cvs has no organization_id of its own, so the org check has to
+  // join through the profile — this filter is what enforces that this CV
+  // really belongs to a profile in the caller's org (RLS is disabled).
   const { data: cvRow } = await supabase
     .from("profile_cvs")
     .select("id, file_type, storage_path, profiles!inner(id, organization_id)")
@@ -64,17 +64,13 @@ export async function POST(
     return NextResponse.json({ success: false, error: "CV not found." }, { status: 404 });
   }
 
-  // The parse columns are written through the service-role client:
-  // profile_cvs_update is admin-only under RLS and this caller is an admin,
-  // but the columns are system-owned bookkeeping, written the same way the
-  // sweep and the upload's after() callback write them. The FILE, though, is
-  // read with the caller's own client, so storage.objects RLS re-checks this
-  // admin's access to that profile's CV instead of trusting the route's gate.
+  // The org/role checks above are what authorize this call; both the parse
+  // columns and the file read go through the service-role client the same
+  // way the cron sweep and the upload path do.
   const outcome = await parseAndStoreCv(
     createAdminClient(),
     new GroqAiClient(),
     { cvId: cvRow.id, fileType: cvRow.file_type, storagePath: cvRow.storage_path },
-    supabase,
   );
 
   if (outcome.status === "failed") {

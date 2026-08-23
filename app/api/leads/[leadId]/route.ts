@@ -43,9 +43,10 @@ export async function PATCH(
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  // RLS scopes this to the owner (owner snapshot or the profile's current
-  // assigned user) or admin/manager; the org filter additionally rejects
-  // cross-org lead ids up front.
+  // This lookup itself is org-scoped only (RLS is disabled, so it is not
+  // further restricted to the owner/admin/manager here) — the field-level
+  // checks below (notes: owner-or-canManageLeadNotes; developer:
+  // canEditJobs) are what actually gate who can change what.
   const { data: lead } = await supabase
     .from("leads")
     .select("id, user_id, profiles(user_id)")

@@ -52,8 +52,8 @@ export async function PATCH(request: Request) {
 
   const perms = await getCachedRolePermissions();
   if (!perms.isAdmin) {
-    // Permission check enforced by RLS policy as well; if somehow bypassed here,
-    // the database update will still fail. Role cache lives for the session.
+    // RLS is disabled — this check is the only thing gating the update
+    // below; there is no database-level fallback if it were bypassed.
     return NextResponse.json(
       { error: "Only organization administrators can modify domain settings." },
       { status: 403 },

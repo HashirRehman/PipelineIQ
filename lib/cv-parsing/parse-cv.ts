@@ -46,12 +46,6 @@ export async function parseAndStoreCv(
   supabase: SupabaseClient<Database>,
   aiClient: AiClient,
   target: CvParseTarget,
-  // Storage reads default to the same client that writes the parse columns,
-  // which is right for the cron sweep (no user session -> service role). The
-  // manual re-parse route passes its USER-scoped client here so
-  // storage.objects RLS is the boundary for reading the file, even though the
-  // system-owned parse columns are still written with the service role.
-  storageClient: SupabaseClient<Database> = supabase,
 ): Promise<CvParseOutcome> {
   const { cvId, fileType } = target;
 
@@ -60,7 +54,7 @@ export async function parseAndStoreCv(
     bytes =
       target.buffer ??
       (target.storagePath
-        ? await downloadCvFile(storageClient, target.storagePath)
+        ? await downloadCvFile(target.storagePath)
         : (() => {
             throw new Error("No file contents and no storage path to fetch them from.");
           })());

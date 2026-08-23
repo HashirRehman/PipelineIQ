@@ -123,11 +123,10 @@ export async function GET(request: Request) {
     assignedUserName: profile.users?.full_name ?? null,
   }));
 
-  // RLS on users exposes the full list to Admins and BD Managers (migration
-  // 15's users_select), so profile managers can assign users to profiles.
   // The GET gate above already guarantees canAccessProfiles (Admin + BD
-  // Manager). Admins themselves are excluded — they manage profiles, they
-  // don't own them (and admins can't be assigned, per the permission model).
+  // Manager), so this query can return the full org roster for assignment.
+  // Admins themselves are excluded — they manage profiles, they don't own
+  // them (and admins can't be assigned, per the permission model).
   const { data: userRows, error: usersError } = await supabase
     .from("users")
     .select("id, full_name, email, roles(name)")

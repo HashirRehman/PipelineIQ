@@ -394,7 +394,8 @@ export async function POST(request: Request) {
   }
 
   // Cross-org guard: the job must belong to the same org as the profiles
-  // (jobs are world-readable under RLS, so scope the reference explicitly).
+  // (RLS is disabled, so a bare id lookup would otherwise resolve any org's
+  // job — scope the reference explicitly here).
   const { data: job } = await supabase
     .from("jobs")
     .select("id, organization_id, title, company_name, parsed_data")

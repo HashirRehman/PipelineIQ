@@ -43,9 +43,9 @@ type AdminGate =
 // Mirrors the rest of the app: roles come from the JWT's user_role claim
 // baked in by the custom_access_token_hook migration (getCachedRolePermissions
 // reads it locally via cached JWKS — no live RPC round trip), same as
-// app/api/users/route.ts. RLS still re-checks is_admin()/is_bd_manager() live
-// at query time regardless. Profile management is Admin + BD Manager
-// (Business Developers see no Profiles page at all).
+// app/api/users/route.ts. This check is the access-control boundary (RLS is
+// disabled schema-wide). Profile management is Admin + BD Manager (Business
+// Developers see no Profiles page at all).
 async function requireProfileManagerUser(): Promise<AdminGate> {
   const user = await getCachedUser();
 
@@ -284,10 +284,10 @@ export async function setProfileAssignment(
 
   // The assigned user must belong to the same org. profiles.user_id only FKs
   // to users(id), so without this check an admin could attach a cross-org
-  // user to a profile — making that user the RLS owner of another tenant's
-  // profile (and its CVs), which their discovery feed would then surface.
-  // Admins are excluded from assignment entirely (they manage profiles, they
-  // don't own them).
+  // user to a profile — making that user the effective owner of another
+  // tenant's profile (and its CVs), which their discovery feed would then
+  // surface. Admins are excluded from assignment entirely (they manage
+  // profiles, they don't own them).
   if (userId) {
     const { data: userRow } = await supabase
       .from("users")
@@ -404,10 +404,9 @@ export async function uploadProfileCv(
 
   let storagePath: string;
   try {
-    // User-scoped client: the storage.objects insert policy re-checks that
-    // this caller is privileged in the owning profile's org, so the file and
-    // the row are gated by the same rule.
-    ({ path: storagePath } = await uploadCvFile(supabase, {
+    // The org/role gate above is what authorizes this call, since the
+    // bucket has no client-facing policies of its own.
+    ({ path: storagePath } = await uploadCvFile({
       buffer: fileBytes,
       profileId,
       cvId,
@@ -439,7 +438,7 @@ export async function uploadProfileCv(
     // The bytes are already in the bucket — remove them so a failed row
     // insert doesn't leave an orphaned object behind.
     try {
-      await deleteCvFile(supabase, storagePath);
+      await deleteCvFile(storagePath);
     } catch (cleanupError) {
       console.error("uploadProfileCv: Storage cleanup failed", cleanupError);
     }
@@ -458,11 +457,10 @@ export async function uploadProfileCv(
   return { success: true, profileId };
 }
 
-// CVs are soft-deleted (deleted_at) — RLS grants update but not delete on
-// profile_cvs, and hard deletes would break job_profile_matches FK rows.
-// The stored FILE is removed best-effort afterwards; seeded rows point at no
-// object, and Storage treats removing a missing key as a no-op, so they are
-// simply unlinked.
+// CVs are soft-deleted (deleted_at) — the row is never hard-deleted, since
+// that would break job_profile_matches FK rows. The stored FILE is removed
+// best-effort afterwards; seeded rows point at no object, and Storage treats
+// removing a missing key as a no-op, so they are simply unlinked.
 export async function deleteProfileCv(
   supabase: Client,
   profileId: string,
@@ -531,7 +529,7 @@ export async function deleteProfileCv(
   }
 
   try {
-    await deleteCvFile(supabase, cvRow.storage_path);
+    await deleteCvFile(cvRow.storage_path);
   } catch (cleanupError) {
     console.error("deleteProfileCv: Storage cleanup failed", cleanupError);
   }

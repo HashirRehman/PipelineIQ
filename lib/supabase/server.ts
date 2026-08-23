@@ -1,4 +1,6 @@
-// Module 1 — server-side Supabase client, user-scoped (RLS-enforced)
+// Module 1 — server-side Supabase client, user-scoped (RLS is disabled
+// schema-wide; access control is enforced by the caller checking
+// RolePermissions and applying its own row filters before querying)
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -102,8 +104,9 @@ export type RolePermissions = RolePermissionSet & {
 // The acting user's permissions, derived once per server request from the
 // JWT's user_role claim (same memoization as getCachedUserRole). The flag
 // set comes from the ROLE_PERMISSIONS matrix in lib/auth/roles.ts — the
-// single source of truth for what each role may do. RLS is the real
-// boundary — these flags only gate which UI/API paths a role may take.
+// single source of truth for what each role may do, and (RLS being
+// disabled) the actual access-control boundary. Every route/service must
+// check these flags itself before querying or mutating.
 export const getCachedRolePermissions = cache(async (): Promise<RolePermissions> => {
   const role = await getCachedUserRole();
   return {

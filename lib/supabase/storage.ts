@@ -5,21 +5,16 @@
 //
 //     <profileId>/<cvId>-<safeFileName>
 //
-// The profile id is the literal first path segment because the
-// storage.objects policies (see the profile_cvs_storage_bucket migration)
-// read it back with (storage.foldername(name))[1] to decide who may touch
-// the object — cvObjectPath() and those policies change together.
-//
-// Every function takes the CALLER'S client rather than creating one. The
-// user-scoped client (lib/supabase/server.ts) is the norm, so storage.objects
-// RLS stays the access-control boundary exactly as it is for table reads; the
-// service-role client is reserved for the two paths with no user session (the
-// cron parse sweep, and the one-off Cloudinary backfill script) — the same
-// carve-out lib/supabase/admin.ts describes for tables.
-import { StorageApiError, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types";
-
-type Client = SupabaseClient<Database>;
+// The profile-cvs bucket is private with no client-facing storage.objects
+// policies — access control lives entirely in the Route Handlers / services
+// that call these functions (org/role checks happen before any of these run),
+// not in Postgres. Every function here constructs its own service-role
+// client internally rather than accepting one from the caller: an
+// authenticated user's own key has no bucket access at all, so there is no
+// valid client a caller could pass other than the service role — taking one
+// as a parameter would just be a way to get it wrong.
+import { StorageApiError } from "@supabase/supabase-js";
+import { createAdminClient } from "./admin";
 
 export const PROFILE_CVS_BUCKET = "profile-cvs";
 
@@ -39,9 +34,8 @@ export const CV_DOWNLOAD_URL_TTL_SECONDS = 900;
 export class CvStorageError extends Error {}
 
 // Same sanitizer the Cloudinary public_id used, so nothing about the naming
-// scheme changes for the user. Lowercased profile id because the RLS policies
-// compare the path segment to profiles.id::text, which is canonical
-// lowercase — a route param in another case would otherwise be denied.
+// scheme changes for the user. Lowercased profile id for a canonical path
+// regardless of how the id was cased in a route param.
 export function cvObjectPath(profileId: string, cvId: string, fileName: string): string {
   const safeFileName = fileName.replace(/[^a-z0-9._-]/gi, "_");
   return `${profileId.toLowerCase()}/${cvId}-${safeFileName}`;
@@ -67,7 +61,6 @@ function isNotFound(error: unknown): boolean {
 
 // Uploads a CV and returns the object key to store in profile_cvs.storage_path.
 export async function uploadCvFile(
-  supabase: Client,
   input: {
     buffer: Buffer;
     profileId: string;
@@ -78,7 +71,7 @@ export async function uploadCvFile(
 ): Promise<{ path: string }> {
   const path = cvObjectPath(input.profileId, input.cvId, input.fileName);
 
-  const { error } = await supabase.storage.from(PROFILE_CVS_BUCKET).upload(path, input.buffer, {
+  const { error } = await createAdminClient().storage.from(PROFILE_CVS_BUCKET).upload(path, input.buffer, {
     // Required, not cosmetic: a Buffer body with no contentType is stored as
     // text/plain;charset=UTF-8, which the bucket's allowed_mime_types rejects.
     contentType: input.contentType,
@@ -97,10 +90,10 @@ export async function uploadCvFile(
 
 // Best-effort cleanup: on CV delete, and when a profile_cvs insert fails after
 // the bytes are already stored. Removing a key that isn't there is a no-op.
-export async function deleteCvFile(supabase: Client, path: string): Promise<void> {
+export async function deleteCvFile(path: string): Promise<void> {
   if (isLegacyUrl(path)) return;
 
-  const { error } = await supabase.storage.from(PROFILE_CVS_BUCKET).remove([path]);
+  const { error } = await createAdminClient().storage.from(PROFILE_CVS_BUCKET).remove([path]);
   if (error) {
     throw new CvStorageError(`Storage delete failed for ${path}: ${error.message}`);
   }
@@ -109,14 +102,14 @@ export async function deleteCvFile(supabase: Client, path: string): Promise<void
 // Only for re-parses and the cron sweep; uploads pass their buffer in
 // directly. The thrown messages end up in profile_cvs.parse_error and are
 // shown to the user, so they stay plain-language.
-export async function downloadCvFile(supabase: Client, path: string): Promise<Buffer> {
+export async function downloadCvFile(path: string): Promise<Buffer> {
   if (isLegacyUrl(path)) {
     throw new CvStorageError(
       "This CV's file still points at the old external URL and hasn't been moved into storage yet.",
     );
   }
 
-  const { data, error } = await supabase.storage.from(PROFILE_CVS_BUCKET).download(path);
+  const { data, error } = await createAdminClient().storage.from(PROFILE_CVS_BUCKET).download(path);
 
   if (error) {
     throw new CvStorageError(
@@ -135,13 +128,12 @@ export async function downloadCvFile(supabase: Client, path: string): Promise<Bu
 // opening inline. Returns null rather than throwing: seeded rows point at
 // nothing, and a missing file must not fail the whole profile GET.
 export async function createCvDownloadUrl(
-  supabase: Client,
   path: string,
   fileName: string,
 ): Promise<string | null> {
   if (isLegacyUrl(path)) return null;
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await createAdminClient().storage
     .from(PROFILE_CVS_BUCKET)
     .createSignedUrl(path, CV_DOWNLOAD_URL_TTL_SECONDS, { download: fileName });
 

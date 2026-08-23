@@ -173,11 +173,13 @@ export async function GET(
       fileName: cv.file_name,
       createdAt: cv.created_at,
       // storage_path is an object key in the private profile-cvs bucket, so
-      // the link has to be signed per request. Signed through the caller's
-      // own client, so storage.objects RLS decides whether a link can exist
-      // at all. Seeded rows point at no object — signing fails and they get
-      // no link, same as they got none from the old Cloudinary-URL check.
-      downloadUrl: await createCvDownloadUrl(supabase, cv.storage_path, cv.file_name),
+      // the link has to be signed per request. The org check above
+      // (selectedProfileResult) is what gates this — the bucket itself has
+      // no client-facing policies, only createCvDownloadUrl's internal
+      // service-role client can reach it. Seeded rows point at no object —
+      // signing fails and they get no link, same as they got none from the
+      // old Cloudinary-URL check.
+      downloadUrl: await createCvDownloadUrl(cv.storage_path, cv.file_name),
       parseStatus: toParseStatus(cv.parse_status),
       parseError: cv.parse_error,
       parsedAt: cv.parsed_at,

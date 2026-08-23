@@ -22,9 +22,9 @@ export const dynamic = "force-dynamic";
 // at read time — the column itself stays authoritative, so relevance scoring
 // and the UI both see the corrected text.
 //
-// Editing is Admin + BD Manager, matching the jobs_update RLS policy. RLS is
-// the real boundary; the app-layer check below only turns a silent zero-row
-// update into a 403 the UI can explain.
+// Editing is Admin + BD Manager (originally a jobs_update RLS policy, now
+// enforced by the canEditJobs check below — RLS is disabled, so this check
+// is the real boundary, not a UI-friendliness layer on top of one).
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ jobId: string }> },
@@ -69,7 +69,7 @@ export async function PATCH(
   if (!org.ok) return org.response;
 
   // The org filter rejects a cross-org job id up front rather than letting
-  // RLS turn it into a confusing zero-row update.
+  // it fall through to a confusing zero-row update below.
   const { data: job } = await supabase
     .from("jobs")
     .select("id, title, company_name, manual_overrides, parsed_data")
