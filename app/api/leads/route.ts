@@ -189,7 +189,7 @@ export async function GET(request: Request) {
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
       .order("full_name"),
-    supabase.from("pipeline_stages").select("id, name, order_index").order("order_index"),
+    supabase.from("pipeline_stages").select("id, name, order_index, state").order("order_index"),
   ]);
 
   if (leadsRes.error || profilesRes.error || usersRes.error || stagesRes.error) {
@@ -303,6 +303,7 @@ export async function GET(request: Request) {
     id: s.id,
     name: s.name,
     orderIndex: s.order_index,
+    state: s.state as "active" | "paused" | "closed",
   }));
 
   return NextResponse.json({

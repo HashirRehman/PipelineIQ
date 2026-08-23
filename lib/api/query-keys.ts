@@ -34,6 +34,11 @@ export const queryKeys = {
     list: () => ["users", org(), "list"] as const,
   },
 
+  pipelineStages: {
+    all: () => ["pipeline-stages", org()] as const,
+    list: () => ["pipeline-stages", org(), "list"] as const,
+  },
+
   jobComments: {
     all: () => ["job-comments", org()] as const,
     forJob: (jobId: string) => ["job-comments", org(), jobId] as const,

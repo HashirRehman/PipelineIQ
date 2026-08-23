@@ -9,6 +9,7 @@ import {
   Briefcase,
   CheckCircle2,
   LayoutDashboard,
+  ListOrdered,
   Loader2,
   LogOut,
   ChevronsRight,
@@ -42,6 +43,12 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
     href: "/applied-jobs",
   },
   { id: "leads", label: "Leads", icon: Briefcase, href: "/leads" },
+  {
+    id: "lead-stages",
+    label: "Lead Stages",
+    icon: ListOrdered,
+    href: "/lead-stages",
+  },
   { id: "users", label: "Users", icon: Users, href: "/users" },
   {
     id: "statistics",
@@ -133,9 +140,11 @@ export default function Sidebar({ counts, user }: SidebarProps) {
   const canViewUsers = perms.canViewUsers;
   const canAccessProfiles = perms.canAccessProfiles;
   const canAccessJobs = perms.canAccessJobs;
+  const canManageLeadStages = perms.canManageLeadStages;
   const visibleNav = NAV.filter((item) => {
     if (item.id === "users") return canViewUsers;
     if (item.id === "profiles") return canAccessProfiles;
+    if (item.id === "lead-stages") return canManageLeadStages;
     return canAccessJobs;
   });
   // React mirror of the localStorage flag. The server snapshot is always

@@ -13,6 +13,7 @@ import type { ApiLead, ApiLeadUser } from "@/app/api/leads/route";
 import { LeadsBoardView } from "@/components/leads/board/leads-board-view";
 import { LeadsListView } from "@/components/leads/list/leads-list-view";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AppUser, Lead, Profile } from "@/components/leads/types";
 import { FilterOption } from "@/components/jobs/filter-option";
@@ -55,7 +56,12 @@ interface LeadsResponse {
   leads: ApiLead[];
   users: ApiLeadUser[];
   profiles: { id: string; name: string; userId: string | null }[];
-  pipelineStages: { id: string; name: string; orderIndex: number }[];
+  pipelineStages: {
+    id: string;
+    name: string;
+    orderIndex: number;
+    state: "active" | "paused" | "closed";
+  }[];
   currentUser: { id: string; name: string };
   canManageLeadNotes: boolean;
   canEditJobs: boolean;
@@ -137,6 +143,10 @@ export default function LeadsTab() {
   // Stage each lead sat in before its checkbox was ticked, so unticking
   // returns it there rather than dumping everything back into the first stage.
   const [stageBeforeDone, setStageBeforeDone] = useState<Record<string, string>>({});
+  // Lead awaiting a closed-stage choice — set when the admin has configured
+  // more than one closed-state stage, so "mark done" can't default to
+  // whichever one happens to be first.
+  const [closingLeadId, setClosingLeadId] = useState<string | null>(null);
 
   const params = buildQueryKey({
     search,
@@ -163,9 +173,16 @@ export default function LeadsTab() {
   const canManageLeadNotes = data?.canManageLeadNotes ?? false;
   const canEditJobs = data?.canEditJobs ?? false;
 
-  // The terminal stage — the last one in the ordered pipeline. Marking a lead
-  // "done" moves it here; unticking returns it to its previous stage.
-  const doneStage = stages.length > 0 ? stages[stages.length - 1].name : null;
+  // Stage state (active / paused / closed) is admin-controlled on the Lead
+  // Stages page — no longer inferred from stage position. "Done" now means
+  // "in a closed-state stage" (there can be more than one). With exactly one
+  // closed stage, marking a lead done goes straight there; with several, the
+  // admin is asked which one (see closingLeadId). Unticking returns a lead to
+  // its previous stage.
+  const closedStages = stages.filter((s) => s.state === "closed");
+  const closedStageNames = new Set(closedStages.map((s) => s.name));
+  const doneStage = closedStages[0]?.name ?? null;
+  const isClosedStatus = (status: string) => closedStageNames.has(status);
 
   /** Optimistic write into this filter's cached page. */
   const patchCachedLead = (id: string, patch: Partial<ApiLead>) => {
@@ -247,13 +264,30 @@ export default function LeadsTab() {
     const lead = leads.find((l) => l.id === id);
     if (!lead || !doneStage) return;
 
-    if (lead.status === doneStage) {
+    if (isClosedStatus(lead.status)) {
       updateStatus(id, stageBeforeDone[id] ?? stages[0]?.name ?? doneStage);
+      return;
+    }
+
+    // Several closed stages configured (e.g. "Offer Accepted" vs
+    // "Rejected") — ask which one instead of silently picking the first.
+    if (closedStages.length > 1) {
+      setClosingLeadId(id);
       return;
     }
 
     setStageBeforeDone((current) => ({ ...current, [id]: lead.status }));
     updateStatus(id, doneStage);
+  };
+
+  const confirmClose = (stageName: string) => {
+    if (!closingLeadId) return;
+    const lead = leads.find((l) => l.id === closingLeadId);
+    if (lead) {
+      setStageBeforeDone((current) => ({ ...current, [closingLeadId]: lead.status }));
+      updateStatus(closingLeadId, stageName);
+    }
+    setClosingLeadId(null);
   };
 
   // Applier's Notes: the profile's current assigned user (assignedTo — leads
@@ -432,7 +466,6 @@ export default function LeadsTab() {
               leads={leads}
               users={users}
               stages={stages}
-              doneStage={doneStage}
               onToggleDone={toggleDone}
               onStatusChange={updateStatus}
               onOpen={setSelectedLead}
@@ -442,7 +475,6 @@ export default function LeadsTab() {
               leads={leads}
               users={users}
               stages={stages}
-              doneStage={doneStage}
               onStatusChange={updateStatus}
               onOpen={setSelectedLead}
             />
@@ -539,7 +571,7 @@ export default function LeadsTab() {
         onJobFieldSave={saveJobFields}
         isLeadsView
         onDeveloperSave={saveDeveloper}
-        stages={stages.map((s) => ({ id: s.id, name: s.name }))}
+        stages={stages}
         onStageChange={(stage) => {
           if (selectedLead) updateStatus(selectedLead.id, stage);
         }}
@@ -553,8 +585,34 @@ export default function LeadsTab() {
         onImported={refreshLeads}
         defaultKind="lead"
         profiles={profiles.map((p) => ({ id: p.id, name: p.name }))}
-        stages={stages.map((s) => ({ id: s.id, name: s.name }))}
+        stages={stages}
       />
+
+      {/* Closed-stage picker — only shown when the admin has configured more
+          than one closed-state stage (e.g. "Offer Accepted" vs "Rejected"),
+          so marking a lead done never silently guesses which one. */}
+      {closingLeadId && (
+        <Dialog open onOpenChange={(open) => { if (!open) setClosingLeadId(null); }}>
+          <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <DialogTitle className="text-base font-semibold">Move to which stage?</DialogTitle>
+            </div>
+            <div className="p-5 flex flex-col gap-2">
+              {closedStages.map((stage) => (
+                <Button
+                  key={stage.id}
+                  type="button"
+                  variant="outline"
+                  onClick={() => confirmClose(stage.name)}
+                  className="h-9 justify-start rounded-md font-medium hover:bg-accent"
+                >
+                  {stage.name}
+                </Button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

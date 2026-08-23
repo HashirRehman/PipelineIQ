@@ -17,7 +17,6 @@ export function LeadsBoardView({
   leads,
   users,
   stages,
-  doneStage,
   onStatusChange,
   onOpen,
 }: {
@@ -25,8 +24,6 @@ export function LeadsBoardView({
   users: AppUser[]
   /** Ordered pipeline stages from the API — the board's columns. */
   stages: StageOption[]
-  /** The terminal stage (the last in the ordered list), if any. */
-  doneStage: string | null
   onStatusChange: (id: string, status: string) => void
   onOpen: (lead: Lead) => void
 }) {
@@ -91,7 +88,6 @@ export function LeadsBoardView({
           totalCols={columns.length}
           isOver={dragOverColId === col.id}
           users={users}
-          doneStage={doneStage}
           stages={stages}
           onStatusChange={onStatusChange}
           onCardDragStart={handleDragStart}
@@ -113,7 +109,6 @@ function BoardColumn({
   totalCols,
   isOver,
   users,
-  doneStage,
   stages,
   onStatusChange,
   onCardDragStart,
@@ -128,7 +123,6 @@ function BoardColumn({
   totalCols: number
   isOver: boolean
   users: AppUser[]
-  doneStage: string | null
   stages: StageOption[]
   onStatusChange: (id: string, status: string) => void
   onCardDragStart: (id: string) => void
@@ -178,7 +172,7 @@ function BoardColumn({
             key={lead.id}
             lead={lead}
             bdName={users.find(u => u.id === lead.assignedTo)?.name}
-            isDone={doneStage !== null && lead.status === doneStage}
+            isDone={stages.find(s => s.name === lead.status)?.state === "closed"}
             stages={stages}
             delay={Math.min(i, 12) * 25}
             onStatusChange={onStatusChange}

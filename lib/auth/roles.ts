@@ -56,6 +56,10 @@ export type RolePermissionSet = {
   canModerateComments: boolean;
   /** Pipeline management — edit other users' lead notes. */
   canManageLeadNotes: boolean;
+  /** Lead Stages page — create / edit / reorder / delete pipeline_stages.
+   * Admin-only; mirrors the pipeline_stages_insert/update/delete RLS
+   * policies (migration 20260823085325), which also gate is_admin() only. */
+  canManageLeadStages: boolean;
   /** Landing section for this role. The root page ("/") renders the
    *  Dashboard for every role (Statistics lives at /statistics), so this is
    *  "/" across the board — kept on the matrix so a per-role landing can
@@ -76,6 +80,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
+    canManageLeadStages: true,
     homeSection: "/",
     userRoleKey: "admin",
   },
@@ -92,6 +97,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
+    canManageLeadStages: false,
     homeSection: "/",
     userRoleKey: "lead",
   },
@@ -105,6 +111,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: false,
     canModerateComments: false,
     canManageLeadNotes: false,
+    canManageLeadStages: false,
     homeSection: "/",
     userRoleKey: "bd",
   },

@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/select"
 import { stageColor } from "@/lib/constants"
 
-/** One pipeline stage — id/name come from the database. */
+/** One pipeline stage — id/name/state come from the database. */
 export interface StageOption {
   id: string
   name: string
+  state: "active" | "paused" | "closed"
 }
 
 export function LeadStatusSelect({

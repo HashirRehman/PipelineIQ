@@ -25,7 +25,12 @@ interface AllLeadsPage {
   leads: ApiLead[];
   users: ApiLeadUser[];
   profiles: { id: string; name: string; userId: string | null }[];
-  pipelineStages: { id: string; name: string; orderIndex: number }[];
+  pipelineStages: {
+    id: string;
+    name: string;
+    orderIndex: number;
+    state: "active" | "paused" | "closed";
+  }[];
   currentUser: { id: string; name: string };
   totalPages: number;
 }

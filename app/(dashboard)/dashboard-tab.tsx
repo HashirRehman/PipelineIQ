@@ -88,19 +88,19 @@ export default function DashboardTab() {
   const { data: appsData } = useApplications();
   const applications = useMemo(() => appsData?.applications ?? [], [appsData]);
 
-  // Terminal / done stages: the last pipeline stage plus any accept/reject
-  // stage. Everything else is an open lead.
-  const doneStages = useMemo(() => {
-    const last = stages.length > 0 ? stages[stages.length - 1].name : null;
-    const terminal = stages
-      .filter((s) => /accept|reject|declin/i.test(s.name))
-      .map((s) => s.name);
-    return [last, ...terminal].filter((n): n is string => Boolean(n));
-  }, [stages]);
+  // Open leads: leads sitting in an admin-marked "active" stage — excludes
+  // both closed (done) and paused (deliberately set aside) leads, so
+  // "Open Leads" on the KPI strip means the live, actionable pipeline, not
+  // just "not yet closed". Same state field the Leads page and Lead Stages
+  // admin page use, so Dashboard never disagrees with them.
+  const activeStages = useMemo(
+    () => stages.filter((s) => s.state === "active").map((s) => s.name),
+    [stages],
+  );
 
   const openLeads = useMemo(
-    () => leads.filter((l) => !doneStages.includes(l.status)),
-    [leads, doneStages],
+    () => leads.filter((l) => activeStages.includes(l.status)),
+    [leads, activeStages],
   );
 
   // Pending-offer stages: named "offer" but not an accept/reject/closed one.
@@ -184,7 +184,7 @@ export default function DashboardTab() {
   // BDs can't read the profiles API, so their profile KPI counts their own
   // profiles from the (scoped) leads response instead.
   const statsCards = [
-    { label: "Active Leads", value: openLeads.length, sub: "not yet closed", icon: Briefcase, accent: "var(--brand-blue)" },
+    { label: "Open Leads", value: openLeads.length, sub: "active leads", icon: Briefcase, accent: "var(--brand-blue)" },
     roleKey === "bd"
       ? { label: "My Profiles", value: profiles.length, sub: "assigned to you", icon: Users2, accent: "var(--status-slate)" }
       : { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total`, icon: Users2, accent: "var(--status-slate)" },
@@ -313,7 +313,7 @@ export default function DashboardTab() {
                 </CardContent>
                 <div className="mt-4 pt-3 border-t border-border">
                   <Link href="/leads" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                    Active Leads →
+                    Open Leads →
                   </Link>
                 </div>
               </Card>

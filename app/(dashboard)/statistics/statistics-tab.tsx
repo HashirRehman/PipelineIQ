@@ -174,10 +174,26 @@ export default function StatisticsTab() {
   }, [filtered, buckets, granularity]);
 
   const totalLeads = filtered.length;
-  const leadsThisMonth = filtered.filter((l) => {
-    const d = new Date(l.appliedAt);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }).length;
+
+  // Active/paused-stage leads within the same filtered set as the rest of
+  // the page — the admin-controlled state from the Lead Stages page, same
+  // definition dashboard-tab.tsx and the Leads list use.
+  const activeStageNames = useMemo(
+    () => new Set(stages.filter((s) => s.state === "active").map((s) => s.name)),
+    [stages],
+  );
+  const pausedStageNames = useMemo(
+    () => new Set(stages.filter((s) => s.state === "paused").map((s) => s.name)),
+    [stages],
+  );
+  const activeLeadsCount = useMemo(
+    () => filtered.filter((l) => activeStageNames.has(l.status)).length,
+    [filtered, activeStageNames],
+  );
+  const pausedLeadsCount = useMemo(
+    () => filtered.filter((l) => pausedStageNames.has(l.status)).length,
+    [filtered, pausedStageNames],
+  );
 
   // Exact label for the active date control, e.g. "This year", "August", "2025".
   const dateFilterLabel = monthFilter !== null
@@ -196,11 +212,12 @@ export default function StatisticsTab() {
     dateRange !== "all";
 
   const statsCards = [
-    { label: "Total Active Leads", value: totalLeads, sub: dateFilterLabel },
+    { label: "Total Leads", value: totalLeads, sub: dateFilterLabel },
+    { label: "Active Leads", value: activeLeadsCount, sub: dateFilterLabel },
+    { label: "Paused Leads", value: pausedLeadsCount, sub: dateFilterLabel },
     canViewTeam
       ? { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` }
       : { label: "My Profiles", value: profiles.length, sub: "assigned to you" },
-    { label: "Active Leads This Month", value: leadsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
   ];
 
   // Status breakdown — every DB stage with leads, colored by pipeline
@@ -538,7 +555,7 @@ export default function StatisticsTab() {
             {statsMode === "leads" ? (
               <>
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {statsCards.map((s, i) => (
                 <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} delay={i * 60} />
               ))}

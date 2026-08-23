@@ -24,6 +24,27 @@ export const deleteUserSchema = z.object({
   userId: z.uuid(),
 });
 
+export const pipelineStageStateSchema = z.enum(["active", "paused", "closed"]);
+
+export const createPipelineStageSchema = z.object({
+  name: z.string().trim().min(1, "Stage name is required."),
+  state: pipelineStageStateSchema,
+});
+
+export const updatePipelineStageSchema = z
+  .object({
+    stageId: z.uuid(),
+    name: z.string().trim().min(1, "Stage name is required.").optional(),
+    state: pipelineStageStateSchema.optional(),
+  })
+  .refine((data) => data.name !== undefined || data.state !== undefined, {
+    message: "Provide a name or state to update.",
+  });
+
+export const reorderPipelineStagesSchema = z.object({
+  stageIds: z.array(z.uuid()).min(1, "No stages to reorder."),
+});
+
 export const signInSchema = z.object({
   email: z.email("Enter a valid email address."),
   password: z.string().min(1, "Password is required."),

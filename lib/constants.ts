@@ -12,6 +12,7 @@ export type TabId =
   | "discovery"
   | "applied-jobs"
   | "leads"
+  | "lead-stages"
   | "users"
   | "settings";
 
@@ -152,5 +153,14 @@ export const ROLE_COLOR: Record<UserRole, string> = {
 export const USER_STATUS_COLOR: Record<string, string> = {
   active:   STATUS.green,
   inactive: STATUS.slate,
+};
+
+/** Lead Stages state → color. Admin-controlled per stage (Lead Stages page);
+ * drives Leads board/list grouping (active shown normally, paused shown in
+ * its own section, closed shown struck-through). */
+export const PIPELINE_STAGE_STATE_COLOR: Record<string, string> = {
+  active: STATUS.green,
+  paused: STATUS.amber,
+  closed: STATUS.slate,
 };
 

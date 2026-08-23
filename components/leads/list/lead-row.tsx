@@ -14,7 +14,6 @@ export function LeadRow({
   lead,
   bdName,
   stages,
-  doneStage,
   delay = 0,
   onToggleDone,
   onStatusChange,
@@ -23,14 +22,13 @@ export function LeadRow({
   lead: Lead
   bdName?: string
   stages: StageOption[]
-  doneStage: string | null
   /** Entrance delay (ms) — lets a section's rows stagger in. */
   delay?: number
   onToggleDone: (id: string) => void
   onStatusChange: (id: string, status: string) => void
   onOpen: (lead: Lead) => void
 }) {
-  const isDone = doneStage !== null && lead.status === doneStage
+  const isDone = stages.find(s => s.name === lead.status)?.state === "closed"
 
   return (
     // content-visibility: with up to a hundred rows, off-screen rows skip
