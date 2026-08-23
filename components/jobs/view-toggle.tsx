@@ -21,7 +21,7 @@ export function ViewToggle({
       aria-pressed={view === value}
       title={`${label} view`}
       className={cn(
-        "flex h-9 items-center gap-1.5 px-2.5 text-xs transition cursor-pointer",
+        "flex h-9 items-center gap-1.5 px-2.5 text-xs transition-colors duration-150 cursor-pointer",
         view === value
           ? "bg-accent text-foreground font-medium"
           : "text-muted-foreground hover:bg-accent/50",

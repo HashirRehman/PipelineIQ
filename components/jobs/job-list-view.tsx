@@ -40,7 +40,7 @@ export function JobListView({
           </tr>
         </thead>
         <tbody className="divide-y divide-border/70">
-          {jobs.map((job) => {
+          {jobs.map((job, i) => {
             const score = job.relevanceScore ?? 0;
             // Parser = the scraper that fetched the job (e.g. Jsearch), from
             // the scrapers table — a neutral badge, no hardcoded name→color map.
@@ -50,7 +50,11 @@ export function JobListView({
               <tr
                 key={job.id}
                 onClick={() => onClick(job)}
-                className="group cursor-pointer bg-background transition-colors hover:bg-accent/40"
+                style={{
+                  animation: "chart-rise 0.3s ease-out backwards",
+                  animationDelay: `${Math.min(i, 12) * 25}ms`,
+                }}
+                className="group cursor-pointer bg-background transition-colors duration-150 hover:bg-accent/40"
               >
                 {/* Job: title + status badges + company · location */}
                 <td className="px-4 py-3">

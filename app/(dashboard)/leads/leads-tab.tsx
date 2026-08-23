@@ -357,7 +357,7 @@ export default function LeadsTab() {
               variant="outline"
               size="sm"
               onClick={() => setImportOpen(true)}
-              className="rounded px-3 text-xs text-muted-foreground hover:bg-accent"
+              className="rounded px-3 text-xs text-muted-foreground transition-colors duration-150 hover:bg-accent"
             >
               <Upload className="size-3.5" />
               Import
@@ -367,7 +367,7 @@ export default function LeadsTab() {
                 type="button"
                 onClick={() => setView("list")}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                  "flex items-center gap-1.5 px-2.5 h-7 text-xs transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                   view === "list"
                     ? "bg-accent text-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent/50",
@@ -381,7 +381,7 @@ export default function LeadsTab() {
                 type="button"
                 onClick={() => setView("board")}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 h-7 text-xs transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                  "flex items-center gap-1.5 px-2.5 h-7 text-xs transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                   view === "board"
                     ? "bg-accent text-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent/50",
@@ -390,12 +390,13 @@ export default function LeadsTab() {
                 <LayoutDashboard className="size-3.5" />
                 Board
               </button>
-            </div>            <Button
+            </div>
+            <Button
               type="button"
               variant="outline"
               onClick={() => setFiltersOpen((open) => !open)}
               className={cn(
-                "h-9 shrink-0 rounded-md px-3 text-xs font-medium hover:bg-accent",
+                "h-9 shrink-0 rounded-md px-3 text-xs font-medium transition-colors duration-150 hover:bg-accent",
                 filtersOpen
                   ? "border-border bg-accent text-foreground"
                   : "border-border bg-background text-muted-foreground hover:text-foreground",

@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react"
+import { Check, Plus, X, Loader2, Pencil, Trash2, Users2, UserCheck, ShieldCheck } from "lucide-react"
 import type { ApiAppUser, UsersApiResponse } from "@/app/api/users/route"
 import { ApiError, apiGet, apiPost, apiRequest } from "@/lib/api/client"
 import { queryKeys } from "@/lib/api/query-keys"
@@ -322,9 +322,9 @@ export default function UsersTab() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-3 px-6 py-4 border-b border-border bg-background shrink-0">
-        <StatCard label="Total Members" value={users.length} color="var(--brand-blue)" />
-        <StatCard label="Active" value={activeCount} color="var(--status-green)" />
-        <StatCard label="Admins" value={adminCount} color="var(--status-red)" />
+        <StatCard label="Total Members" value={users.length} icon={Users2} accent="var(--brand-blue)" delay={0} />
+        <StatCard label="Active" value={activeCount} icon={UserCheck} accent="var(--status-green)" delay={60} />
+        <StatCard label="Admins" value={adminCount} icon={ShieldCheck} accent="var(--status-red)" delay={120} />
       </div>
 
       {/* Filters */}
@@ -367,13 +367,19 @@ export default function UsersTab() {
       {/* Table */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-border text-center">
+          <div
+            className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-border text-center"
+            style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+          >
             <p className="text-sm font-medium text-foreground">No members found</p>
             <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters.</p>
           </div>
         ) : (
           <>
-            <div className="flex items-center pb-3">
+            <div
+              className="flex items-center pb-3"
+              style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+            >
               <ResultsCount
                 count={filtered.length}
                 label={filtered.length === 1 ? "member" : "members"}
@@ -396,10 +402,19 @@ export default function UsersTab() {
                   const statusColor = USER_STATUS_COLOR[user.status ?? "inactive"]
                   const isSelf = user.id === activeUser?.id
                   return (
-                    <tr key={`${user.id}-${idx}`} className="bg-background transition-colors hover:bg-accent/40">
+                    <tr
+                      key={`${user.id}-${idx}`}
+                      style={{
+                        animation: "chart-rise 0.3s ease-out backwards",
+                        animationDelay: `${Math.min(idx, 12) * 25}ms`,
+                      }}
+                      className="group bg-background transition-colors duration-150 hover:bg-accent/40"
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <Avatar name={user.name} size={32} />
+                          <div className="transition-transform duration-150 group-hover:scale-105">
+                            <Avatar name={user.name} size={32} />
+                          </div>
                           <div className="min-w-0">
                             <p className="font-medium text-foreground truncate">
                               {user.name}

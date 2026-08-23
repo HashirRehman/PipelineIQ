@@ -20,7 +20,7 @@ export function FilterOption({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex items-center gap-2 w-full rounded px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer",
+        "flex items-center gap-2 w-full rounded px-2.5 py-1.5 text-xs text-left transition-colors duration-150 cursor-pointer",
         disabled && "opacity-40 cursor-not-allowed",
         active
           ? "bg-primary/10 font-semibold text-primary"

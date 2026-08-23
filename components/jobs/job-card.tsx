@@ -8,9 +8,12 @@ import { timeAgo } from "@/lib/format"
 export function JobCard({
   job,
   onClick,
+  delay = 0,
 }: {
   job: Job
   onClick: () => void
+  /** Entrance delay (ms) — lets a grid of cards stagger in. */
+  delay?: number
 }) {
   const score = job.relevanceScore ?? 0
   const scoreRingColor = scoreColor(score)
@@ -21,7 +24,8 @@ export function JobCard({
   return (
     <div
       onClick={onClick}
-      className="group flex flex-col rounded-xl border bg-card p-4 cursor-pointer shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
+      style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: `${delay}ms` }}
+      className="group flex flex-col rounded-xl border border-border bg-card p-4 cursor-pointer shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm"
     >
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">

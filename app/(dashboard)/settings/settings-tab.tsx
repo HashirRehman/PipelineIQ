@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useMounted } from "@/hooks/use-mounted"
 import { cn } from "@/lib/utils"
 import { apiRequest, withOrgId } from "@/lib/api/client"
@@ -162,6 +163,55 @@ function PreviewShell({
   )
 }
 
+// Shape-matched loading state for the Organization tab — shown while the
+// domain policy fetch is in flight, instead of the form defaulting to
+// "restricted, no domain" and popping to the real value once the request
+// resolves (misread as "no domain is configured").
+function OrganizationTabSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="min-w-0 rounded-xl border border-border bg-card p-6 space-y-6">
+        <div className="flex items-center gap-2.5 border-b border-border pb-4">
+          <Skeleton className="size-4.5 rounded" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-56" />
+            <Skeleton className="h-3 w-72" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="rounded-lg border border-border p-4 flex items-start gap-3">
+            <Skeleton className="size-4 rounded-full mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-64" />
+              <Skeleton className="h-3 w-80" />
+              <Skeleton className="h-9 w-full max-w-md mt-2" />
+            </div>
+          </div>
+          <div className="rounded-lg border border-border p-4 flex items-start gap-3">
+            <Skeleton className="size-4 rounded-full mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-72" />
+              <Skeleton className="h-3 w-64" />
+            </div>
+          </div>
+        </div>
+        <div className="pt-4 border-t border-border flex justify-end">
+          <Skeleton className="h-9 w-44" />
+        </div>
+      </div>
+      <div className="min-w-0 h-fit rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-4 rounded" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+        <Skeleton className="h-14 w-full rounded-md" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-4/5" />
+      </div>
+    </div>
+  )
+}
+
 // Tab type definition
 type SettingsTab = "profile" | "security" | "appearance" | "organization"
 
@@ -230,6 +280,12 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
   const [savingOrgSettings, setSavingOrgSettings] = useState(false)
   const [orgSuccess, setOrgSuccess] = useState("")
   const [orgError, setOrgError] = useState("")
+  // True until the org-settings fetch resolves — the domain policy defaults
+  // to "restricted" with an empty domain before the real value loads, which
+  // reads as "no domain is set" if rendered as-is. Gate the org fields (and
+  // anything that echoes org state, like the current-policy panel) behind
+  // this instead of showing that misleading default.
+  const [isLoadingOrgSettings, setIsLoadingOrgSettings] = useState(true)
 
   // Theme states
   const selectedId = useSyncExternalStore(
@@ -271,23 +327,19 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
         // Fetch Organization settings
         try {
           const orgUrl = withOrgId("/api/organization/settings")
-          console.log("Fetching organization settings from:", orgUrl)
           const orgRes = await fetch(orgUrl, { signal: ctrl.signal })
           if (!mounted) return
 
           if (orgRes.ok) {
             const orgData = await orgRes.json()
-            console.log("Organization data received:", orgData)
             if (!mounted) return
 
             if (orgData?.allowedEmailDomain && typeof orgData.allowedEmailDomain === "string" && orgData.allowedEmailDomain.trim() !== "") {
-              console.log("Setting domain to:", orgData.allowedEmailDomain)
               setOrgDomainMode("restricted")
               setOrgDomainInput(orgData.allowedEmailDomain)
               setOriginalOrgDomainMode("restricted")
               setOriginalOrgDomainInput(orgData.allowedEmailDomain)
             } else {
-              console.log("No domain or empty domain, setting to 'any'")
               setOrgDomainMode("any")
               setOriginalOrgDomainMode("any")
               setOriginalOrgDomainInput("")
@@ -300,11 +352,16 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
         } catch (orgErr) {
           if (orgErr instanceof DOMException && orgErr.name === "AbortError") return
           console.error("Error fetching organization settings:", orgErr)
+        } finally {
+          if (mounted) setIsLoadingOrgSettings(false)
         }
 
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return
-        if (mounted) console.error("Failed to load user info:", err)
+        if (mounted) {
+          console.error("Failed to load user info:", err)
+          setIsLoadingOrgSettings(false)
+        }
       }
     }
 
@@ -425,10 +482,8 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
         console.error("Failed to re-authenticate after password change")
         // Password was changed successfully, re-auth is best-effort
         // User will be logged out on next page load if session expired
-      } else {
-        const sessionData = await sessionRes.json()
-        // Session tokens are handled by Supabase cookie middleware
       }
+      // Session tokens (on success) are handled by Supabase cookie middleware
 
       setPasswordSuccess("Your password has been changed successfully!")
       setNewPassword("")
@@ -513,12 +568,15 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => selectPalette(DEFAULT_PALETTE_ID)}
-              disabled={isDefault}
+              onClick={() => {
+                selectPalette(DEFAULT_PALETTE_ID)
+                selectPattern(DEFAULT_PATTERN_ID)
+              }}
+              disabled={isDefault && isPatternDefault}
               className="shrink-0"
             >
               <RotateCcw className="size-3.5" />
-              Reset theme
+              Reset all appearance
             </Button>
           )}
         </div>
@@ -529,9 +587,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
             type="button"
             onClick={() => handleTabChange("profile")}
             className={cn(
-              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 cursor-pointer",
               activeTab === "profile"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
@@ -543,9 +601,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
             type="button"
             onClick={() => handleTabChange("security")}
             className={cn(
-              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 cursor-pointer",
               activeTab === "security"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
@@ -557,9 +615,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
             type="button"
             onClick={() => handleTabChange("appearance")}
             className={cn(
-              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 cursor-pointer",
               activeTab === "appearance"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
@@ -572,9 +630,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
               type="button"
               onClick={() => handleTabChange("organization")}
               className={cn(
-                "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer",
+                "flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 cursor-pointer",
                 activeTab === "organization"
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
@@ -588,39 +646,45 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {/* TAB 4: ORGANIZATION DOMAIN SETTINGS (ADMIN ONLY) */}
-        {activeTab === "organization" && isAdmin && (
-          <div className="max-w-2xl space-y-6">
-            <form onSubmit={handleUpdateOrgSettings} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
-              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+        {activeTab === "organization" && isAdmin && isLoadingOrgSettings && (
+          <OrganizationTabSkeleton />
+        )}
+        {activeTab === "organization" && isAdmin && !isLoadingOrgSettings && (
+          <div
+            className="grid gap-4 lg:grid-cols-[1fr_320px]"
+            style={{ animation: "chart-rise 0.3s ease-out backwards" }}
+          >
+            <form onSubmit={handleUpdateOrgSettings} className="min-w-0 rounded-xl border border-border bg-card p-6 space-y-6">
+              <div className="flex items-center gap-2.5 border-b border-border pb-4">
                 <Building2 className="size-4.5 text-primary" />
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Organization Email Domain Policy</h2>
+                  <h2 className="text-sm font-semibold text-foreground">Organization Email Domain Policy</h2>
                   <p className="text-caption text-muted-foreground mt-0.5">Control allowed email domains for member invitations across your organization.</p>
                 </div>
               </div>
 
               {orgSuccess && (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                <div className="rounded-md border border-success-foreground/20 bg-success px-4 py-3 text-xs text-success-foreground flex items-center gap-2.5">
                   <ShieldCheck className="size-4 shrink-0" />
                   <span>{orgSuccess}</span>
                 </div>
               )}
 
               {orgError && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
                   <AlertCircle className="size-4 shrink-0" />
                   <span>{orgError}</span>
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div
                   onClick={() => setOrgDomainMode("restricted")}
                   className={cn(
-                    "rounded-xl border p-4 transition-all cursor-pointer flex items-start gap-3",
+                    "rounded-lg border p-4 transition-colors duration-150 cursor-pointer flex items-start gap-3",
                     orgDomainMode === "restricted"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                      : "border-border/70 bg-background/50 hover:border-border"
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border bg-background hover:border-border-strong"
                   )}
                 >
                   <div className="mt-0.5">
@@ -634,29 +698,29 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                   </div>
                   <div className="flex-1 space-y-2">
                     <div>
-                      <p className="text-xs font-bold text-foreground">Restrict user invitations to a specific domain</p>
+                      <p className="text-xs font-semibold text-foreground">Restrict user invitations to a specific domain</p>
                       <p className="text-caption text-muted-foreground mt-0.5">
                         Only users with email addresses matching this domain can be invited.
                       </p>
                     </div>
 
                     {orgDomainMode === "restricted" && (
-                      <div className="pt-2">
-                        <label className="text-xs font-semibold text-foreground/90 block mb-1">Allowed Domain Name</label>
+                      <div className="pt-2" style={{ animation: "chart-fade-in 0.2s ease-out backwards" }}>
+                        <label className="text-xs font-semibold text-foreground block mb-1">Allowed Domain Name</label>
                         <div className="flex items-center gap-2 w-full max-w-md relative">
-                          <span className="text-sm font-medium text-foreground/70">@</span>
+                          <span className="text-sm font-medium text-muted-foreground">@</span>
                           <Input
                             value={orgDomainInput}
                             onChange={e => setOrgDomainInput(e.target.value)}
                             placeholder="company.com"
                             disabled={!mounted}
-                            className="flex-1 h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background transition-all"
+                            className="flex-1 h-9 text-sm"
                           />
                           {!mounted && (
                             <Loader2 className="absolute right-3 size-4 animate-spin text-muted-foreground" />
                           )}
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-meta text-muted-foreground mt-1">
                           Enter the domain without @ (example: company.com).
                         </p>
                       </div>
@@ -667,10 +731,10 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                 <div
                   onClick={() => setOrgDomainMode("any")}
                   className={cn(
-                    "rounded-xl border p-4 transition-all cursor-pointer flex items-start gap-3",
+                    "rounded-lg border p-4 transition-colors duration-150 cursor-pointer flex items-start gap-3",
                     orgDomainMode === "any"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                      : "border-border/70 bg-background/50 hover:border-border"
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border bg-background hover:border-border-strong"
                   )}
                 >
                   <div className="mt-0.5">
@@ -683,7 +747,7 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                     />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-bold text-foreground">Allow invitations from ANY email domain</p>
+                    <p className="text-xs font-semibold text-foreground">Allow invitations from any email domain</p>
                     <p className="text-caption text-muted-foreground mt-0.5">
                       Members with any valid email domain (Gmail, Yahoo, custom) can be invited.
                     </p>
@@ -691,74 +755,102 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-border/70 flex justify-end">
-                <Button type="submit" disabled={savingOrgSettings || !orgSettingsChanged} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
-                  {savingOrgSettings && <Loader2 className="size-3.5 animate-spin mr-2" />}
+              <div className="pt-4 border-t border-border flex justify-end">
+                <Button type="submit" disabled={savingOrgSettings || !orgSettingsChanged}>
+                  {savingOrgSettings && <Loader2 className="size-3.5 animate-spin" />}
                   Save Organization Settings
                 </Button>
               </div>
             </form>
+
+            {/* Side panel — current policy summary */}
+            <div
+              className="min-w-0 h-fit rounded-xl border border-border bg-card p-5 space-y-4"
+              style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: "60ms" }}
+            >
+              <div className="flex items-center gap-2">
+                <Globe className="size-4 text-muted-foreground" />
+                <h3 className="text-item font-semibold text-foreground">Current policy</h3>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3.5">
+                <p className="text-caption text-muted-foreground">Invitations are currently</p>
+                <p className="text-sm font-semibold text-foreground mt-0.5">
+                  {originalOrgDomainMode === "restricted"
+                    ? `Restricted to @${originalOrgDomainInput || "…"}`
+                    : "Open to any domain"}
+                </p>
+              </div>
+              <p className="text-caption text-muted-foreground leading-relaxed">
+                This policy applies whenever an admin invites a new member. It does not affect
+                members already in the organization.
+              </p>
+            </div>
           </div>
         )}
         {/* TAB 1: PROFILE & ACCOUNT */}
         {activeTab === "profile" && (
-          <div className="max-w-2xl space-y-6">
-            <form onSubmit={handleUpdateProfile} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
-              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+          <div
+            className="grid gap-4 lg:grid-cols-[1fr_320px]"
+            style={{ animation: "chart-rise 0.3s ease-out backwards" }}
+          >
+            <form onSubmit={handleUpdateProfile} className="min-w-0 rounded-xl border border-border bg-card p-6 space-y-6">
+              <div className="flex items-center gap-2.5 border-b border-border pb-4">
                 <User className="size-4.5 text-primary" />
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Personal Information</h2>
+                  <h2 className="text-sm font-semibold text-foreground">Personal Information</h2>
                   <p className="text-caption text-muted-foreground mt-0.5">Update your display name and view account details.</p>
                 </div>
               </div>
 
               {profileSuccess && (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                <div className="rounded-md border border-success-foreground/20 bg-success px-4 py-3 text-xs text-success-foreground flex items-center gap-2.5">
                   <ShieldCheck className="size-4 shrink-0" />
                   <span>{profileSuccess}</span>
                 </div>
               )}
 
               {profileError && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
                   <AlertCircle className="size-4 shrink-0" />
                   <span>{profileError}</span>
                 </div>
               )}
 
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-foreground/90 block">Full Name</label>
-                  <Input
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full max-w-xl h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-foreground/90 block">Email Address</label>
-                  <div className="relative">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-foreground block">Full Name</label>
                     <Input
-                      value={email}
-                      readOnly
-                      disabled
-                      placeholder={!mounted ? "Loading..." : ""}
-                      className="w-full max-w-xl h-10 text-sm bg-muted/40 cursor-not-allowed opacity-75 border-border/60"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Enter your full name"
+                      className="h-9 text-sm"
                     />
-                    {!mounted && (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
-                    )}
                   </div>
-                  <p className="text-caption text-muted-foreground">
-                    Email address is managed by your organization account and cannot be modified directly.
-                  </p>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-foreground block">Email Address</label>
+                    <div className="relative">
+                      <Input
+                        value={email}
+                        readOnly
+                        disabled
+                        placeholder={!mounted ? "Loading..." : ""}
+                        className="h-9 text-sm bg-muted/40 cursor-not-allowed opacity-75"
+                      />
+                      {!mounted && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
                 </div>
+                <p className="text-caption text-muted-foreground -mt-3">
+                  Email address is managed by your organization account and cannot be modified directly.
+                </p>
 
                 {userRole && (
-                  <div className="space-y-2 pt-1">
-                    <label className="text-xs font-semibold text-foreground/90 block">Assigned Role</label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-foreground block">Assigned Role</label>
                     <Badge variant="outline" className="px-3 py-1 text-xs font-medium bg-primary/10 text-primary border-primary/20 rounded-md">
                       {userRole}
                     </Badge>
@@ -766,94 +858,154 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                 )}
               </div>
 
-              <div className="pt-4 border-t border-border/70 flex justify-end">
-                <Button type="submit" disabled={savingProfile || !name.trim()} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
-                  {savingProfile && <Loader2 className="size-3.5 animate-spin mr-2" />}
+              <div className="pt-4 border-t border-border flex justify-end">
+                <Button type="submit" disabled={savingProfile || !name.trim()}>
+                  {savingProfile && <Loader2 className="size-3.5 animate-spin" />}
                   Save Profile Name
                 </Button>
               </div>
             </form>
+
+            {/* Side panel — account summary */}
+            <div
+              className="min-w-0 h-fit rounded-xl border border-border bg-card p-5 space-y-4"
+              style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: "60ms" }}
+            >
+              <div className="flex items-center gap-2">
+                <User className="size-4 text-muted-foreground" />
+                <h3 className="text-item font-semibold text-foreground">Account summary</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Display name</span>
+                  <span className="font-medium text-foreground truncate max-w-[160px]">{name || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Email</span>
+                  <span className="font-medium text-foreground truncate max-w-[160px]">{email}</span>
+                </div>
+                {userRole && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Role</span>
+                    <span className="font-medium text-foreground capitalize">{userRole}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-caption text-muted-foreground leading-relaxed border-t border-border pt-3">
+                Your role and email are managed by an administrator. Only your display name can be
+                changed here.
+              </p>
+            </div>
           </div>
         )}
 
         {/* TAB 2: SECURITY & PASSWORD */}
         {activeTab === "security" && (
-          <div className="max-w-2xl space-y-6">
-            <form onSubmit={handleUpdatePassword} className="rounded-2xl border border-border/80 bg-card p-6 sm:p-7 space-y-6 shadow-xs">
-              <div className="flex items-center gap-2.5 border-b border-border/70 pb-4">
+          <div
+            className="grid gap-4 lg:grid-cols-[1fr_320px]"
+            style={{ animation: "chart-rise 0.3s ease-out backwards" }}
+          >
+            <form onSubmit={handleUpdatePassword} className="min-w-0 rounded-xl border border-border bg-card p-6 space-y-6">
+              <div className="flex items-center gap-2.5 border-b border-border pb-4">
                 <KeyRound className="size-4.5 text-primary" />
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Change Password</h2>
+                  <h2 className="text-sm font-semibold text-foreground">Change Password</h2>
                   <p className="text-caption text-muted-foreground mt-0.5">Ensure your account uses a strong, secure password.</p>
                 </div>
               </div>
 
               {passwordSuccess && (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                <div className="rounded-md border border-success-foreground/20 bg-success px-4 py-3 text-xs text-success-foreground flex items-center gap-2.5">
                   <ShieldCheck className="size-4 shrink-0" />
                   <span>{passwordSuccess}</span>
                 </div>
               )}
 
               {passwordError && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive flex items-center gap-2.5">
                   <AlertCircle className="size-4 shrink-0" />
                   <span>{passwordError}</span>
                 </div>
               )}
 
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-foreground/90 block">New Password</label>
-                  <div className="relative w-full max-w-xl">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)}
-                      placeholder="Enter new password (min. 8 characters)"
-                      className="w-full h-10 text-sm pr-10 px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-foreground block">New Password</label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Min. 8 characters"
+                        className="h-9 text-sm pr-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-foreground/90 block">Confirm New Password</label>
-                  <div className="relative w-full max-w-xl">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-foreground block">Confirm New Password</label>
                     <Input
                       type={showPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       placeholder="Confirm new password"
-                      className="w-full h-10 text-sm px-3.5 rounded-lg border-border/80 bg-background/60 focus:bg-background transition-all"
+                      className="h-9 text-sm"
                     />
                   </div>
                 </div>
-
-                <p className="text-caption text-muted-foreground leading-relaxed pt-1">
-                  Ensure your password is at least 8 characters long and includes a combination of letters, numbers, and symbols for maximum security.
-                </p>
               </div>
 
-              <div className="pt-4 border-t border-border/70 flex justify-end">
-                <Button type="submit" disabled={savingPassword || !newPassword || !confirmPassword} className="h-10 px-6 text-xs font-semibold rounded-lg shadow-xs">
-                  {savingPassword && <Loader2 className="size-3.5 animate-spin mr-2" />}
+              <div className="pt-4 border-t border-border flex justify-end">
+                <Button type="submit" disabled={savingPassword || !newPassword || !confirmPassword}>
+                  {savingPassword && <Loader2 className="size-3.5 animate-spin" />}
                   Update Password
                 </Button>
               </div>
             </form>
+
+            {/* Side panel — password guidance */}
+            <div
+              className="min-w-0 h-fit rounded-xl border border-border bg-card p-5 space-y-4"
+              style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: "60ms" }}
+            >
+              <div className="flex items-center gap-2">
+                <Lock className="size-4 text-muted-foreground" />
+                <h3 className="text-item font-semibold text-foreground">Password guidelines</h3>
+              </div>
+              <ul className="space-y-2.5">
+                {[
+                  "At least 8 characters long",
+                  "Mix of letters and numbers",
+                  "At least one symbol",
+                  "Not reused from another account",
+                ].map((tip) => (
+                  <li key={tip} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Check className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-caption text-muted-foreground leading-relaxed border-t border-border pt-3">
+                Changing your password signs you out of other active sessions.
+              </p>
+            </div>
           </div>
         )}
 
         {/* TAB 3: APPEARANCE & THEME */}
         {activeTab === "appearance" && mounted && (
-          <div className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
+          <div
+            className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]"
+            style={{ animation: "chart-rise 0.3s ease-out backwards" }}
+          >
             {/* Palette grid */}
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-3">
@@ -862,10 +1014,21 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                 <span className="text-caption text-muted-foreground">
                   — Tailwind, Radix UI, Nord, Dracula, Solarized, Catppuccin
                 </span>
+                {mounted && !isDefault && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectPalette(DEFAULT_PALETTE_ID)}
+                    className="ml-auto h-7 px-2.5 text-caption"
+                  >
+                    <RotateCcw className="size-3" />
+                    Reset theme
+                  </Button>
+                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {PALETTES.map(palette => {
+                {PALETTES.map((palette, i) => {
                   const id = palette.id
                   const isSelected = (selectedId ?? DEFAULT_PALETTE_ID) === id
                   const isPreviewing = previewId === id
@@ -876,11 +1039,12 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                       onClick={() => selectPalette(id)}
                       onMouseEnter={() => setPreviewId(id)}
                       onMouseLeave={() => setPreviewId(null)}
+                      style={{ animation: "chart-rise 0.25s ease-out backwards", animationDelay: `${Math.min(i, 12) * 20}ms` }}
                       className={cn(
-                        "group relative flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 text-left transition-all cursor-pointer",
+                        "group relative flex flex-col gap-2.5 rounded-lg border bg-card p-3.5 text-left transition-colors duration-150 cursor-pointer",
                         isSelected
                           ? "border-primary ring-1 ring-primary"
-                          : "border-border hover:border-primary/40 hover:shadow-sm",
+                          : "border-border hover:border-border-strong",
                         isPreviewing && !isSelected && "border-primary/50",
                       )}
                       aria-pressed={isSelected}
@@ -933,21 +1097,22 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {PATTERNS.map(pat => {
+                {PATTERNS.map((pat, i) => {
                   const isSel = (selectedPatternId ?? DEFAULT_PATTERN_ID) === pat.id
                   return (
                     <button
                       key={pat.id}
                       type="button"
                       onClick={() => selectPattern(pat.id)}
+                      style={{ animation: "chart-rise 0.25s ease-out backwards", animationDelay: `${Math.min(i, 12) * 20}ms` }}
                       className={cn(
-                        "group relative flex flex-col gap-2 rounded-lg border bg-card p-3 text-left transition-all cursor-pointer",
+                        "group relative flex flex-col gap-2 rounded-lg border bg-card p-3 text-left transition-colors duration-150 cursor-pointer",
                         isSel
                           ? "border-primary ring-1 ring-primary"
-                          : "border-border hover:border-primary/40 hover:shadow-sm",
+                          : "border-border hover:border-border-strong",
                       )}
                     >
-                      <span className={cn("absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-all", isSel ? "bg-primary text-primary-foreground" : "bg-transparent")}>
+                      <span className={cn("absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full transition-colors duration-150", isSel ? "bg-primary text-primary-foreground" : "bg-transparent")}>
                         <Check className={cn("size-3 transition-opacity", isSel ? "opacity-100" : "opacity-0")} strokeWidth={3} />
                       </span>
 

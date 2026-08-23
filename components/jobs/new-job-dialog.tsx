@@ -293,7 +293,10 @@ export function NewJobDialog({
             </div>
 
             {state === "lead" && (
-              <div className="flex flex-col gap-2">
+              <div
+                className="flex flex-col gap-2"
+                style={{ animation: "chart-fade-in 0.2s ease-out backwards" }}
+              >
                 <Label htmlFor="developer">Developer</Label>
                 <Input
                   id="developer"
@@ -346,7 +349,10 @@ export function NewJobDialog({
             </div>
 
             {state === "lead" && (
-              <>
+              <div
+                className="flex flex-col gap-4 rounded-lg border border-border bg-muted/30 p-4"
+                style={{ animation: "chart-fade-in 0.2s ease-out backwards" }}
+              >
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="stage">Stage *</Label>
                   <Select value={stageId} onValueChange={(v) => { if (v) setStageId(v) }} name="stage" required>
@@ -373,7 +379,7 @@ export function NewJobDialog({
                     placeholder="Lead notes (e.g. reply received, next step, deadline…)"
                   />
                 </div>
-              </>
+              </div>
             )}
 
             <div className="flex flex-col gap-2">
@@ -394,12 +400,16 @@ export function NewJobDialog({
             </div>
 
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p
+                role="alert"
+                className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                style={{ animation: "chart-fade-in 0.2s ease-out backwards" }}
+              >
                 {error}
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <Button type="submit" disabled={isPending}>
                 {isPending ? "Adding…" : "Add job"}
               </Button>

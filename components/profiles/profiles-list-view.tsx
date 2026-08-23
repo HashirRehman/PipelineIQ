@@ -40,16 +40,20 @@ export function ProfilesListView({
           </tr>
         </thead>
         <tbody className="divide-y divide-border/70">
-          {profiles.map((profile) => (
+          {profiles.map((profile, i) => (
             <tr
               key={profile.id}
               onClick={() => onSelectProfile(profile.id)}
-              className="group cursor-pointer bg-background transition-colors hover:bg-accent/40"
+              style={{
+                animation: "chart-rise 0.3s ease-out backwards",
+                animationDelay: `${Math.min(i, 12) * 25}ms`,
+              }}
+              className="group cursor-pointer bg-background transition-colors duration-150 hover:bg-accent/40"
             >
               {/* Candidate: initials avatar + name + email */}
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-avatar-2 text-xs font-semibold text-white select-none">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-avatar-2 text-xs font-semibold text-white select-none transition-transform duration-150 group-hover:scale-105">
                     {getInitials(profile.fullName)}
                   </div>
                   <div className="min-w-0">

@@ -25,7 +25,7 @@ export function LeadStatusSection({
   return (
     <section>
       {/* Section header row — matches the reference Tasks list group row */}
-      <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-muted/60 hover:bg-transparent  cursor-pointer">
+      <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-muted/60 transition-colors duration-150 hover:bg-transparent cursor-pointer">
         <div
           onClick={onToggle}
           aria-expanded={!collapsed}

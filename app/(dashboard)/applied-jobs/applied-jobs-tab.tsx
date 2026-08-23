@@ -396,11 +396,12 @@ export default function AppliedJobsTab() {
                 <JobListView jobs={jobs} onClick={setSelectedJob} />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {jobs.map(job => (
+                  {jobs.map((job, i) => (
                     <JobCard
                       key={job.id}
                       job={job}
                       onClick={() => setSelectedJob(job)}
+                      delay={Math.min(i, 12) * 25}
                     />
                   ))}
                 </div>

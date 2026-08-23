@@ -93,7 +93,7 @@ function ImportKindPicker({
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            "cursor-pointer rounded-md px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+            "cursor-pointer rounded-md px-3 py-1 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
             value === option.value
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",
@@ -120,6 +120,10 @@ function rowHasIssues(issues: ImportRowIssues): boolean {
  *   3. Review the resolved rows — fix profiles that didn't match, stages,
  *      dates — then import. Only fully-valid, included rows submit.
  */
+/** Entrance for each step's content — a fast fade/rise so switching
+ *  Upload → Map → Review → Done doesn't just snap. */
+const STEP_ENTRANCE = { animation: "chart-rise 0.2s ease-out backwards" } as const;
+
 export function ImportJobsDialog({
   open,
   onOpenChange,
@@ -493,7 +497,7 @@ export function ImportJobsDialog({
               STEP 1 — UPLOAD
           ----------------------------------------------------------------- */}
           {step === "upload" && (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-5" style={STEP_ENTRANCE}>
               <div className="flex flex-col gap-2">
                 <Label className="text-sm font-medium">
                   What are you importing?
@@ -518,9 +522,9 @@ export function ImportJobsDialog({
                   const file = e.dataTransfer.files?.[0];
                   if (file) void handleFile(file);
                 }}
-                className="h-auto w-full flex-col gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 px-6 py-14 text-center hover:border-primary/50 hover:bg-muted/50"
+                className="group h-auto w-full flex-col gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 px-6 py-14 text-center duration-150 hover:border-primary/50 hover:bg-muted/50"
               >
-                <UploadCloud className="size-10 text-muted-foreground" />
+                <UploadCloud className="size-10 text-muted-foreground transition-transform duration-150 group-hover:scale-105" />
                 <div className="text-sm font-medium">
                   Drop your Excel file here, or click to browse
                 </div>
@@ -548,7 +552,7 @@ export function ImportJobsDialog({
               STEP 2 — MAP COLUMNS
           ----------------------------------------------------------------- */}
           {step === "map" && sheet && (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-5" style={STEP_ENTRANCE}>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <FileSpreadsheet className="size-4 text-muted-foreground" />
                 <span className="font-medium">{fileName}</span>
@@ -617,7 +621,7 @@ export function ImportJobsDialog({
                           }}
                           onDragEnd={() => setDragging(null)}
                           className={cn(
-                            "group flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 transition-colors",
+                            "group flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 transition-colors duration-150",
                             isExcluded
                               ? "opacity-40"
                               : "cursor-grab hover:border-primary/40 active:cursor-grabbing",
@@ -688,7 +692,7 @@ export function ImportJobsDialog({
                             setDropTarget(null);
                           }}
                           className={cn(
-                            "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 transition-colors",
+                            "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 transition-colors duration-150",
                             isTarget && "border-primary ring-2 ring-primary/20",
                             assigned && "border-primary/30",
                           )}
@@ -819,7 +823,7 @@ export function ImportJobsDialog({
               STEP 3 — REVIEW & EDIT
           ----------------------------------------------------------------- */}
           {step === "review" && reviewRows && reviewSummary && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4" style={STEP_ENTRANCE}>
               <div
                 aria-live="polite"
                 className={cn(
@@ -1113,7 +1117,10 @@ export function ImportJobsDialog({
               STEP 4 — DONE
           ----------------------------------------------------------------- */}
           {step === "done" && result && (
-            <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <div
+              className="flex flex-col items-center gap-3 py-10 text-center"
+              style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+            >
               <CheckCircle2 className="size-12 text-emerald-500" />
               <div className="text-base font-medium">
                 {result.imported} job{result.imported === 1 ? "" : "s"} imported

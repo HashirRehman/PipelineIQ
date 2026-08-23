@@ -200,7 +200,7 @@ export default function StatisticsTab() {
     canViewTeam
       ? { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` }
       : { label: "My Profiles", value: profiles.length, sub: "assigned to you" },
-    { label: "Leads This Month", value: leadsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
+    { label: "Active Leads This Month", value: leadsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
   ];
 
   // Status breakdown — every DB stage with leads, colored by pipeline

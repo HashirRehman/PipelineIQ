@@ -70,13 +70,14 @@ export function LeadsListView({
           collapsed={collapsed.includes(section.stage)}
           onToggle={() => toggleSection(section.stage)}
         >
-          {section.leads.map(lead => (
+          {section.leads.map((lead, i) => (
             <LeadRow
               key={lead.id}
               lead={lead}
               bdName={users.find(u => u.id === lead.assignedTo)?.name}
               stages={stages}
               doneStage={doneStage}
+              delay={Math.min(i, 12) * 20}
               onToggleDone={onToggleDone}
               onStatusChange={onStatusChange}
               onOpen={onOpen}

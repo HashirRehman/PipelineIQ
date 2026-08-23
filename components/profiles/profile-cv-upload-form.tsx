@@ -82,7 +82,7 @@ export function ProfileCvUploadForm({
         }}
         className={[
           "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed px-4 py-3 text-center",
-          "transition-colors",
+          "transition-colors duration-150",
           isDragging
             ? "border-primary bg-primary/10"
             : "border-border bg-background hover:border-primary/50 hover:text-foreground",
@@ -102,7 +102,7 @@ export function ProfileCvUploadForm({
         />
 
         <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Upload className="size-4" />
+          <Upload className={`size-4 transition-transform duration-150 ${isDragging ? "scale-110" : ""}`} />
           {fileName || "Upload CV (PDF / DOC / DOCX)"}
         </span>
 
