@@ -1,12 +1,13 @@
 import Image from "next/image"
+import { organizationName } from "@/lib/constants"
 
-/** Recurso Labs "R" mark — the geometric gradient letterform */
+/** {@link organizationName} "R" mark — the geometric gradient letterform */
 export function RecursoMark({ size = 32 }: { size?: number }) {
   return (
     <div className="bg-white p-1 rounded-md">
     <Image
       src="/recurso-labs-logo.png"
-      alt="Recurso Labs"
+      alt={organizationName}
       width={size}
       height={size}
       className="shrink-0 object-contain"
@@ -27,7 +28,7 @@ export function PipelineIQLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
           Pipeline<span className="text-primary">IQ</span>
         </div>
         <div className="text-micro text-muted-foreground tracking-widest uppercase font-medium mt-0.5">
-          Recurso Labs
+          {organizationName}
         </div>
       </div>
     </div>

@@ -3,7 +3,9 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { clientIp } from "@/lib/api/rate-limit";
 
 /**
- * Security audit logging (see supabase/migrations/20260812010000_audit_logs.sql).
+ * Security audit logging (table introduced by the old
+ * 20260812010000_audit_logs.sql migration, now folded into the consolidated
+ * schema — see supabase/migrations/20260823200000_consolidated_schema.sql).
  *
  * Records who did what for team-management events: logins, password sets,
  * invites, member status/role changes, member deletion. Writes are
@@ -11,8 +13,13 @@ import { clientIp } from "@/lib/api/rate-limit";
  * fails the operation being recorded (a flaky audit write must not block a
  * login or a role change).
  *
- * RLS keeps the log append-only through the user client and readable only
- * by admins; the row's organization_id is bound to the caller's own org.
+ * FLAG: append-only / admin-only-read used to be enforced by RLS. RLS is now
+ * disabled and, as of this writing, there is no Route Handler that reads
+ * audit_logs back out and no code path that updates or deletes a row — the
+ * table is currently write-only from the app's perspective, so the old
+ * guarantee has no code-level replacement yet. If a read endpoint is ever
+ * added, it MUST check perms.isAdmin (see lib/auth/roles.ts) before
+ * returning rows, and no route should ever update/delete a row here.
  */
 
 export type AuditAction =

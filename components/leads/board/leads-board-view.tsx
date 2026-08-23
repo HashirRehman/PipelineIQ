@@ -17,7 +17,6 @@ export function LeadsBoardView({
   leads,
   users,
   stages,
-  doneStage,
   onStatusChange,
   onOpen,
 }: {
@@ -25,8 +24,6 @@ export function LeadsBoardView({
   users: AppUser[]
   /** Ordered pipeline stages from the API — the board's columns. */
   stages: StageOption[]
-  /** The terminal stage (the last in the ordered list), if any. */
-  doneStage: string | null
   onStatusChange: (id: string, status: string) => void
   onOpen: (lead: Lead) => void
 }) {
@@ -91,7 +88,6 @@ export function LeadsBoardView({
           totalCols={columns.length}
           isOver={dragOverColId === col.id}
           users={users}
-          doneStage={doneStage}
           stages={stages}
           onStatusChange={onStatusChange}
           onCardDragStart={handleDragStart}
@@ -113,7 +109,6 @@ function BoardColumn({
   totalCols,
   isOver,
   users,
-  doneStage,
   stages,
   onStatusChange,
   onCardDragStart,
@@ -128,7 +123,6 @@ function BoardColumn({
   totalCols: number
   isOver: boolean
   users: AppUser[]
-  doneStage: string | null
   stages: StageOption[]
   onStatusChange: (id: string, status: string) => void
   onCardDragStart: (id: string) => void
@@ -165,7 +159,7 @@ function BoardColumn({
           variant="ghost"
           size="icon-xs"
           aria-label={`Add to ${col.name}`}
-          className="ml-auto size-5 rounded text-muted-foreground/40 hover:bg-accent hover:text-muted-foreground"
+          className="ml-auto size-5 rounded text-muted-foreground/40 transition-colors duration-150 hover:bg-accent hover:text-muted-foreground"
         >
           <Plus className="size-3.5" />
         </Button>
@@ -173,13 +167,14 @@ function BoardColumn({
 
       {/* Cards area */}
       <div className="flex flex-col gap-1.5 p-2.5 overflow-y-auto flex-1">
-        {col.leads.map(lead => (
+        {col.leads.map((lead, i) => (
           <BoardCard
             key={lead.id}
             lead={lead}
             bdName={users.find(u => u.id === lead.assignedTo)?.name}
-            isDone={doneStage !== null && lead.status === doneStage}
+            isDone={stages.find(s => s.name === lead.status)?.state === "closed"}
             stages={stages}
+            delay={Math.min(i, 12) * 25}
             onStatusChange={onStatusChange}
             onDragStart={() => onCardDragStart(lead.id)}
             onDragEnd={onCardDragEnd}
@@ -190,7 +185,7 @@ function BoardColumn({
         {col.leads.length === 0 && (
           <div
             className={cn(
-              "flex-1 rounded-md border-2 border-dashed border-border/40 transition-colors min-h-[80px]",
+              "flex-1 rounded-md border-2 border-dashed border-border/40 transition-colors duration-150 min-h-[80px]",
               isOver && "border-primary/50 bg-primary/5",
             )}
           />
@@ -206,6 +201,7 @@ function BoardCard({
   bdName,
   isDone,
   stages,
+  delay = 0,
   onStatusChange,
   onDragStart,
   onDragEnd,
@@ -215,6 +211,8 @@ function BoardCard({
   bdName?: string
   isDone: boolean
   stages: StageOption[]
+  /** Entrance delay (ms) — lets a column of cards stagger in. */
+  delay?: number
   onStatusChange: (id: string, status: string) => void
   onDragStart: () => void
   onDragEnd: () => void
@@ -240,11 +238,15 @@ function BoardCard({
       tabIndex={0}
       onKeyDown={e => (e.key === "Enter" || e.key === " ") && onOpen(lead)}
       aria-label={`${lead.jobTitle} at ${lead.company}`}
+      // Entrance stagger only — not applied while dragging (isDragging's
+      // scale/opacity is a plain className toggle, not a transition, so the
+      // two never fight for the same frame).
+      style={!isDragging ? { animation: "chart-rise 0.25s ease-out backwards", animationDelay: `${delay}ms` } : undefined}
       // content-visibility: tall columns render only the cards in view
       // (rendering-content-visibility); the size hint keeps the column
       // scrollbar stable.
       className={cn(
-        "w-full rounded-md border border-border bg-card p-2.5 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing select-none [content-visibility:auto] [contain-intrinsic-size:auto_120px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+        "w-full rounded-md border border-border bg-card p-2.5 hover:shadow-sm transition-all duration-150 cursor-grab active:cursor-grabbing select-none [content-visibility:auto] [contain-intrinsic-size:auto_120px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
         isDragging && "opacity-40 scale-95 shadow-md",
         isDone && "opacity-50",
       )}

@@ -238,7 +238,7 @@ export function ProfileCvList({
 
   return (
     <ul className="flex flex-col divide-y divide-border">
-      {cvs.map((cv) => (
+      {cvs.map((cv, i) => (
         <CvRow
           key={cv.id}
           cv={cv}
@@ -250,6 +250,7 @@ export function ProfileCvList({
           onParse={() => runParse(cv.id)}
           actionError={parseErrors[cv.id] ?? null}
           onDeleted={handleDeleted}
+          delay={i * 40}
         />
       ))}
     </ul>
@@ -266,6 +267,7 @@ function CvRow({
   onParse,
   actionError,
   onDeleted,
+  delay,
 }: {
   cv: CvEntry;
   profileId: string;
@@ -276,12 +278,16 @@ function CvRow({
   onParse: () => void;
   actionError: string | null;
   onDeleted: () => void;
+  delay: number;
 }) {
   const state = cvParseState(cv, isParsing);
 
   return (
-    <li className="flex flex-col">
-      <div className="flex items-center gap-3 py-2.5">
+    <li
+      className="flex flex-col"
+      style={{ animation: "chart-rise 0.25s ease-out backwards", animationDelay: `${delay}ms` }}
+    >
+      <div className="group/cv flex items-center gap-3 rounded-md px-1.5 -mx-1.5 py-2.5 transition-colors duration-150 hover:bg-accent/40">
         {/* The whole left side is the toggle, so clicking the file name opens
             its details — the download and delete controls sit outside it so a
             click on either doesn't also expand the row. */}
@@ -301,7 +307,7 @@ function CvRow({
             </p>
           </div>
           <ChevronDown
-            className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${
+            className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${
               isExpanded ? "rotate-180" : ""
             }`}
           />
@@ -313,7 +319,7 @@ function CvRow({
               href={cv.downloadUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex size-7 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="flex size-7 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-150"
               title="Download"
             >
               <Download className="size-3.5" />
@@ -326,7 +332,7 @@ function CvRow({
       </div>
 
       {isExpanded && (
-        <div className="pb-2.5">
+        <div className="pb-2.5" style={{ animation: "chart-fade-in 0.15s ease-out backwards" }}>
           <ProfileCvDetails
             cv={cv}
             state={state}

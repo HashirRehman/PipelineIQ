@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import type { Json } from "@/lib/supabase/database.types";
@@ -23,9 +22,9 @@ export const dynamic = "force-dynamic";
 // at read time — the column itself stays authoritative, so relevance scoring
 // and the UI both see the corrected text.
 //
-// Editing is Admin + BD Manager, matching the jobs_update RLS policy. RLS is
-// the real boundary; the app-layer check below only turns a silent zero-row
-// update into a 403 the UI can explain.
+// Editing is Admin + BD Manager (originally a jobs_update RLS policy, now
+// enforced by the canEditJobs check below — RLS is disabled, so this check
+// is the real boundary, not a UI-friendliness layer on top of one).
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ jobId: string }> },
@@ -70,7 +69,7 @@ export async function PATCH(
   if (!org.ok) return org.response;
 
   // The org filter rejects a cross-org job id up front rather than letting
-  // RLS turn it into a confusing zero-row update.
+  // it fall through to a confusing zero-row update below.
   const { data: job } = await supabase
     .from("jobs")
     .select("id, title, company_name, manual_overrides, parsed_data")
@@ -83,7 +82,6 @@ export async function PATCH(
 
   const updates: Record<string, string | boolean | null> = {};
   const editedColumns: string[] = [];
-  const editedLabels: string[] = [];
 
   for (const field of JOB_EDITABLE_FIELDS) {
     const value = parsed.data[field as JobEditableField];
@@ -102,7 +100,6 @@ export async function PATCH(
     }
 
     editedColumns.push(column);
-    editedLabels.push(field);
   }
 
   // Parsed-data extras are merged into the existing jsonb object — never
@@ -119,7 +116,6 @@ export async function PATCH(
         : value === ""
           ? null
           : (value as Json);
-    editedLabels.push(field);
   }
 
   // Union, not replace: editing the title today must not hand yesterday's
@@ -153,21 +149,6 @@ export async function PATCH(
       { status: 500 },
     );
   }
-
-  const entityLabel = `${job.title} — ${job.company_name}`;
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "job_updated",
-    description: `Edited ${editedLabels.join(", ")} on job "${entityLabel}"`,
-    entityType: "job",
-    entityId: jobId,
-    entityLabel,
-    metadata: { fields: editedLabels },
-    request,
-  });
 
   return NextResponse.json({ success: true, manualOverrides: overrides });
 }

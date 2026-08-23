@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -122,25 +121,6 @@ export async function POST(request: Request) {
       { error: failed[0].error ?? "Nothing was imported." },
       { status: 500 },
     );
-  }
-
-  // One summary row for the whole batch, not one per job — an import can be
-  // hundreds of rows, and per-row entries would drown out the rest of the
-  // feed. No entityId: a batch has no single subject.
-  if (imported > 0) {
-    await logActivity({
-      supabase,
-      organizationId,
-      actorUserId: user.id,
-      actorName: actorNameFromUser(user),
-      action: "job_imported",
-      description:
-        failed.length > 0
-          ? `Imported ${imported} job(s), ${failed.length} failed`
-          : `Imported ${imported} job(s)`,
-      metadata: { imported, failed: failed.length },
-      request,
-    });
   }
 
   return NextResponse.json({

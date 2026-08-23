@@ -46,10 +46,6 @@ export async function proxy(request: NextRequest) {
   request.headers.set("x-csp-nonce", nonce);
   if (isProd) request.headers.set("content-security-policy", csp);
 
-  const { response, user } = await updateSession(request);
-
-  applySecurityHeaders(response, isProd ? csp : null);
-
   const { pathname } = request.nextUrl;
 
   const isDashboard =
@@ -58,7 +54,23 @@ export async function proxy(request: NextRequest) {
       (p) => pathname === p || pathname.startsWith(`${p}/`),
     );
 
-  if (isDashboard && !user) {
+  // Only the dashboard shell needs a server-side auth gate here. API routes
+  // authenticate themselves (getCachedUser(), which also enforces
+  // deactivation — see lib/supabase/server.ts), and public pages (login,
+  // forgot-password, …) don't need a user at all. Skipping updateSession()
+  // for everything else saves an Auth-server round trip + DB query on every
+  // API call and public page request.
+  if (!isDashboard) {
+    const response = NextResponse.next({ request });
+    applySecurityHeaders(response, isProd ? csp : null);
+    return response;
+  }
+
+  const { response, user } = await updateSession(request);
+
+  applySecurityHeaders(response, isProd ? csp : null);
+
+  if (!user) {
     const redirect = NextResponse.redirect(new URL("/login", request.url));
     applySecurityHeaders(redirect, isProd ? csp : null);
     return redirect;

@@ -18,6 +18,8 @@
      Radix UI, Nord, Dracula, Solarized, and Catppuccin.
    ════════════════════════════════════════════════════════════════════════ */
 
+import { organizationName } from "@/lib/constants"
+
 export interface PaletteColors {
   pageBg: string
   background: string
@@ -60,53 +62,53 @@ export const STYLE_ID = "pipelineiq-palette-style"
 /** The app's built-in look — selecting this clears any palette override. */
 const DEFAULT_PALETTE: ThemePalette = {
   id: DEFAULT_PALETTE_ID,
-  name: "Recurso Labs",
+  name: organizationName,
   source: "Built-in",
-  description: "The default PipelineIQ look. Dracula-inspired, but blue instead of purple.",
+  description: "The default PipelineIQ look. Neutral slate with a single blue accent.",
   light: {
-    pageBg: "#f6f7fb",
+    pageBg: "#f8fafc",
     background: "#ffffff",
     card: "#ffffff",
-    sidebar: "#f6f7fb",
+    sidebar: "#f8fafc",
     popover: "#ffffff",
-    foreground: "#282a36",
-    mutedForeground: "#6a6f84",
-    primary: "#3b82f6",
+    foreground: "#0f172a",
+    mutedForeground: "#64748b",
+    primary: "#2563eb",
     primaryForeground: "#ffffff",
-    ring: "#3b82f6",
-    accent: "#dbeafe",
+    ring: "#2563eb",
+    accent: "#eff6ff",
     accentForeground: "#1d4ed8",
-    secondary: "#f1f2f8",
-    muted: "#f1f2f8",
-    border: "#e2e4f0",
-    borderStrong: "#c7cbe0",
-    input: "#e2e4f0",
+    secondary: "#f1f5f9",
+    muted: "#f1f5f9",
+    border: "#e2e8f0",
+    borderStrong: "#cbd5e1",
+    input: "#e2e8f0",
     brandNavy: "#44475a",
     brandBlue: "#3b82f6",
     brandSky: "#7dd3fc",
   },
   dark: {
-    pageBg: "#1f2029",
-    background: "#282a36",
-    card: "#343746",
-    sidebar: "#2c2e3a",
-    popover: "#343746",
-    foreground: "#f8f8f2",
-    mutedForeground: "#a3a6bd",
-    primary: "#60a5fa",
-    primaryForeground: "#282a36",
-    ring: "#60a5fa",
-    accent: "#44475a",
+    pageBg: "#020617",
+    background: "#0f172a",
+    card: "#0f172a",
+    sidebar: "#020617",
+    popover: "#0f172a",
+    foreground: "#f1f5f9",
+    mutedForeground: "#94a3b8",
+    primary: "#3b82f6",
+    primaryForeground: "#ffffff",
+    ring: "#3b82f6",
+    accent: "#172554",
     accentForeground: "#93c5fd",
-    secondary: "#333d54",
-    muted: "#333d54",
-    border: "#44475a",
-    borderStrong: "#565b71",
-    input: "#44475a",
-    /* Light-mode navy (#44475a) is invisible on dark cards — lift it so the
-       first pipeline stage stays readable in dark mode. */
+    secondary: "#1e293b",
+    muted: "#1e293b",
+    border: "#1e293b",
+    borderStrong: "#334155",
+    input: "#1e293b",
+    /* Light-mode navy (#44475a) is dark-on-dark here — lift it so the first
+       pipeline stage stays readable in dark mode. */
     brandNavy: "#99a1b8",
-    brandBlue: "#60a5fa",
+    brandBlue: "#3b82f6",
     brandSky: "#93c5fd",
   },
 }
@@ -339,6 +341,118 @@ const CATPPUCCIN: ThemePalette = {
   },
 }
 
+/** Tailwind CSS — Amber */
+const AMBER: ThemePalette = {
+  id: "amber",
+  name: "Amber",
+  source: "Tailwind CSS",
+  description: "Warm terracotta primary over soft cream neutrals.",
+  light: {
+    pageBg: "#faf6f0", background: "#fffdfa", card: "#ffffff",
+    sidebar: "#fffdfa", popover: "#ffffff",
+    foreground: "#292118", mutedForeground: "#78716c",
+    primary: "#c2410c", primaryForeground: "#ffffff", ring: "#c2410c",
+    accent: "#ffedd5", accentForeground: "#9a3412",
+    secondary: "#f5f0e8", muted: "#f5f0e8",
+    border: "#e7dfd2", borderStrong: "#d6c9b4", input: "#e7dfd2",
+    brandNavy: "#7c2d12", brandBlue: "#c2410c", brandSky: "#f97316",
+  },
+  dark: {
+    pageBg: "#1c1410", background: "#241a13", card: "#2e2119",
+    sidebar: "#281c15", popover: "#2e2119",
+    foreground: "#f3ece2", mutedForeground: "#b3a495",
+    primary: "#fb923c", primaryForeground: "#2b1608", ring: "#fb923c",
+    accent: "#431407", accentForeground: "#fdba74",
+    secondary: "#2e2119", muted: "#2e2119",
+    border: "#42332a", borderStrong: "#584434", input: "#42332a",
+    brandNavy: "#7c2d12", brandBlue: "#ea580c", brandSky: "#fb923c",
+  },
+}
+
+/** Tailwind CSS — Rose */
+const ROSE: ThemePalette = {
+  id: "rose",
+  name: "Rose",
+  source: "Tailwind CSS",
+  description: "Deep rose primary over cool, muted pink-grey neutrals.",
+  light: {
+    pageBg: "#fbf5f6", background: "#fffbfc", card: "#ffffff",
+    sidebar: "#fffbfc", popover: "#ffffff",
+    foreground: "#271520", mutedForeground: "#79697a",
+    primary: "#be123c", primaryForeground: "#ffffff", ring: "#be123c",
+    accent: "#ffe4e6", accentForeground: "#9f123c",
+    secondary: "#f6eef1", muted: "#f6eef1",
+    border: "#ecdde3", borderStrong: "#d9c1cb", input: "#ecdde3",
+    brandNavy: "#881337", brandBlue: "#be123c", brandSky: "#fb7185",
+  },
+  dark: {
+    pageBg: "#1c1216", background: "#24151b", card: "#301c24",
+    sidebar: "#2a181f", popover: "#301c24",
+    foreground: "#f5e9ed", mutedForeground: "#b39aa4",
+    primary: "#fb7185", primaryForeground: "#2c0e14", ring: "#fb7185",
+    accent: "#4c0519", accentForeground: "#fda4af",
+    secondary: "#301c24", muted: "#301c24",
+    border: "#452832", borderStrong: "#5c3541", input: "#452832",
+    brandNavy: "#881337", brandBlue: "#e11d48", brandSky: "#fb7185",
+  },
+}
+
+/** Tailwind CSS — Slate Mono (monochrome zinc neutrals + a single electric-blue pop) */
+const SLATE_MONO: ThemePalette = {
+  id: "slate-mono",
+  name: "Slate Mono",
+  source: "Tailwind CSS",
+  description: "Pure monochrome zinc with a single electric-blue accent.",
+  light: {
+    pageBg: "#fafafa", background: "#ffffff", card: "#ffffff",
+    sidebar: "#fafafa", popover: "#ffffff",
+    foreground: "#18181b", mutedForeground: "#71717a",
+    primary: "#2563eb", primaryForeground: "#ffffff", ring: "#2563eb",
+    accent: "#f4f4f5", accentForeground: "#18181b",
+    secondary: "#f4f4f5", muted: "#f4f4f5",
+    border: "#e4e4e7", borderStrong: "#d4d4d8", input: "#e4e4e7",
+    brandNavy: "#27272a", brandBlue: "#2563eb", brandSky: "#60a5fa",
+  },
+  dark: {
+    pageBg: "#09090b", background: "#101012", card: "#18181b",
+    sidebar: "#131315", popover: "#18181b",
+    foreground: "#fafafa", mutedForeground: "#a1a1aa",
+    primary: "#60a5fa", primaryForeground: "#0a1120", ring: "#60a5fa",
+    accent: "#27272a", accentForeground: "#e4e4e7",
+    secondary: "#1f1f22", muted: "#1f1f22",
+    border: "#27272a", borderStrong: "#3f3f46", input: "#27272a",
+    brandNavy: "#3f3f46", brandBlue: "#3b82f6", brandSky: "#60a5fa",
+  },
+}
+
+/** Tailwind CSS — Forest */
+const FOREST: ThemePalette = {
+  id: "forest",
+  name: "Forest",
+  source: "Tailwind CSS",
+  description: "Deep forest green primary over warm bone neutrals.",
+  light: {
+    pageBg: "#f5f6f1", background: "#fbfbf8", card: "#ffffff",
+    sidebar: "#fbfbf8", popover: "#ffffff",
+    foreground: "#1c2318", mutedForeground: "#697165",
+    primary: "#166534", primaryForeground: "#ffffff", ring: "#166534",
+    accent: "#dcfce7", accentForeground: "#166534",
+    secondary: "#eef0e9", muted: "#eef0e9",
+    border: "#dde2d5", borderStrong: "#c3cbb7", input: "#dde2d5",
+    brandNavy: "#14532d", brandBlue: "#166534", brandSky: "#4ade80",
+  },
+  dark: {
+    pageBg: "#0f1710", background: "#141d15", card: "#1a261b",
+    sidebar: "#17211a", popover: "#1a261b",
+    foreground: "#e9efe6", mutedForeground: "#9aab93",
+    primary: "#4ade80", primaryForeground: "#052e13", ring: "#4ade80",
+    accent: "#14532d", accentForeground: "#86efac",
+    secondary: "#1a261b", muted: "#1a261b",
+    border: "#25352a", borderStrong: "#33473a", input: "#25352a",
+    brandNavy: "#14532d", brandBlue: "#22c55e", brandSky: "#4ade80",
+  },
+}
+
 /** All selectable palettes (default first). */
 export const PALETTES: ThemePalette[] = [
   DEFAULT_PALETTE,
@@ -350,6 +464,10 @@ export const PALETTES: ThemePalette[] = [
   DRACULA,
   SOLARIZED,
   CATPPUCCIN,
+  AMBER,
+  ROSE,
+  SLATE_MONO,
+  FOREST,
 ]
 
 export function getPalette(id: string | null | undefined): ThemePalette | undefined {

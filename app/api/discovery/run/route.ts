@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
@@ -66,24 +65,6 @@ export async function POST(request: Request) {
   try {
     const summary: DiscoverySummary = await runJobDiscovery(adminClient, new GroqAiClient());
     completed = true;
-
-    // A user-triggered run, not the nightly cron (which uses no acting user
-    // and so has nothing to attribute this to) — worth its own entry since
-    // it's a deliberate action from the Discovery page, not scheduled.
-    await logActivity({
-      supabase,
-      organizationId: org.organizationId,
-      actorUserId: user.id,
-      actorName: actorNameFromUser(user),
-      action: "discovery_run_triggered",
-      description: `Ran job discovery (${summary.jobsUpserted} new job(s), ${summary.matchesWritten} match(es) scored)`,
-      metadata: {
-        jobsUpserted: summary.jobsUpserted,
-        matchesWritten: summary.matchesWritten,
-        errors: summary.errors.length,
-      },
-      request,
-    });
 
     revalidatePath("/");
     return NextResponse.json({ status: "completed", summary });

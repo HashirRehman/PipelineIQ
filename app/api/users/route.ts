@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
@@ -24,6 +23,7 @@ export interface ApiAppUser {
 export interface ApiRole {
   id: string;
   name: string;
+  description: string | null;
 }
 
 export interface UsersApiResponse {
@@ -34,7 +34,6 @@ export interface UsersApiResponse {
   canInvite: boolean;
   allowedEmailDomain?: string | null;
 }
-
 
 async function findRoleById(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -81,7 +80,7 @@ export async function GET(request: Request) {
       .select("id, email, full_name, is_active, created_at, role_id, roles(name, id)")
       .eq("organization_id", org.organizationId)
       .order("created_at", { ascending: false }),
-    supabase.from("roles").select("id, name").order("name"),
+    supabase.from("roles").select("id, name, description").order("name"),
     supabase
       .from("organizations")
       .select("allowed_email_domain")
@@ -286,21 +285,6 @@ export async function POST(request: Request) {
     request,
   });
 
-  // Activity feed: an invite is visible to Admin + BD Manager org-wide.
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "user_invited",
-    description: `Invited ${name} (${email}) as ${role.name}`,
-    entityType: "user",
-    entityId: inviteData.user.id,
-    entityLabel: name,
-    metadata: { role: role.name, email },
-    request,
-  });
-
   const newUser: ApiAppUser = {
     id: inviteData.user.id,
     name,
@@ -347,8 +331,8 @@ export async function PATCH(request: Request) {
 
   // BD Managers mirror Admins except user management: editing/deactivating/
   // deleting OTHER team members is Admin-only, but anyone may edit their own
-  // name (RLS users_update grants exactly that — own full_name only). The
-  // self-check below still blocks own status/role changes.
+  // name (the isSelfNameEdit carve-out below — name only, no status/role).
+  // The check below still blocks own status/role changes.
   const isSelfNameEdit =
     userId === user.id &&
     name !== undefined &&
@@ -393,7 +377,7 @@ export async function PATCH(request: Request) {
     .update(userUpdates)
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
-    .select("id, full_name");
+    .select("id");
 
   if (error) {
     console.error("api/users: users update failed", error);
@@ -414,26 +398,6 @@ export async function PATCH(request: Request) {
     actorUserId: user.id,
     action: "user_updated",
     targetUserId: userId,
-    metadata: {
-      ...(name !== undefined ? { name } : {}),
-      ...(status !== undefined ? { status } : {}),
-      ...(role ? { role: role.name } : {}),
-    },
-    request,
-  });
-
-  // Activity feed: name / role / status changes are org-visible. The label
-  // is the post-update full_name (data[0] is the row we just updated).
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "user_updated",
-    description: `Updated member ${data[0].full_name}`,
-    entityType: "user",
-    entityId: userId,
-    entityLabel: data[0].full_name,
     metadata: {
       ...(name !== undefined ? { name } : {}),
       ...(status !== undefined ? { status } : {}),
@@ -488,11 +452,12 @@ export async function DELETE(request: Request) {
     );
   }
 
-  // The target must be a member of the caller's org (users_select lets
-  // admins see every row, so this lookup passes RLS).
+  // The target must be a member of the caller's org — the organization_id
+  // filter is what enforces that (RLS is disabled, so there is no
+  // additional table-level restriction on this select).
   const { data: target, error: targetError } = await supabase
     .from("users")
-    .select("id, email, full_name")
+    .select("id, email")
     .eq("id", userId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -551,22 +516,6 @@ export async function DELETE(request: Request) {
     targetUserId: null,
     targetEmail: target?.email,
     metadata: { deletedUserId: userId },
-    request,
-  });
-
-  // Activity feed: the removal is org-visible; entity_id keeps the deleted
-  // user's id (the table holds no FK on entity_id, so the row survives).
-  const deletedLabel = target?.full_name || target?.email || "member";
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "user_deleted",
-    description: `Removed member ${deletedLabel}`,
-    entityType: "user",
-    entityId: userId,
-    entityLabel: deletedLabel,
     request,
   });
 

@@ -8,6 +8,7 @@ import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import type { ParsedCv } from "@/lib/cv-parsing/parsed-cv";
 import { archiveProfile, updateProfile } from "@/lib/services/profiles";
+import { createCvDownloadUrl } from "@/lib/supabase/storage";
 import {
   createClient,
   getCachedUser,
@@ -163,28 +164,30 @@ export async function GET(
     );
   }
 
-  const cvs = (cvRowsResult.data ?? []).map((cv) => {
-    const isCloudinaryUrl = cv.storage_path.startsWith(
-      "https://res.cloudinary.com",
-    );
-    return {
+  // One signing round trip per CV (a profile carries one or two), rather than
+  // a batch call: a batch signs every path with the SAME `download` value,
+  // and each link needs its own original file name.
+  const cvs = await Promise.all(
+    (cvRowsResult.data ?? []).map(async (cv) => ({
       id: cv.id,
       fileName: cv.file_name,
       createdAt: cv.created_at,
-      // storage_path holds the Cloudinary CDN URL for uploaded CVs; seeded
-      // rows carry dummy paths (not URLs), so they get no download link.
-      // fl_attachment forces a download rather than opening the file inline.
-      downloadUrl: isCloudinaryUrl
-        ? cv.storage_path.replace("/upload/", "/upload/fl_attachment/")
-        : null,
+      // storage_path is an object key in the private profile-cvs bucket, so
+      // the link has to be signed per request. The org check above
+      // (selectedProfileResult) is what gates this — the bucket itself has
+      // no client-facing policies, only createCvDownloadUrl's internal
+      // service-role client can reach it. Seeded rows point at no object —
+      // signing fails and they get no link, same as they got none from the
+      // old Cloudinary-URL check.
+      downloadUrl: await createCvDownloadUrl(cv.storage_path, cv.file_name),
       parseStatus: toParseStatus(cv.parse_status),
       parseError: cv.parse_error,
       parsedAt: cv.parsed_at,
       // Validated by parsedCvSchema before it was ever written, so this cast
       // reflects a guarantee the write path already enforced.
       parsed: (cv.parsed_data as ParsedCv | null) ?? null,
-    };
-  });
+    })),
+  );
 
   const response: ProfileDetailApiResponse = {
     profile: {

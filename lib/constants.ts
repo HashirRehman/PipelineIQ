@@ -1,3 +1,8 @@
+/** The single source of truth for the org's display name — every UI string,
+ *  org-lookup query, and seed value should reference this instead of
+ *  hardcoding "Recurso Labs". */
+export const organizationName = "Recurso Labs";
+
 export type UserRole = "admin" | "lead" | "bd";
 
 export type TabId =
@@ -7,8 +12,8 @@ export type TabId =
   | "discovery"
   | "applied-jobs"
   | "leads"
+  | "lead-stages"
   | "users"
-  | "activity"
   | "settings";
 
 /* Filter vocabulary shared by the job list pages (Discovery, Pipeline) */
@@ -79,7 +84,7 @@ export function parseEngagementType(input: string | null | undefined): Engagemen
    so they follow the same variables.
    ════════════════════════════════════════════════════════════════════ */
 
-/** Recurso Labs brand palette (navy → bright blue → deep sky) */
+/** {@link organizationName} brand palette (navy → bright blue → deep sky) */
 export const BRAND = {
   navy: "var(--brand-navy)",
   blue: "var(--brand-blue)",
@@ -148,5 +153,14 @@ export const ROLE_COLOR: Record<UserRole, string> = {
 export const USER_STATUS_COLOR: Record<string, string> = {
   active:   STATUS.green,
   inactive: STATUS.slate,
+};
+
+/** Lead Stages state → color. Admin-controlled per stage (Lead Stages page);
+ * drives Leads board/list grouping (active shown normally, paused shown in
+ * its own section, closed shown struck-through). */
+export const PIPELINE_STAGE_STATE_COLOR: Record<string, string> = {
+  active: STATUS.green,
+  paused: STATUS.amber,
+  closed: STATUS.slate,
 };
 

@@ -350,7 +350,9 @@ export async function GET(request: NextRequest) {
         .is("deleted_at", null),
       // Team members for the Pipeline filter bar (id/name/role). Admins and
       // BD Managers get the full roster to filter by; Business Developers
-      // get an empty list (their RLS already scopes them to their own data).
+      // get an empty list (see `users: perms.canViewUsers ? users : []`
+      // below — they're already scoped to their own data via profileQuery's
+      // user_id filter above).
       supabase
         .from("users")
         .select("id, full_name, roles(name)")
@@ -371,8 +373,9 @@ export async function GET(request: NextRequest) {
 
   // Team filters: narrow which profiles' jobs appear. profileId picks one
   // profile; userId picks every profile assigned to that user. Business
-  // Developers are already RLS-scoped to their own profiles, so these params
-  // can only narrow further — never widen.
+  // Developers are already scoped to their own profiles by profileQuery's
+  // user_id filter above, so these params can only narrow further — never
+  // widen.
   let visibleProfileRows = allProfileRows;
   if (profileIdParam) {
     visibleProfileRows = visibleProfileRows.filter((p) => p.id === profileIdParam);
@@ -544,9 +547,10 @@ export async function GET(request: NextRequest) {
 
   // Team roster for the Pipeline filter bar — only meaningful for roles that
   // see everyone's data (Admin / BD Manager from ROLE_PERMISSIONS). Business
-  // Developers get an empty list; their RLS scope already limits them. Each
-  // user carries the ids of the profiles currently assigned to them, so the
-  // profile/user filters can constrain each other client-side.
+  // Developers get an empty list; they're already limited to their own data
+  // by profileQuery's user_id filter above. Each user carries the ids of the
+  // profiles currently assigned to them, so the profile/user filters can
+  // constrain each other client-side.
   const profileIdsByUser = new Map<string, string[]>();
   for (const p of allProfileRows) {
     if (!p.user_id) continue;

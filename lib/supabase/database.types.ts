@@ -536,18 +536,24 @@ export type Database = {
           id: string
           name: string
           order_index: number
+          state: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           order_index: number
+          state?: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           order_index?: number
+          state?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -877,12 +883,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_org_id: { Args: never; Returns: string }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
-      is_admin: { Args: never; Returns: boolean }
-      is_admin_in: { Args: { p_org_id: string }; Returns: boolean }
-      is_bd_manager: { Args: never; Returns: boolean }
-      is_privileged_in: { Args: { p_org_id: string }; Returns: boolean }
     }
     Enums: {
       application_status: "suggested" | "dismissed" | "applied"

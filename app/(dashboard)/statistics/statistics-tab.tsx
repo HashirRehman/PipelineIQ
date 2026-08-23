@@ -1,10 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { DonutChart, FunnelChart, LineChart, StackedBarChart } from "@/components/charts";
 import { ProfileUserFilters } from "@/components/leads/profile-user-filters";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -115,10 +115,10 @@ export default function StatisticsTab() {
   // Pipeline-style date filters — three mutually exclusive controls: quick
   // ranges (this/last week, month, year, all time), months of this year, and
   // this/last year. Picking one clears the others (they'd otherwise conflict).
-  const [dateRange, setDateRange] = useState<DateRange>("this_year");
+  const [dateRange, setDateRange] = useState<DateRange>("this_week");
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
   const [yearFilter, setYearFilter] = useState<number | null>(null);
-  const [granularity, setGranularity] = useState<Granularity>("monthly");
+  const [granularity, setGranularity] = useState<Granularity>("daily");
   // What the widgets below show — leads (the pipeline) or applied jobs. One
   // dataset at a time, sharing the same filters and date buckets.
   const [statsMode, setStatsMode] = useState<"leads" | "applications">("leads");
@@ -174,10 +174,26 @@ export default function StatisticsTab() {
   }, [filtered, buckets, granularity]);
 
   const totalLeads = filtered.length;
-  const leadsThisMonth = filtered.filter((l) => {
-    const d = new Date(l.appliedAt);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }).length;
+
+  // Active/paused-stage leads within the same filtered set as the rest of
+  // the page — the admin-controlled state from the Lead Stages page, same
+  // definition dashboard-tab.tsx and the Leads list use.
+  const activeStageNames = useMemo(
+    () => new Set(stages.filter((s) => s.state === "active").map((s) => s.name)),
+    [stages],
+  );
+  const pausedStageNames = useMemo(
+    () => new Set(stages.filter((s) => s.state === "paused").map((s) => s.name)),
+    [stages],
+  );
+  const activeLeadsCount = useMemo(
+    () => filtered.filter((l) => activeStageNames.has(l.status)).length,
+    [filtered, activeStageNames],
+  );
+  const pausedLeadsCount = useMemo(
+    () => filtered.filter((l) => pausedStageNames.has(l.status)).length,
+    [filtered, pausedStageNames],
+  );
 
   // Exact label for the active date control, e.g. "This year", "August", "2025".
   const dateFilterLabel = monthFilter !== null
@@ -197,10 +213,11 @@ export default function StatisticsTab() {
 
   const statsCards = [
     { label: "Total Leads", value: totalLeads, sub: dateFilterLabel },
+    { label: "Active Leads", value: activeLeadsCount, sub: dateFilterLabel },
+    { label: "Paused Leads", value: pausedLeadsCount, sub: dateFilterLabel },
     canViewTeam
       ? { label: "Active Profiles", value: activeProfileCount, sub: `of ${profiles.length} total` }
       : { label: "My Profiles", value: profiles.length, sub: "assigned to you" },
-    { label: "Leads This Month", value: leadsThisMonth, sub: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
   ];
 
   // Status breakdown — every DB stage with leads, colored by pipeline
@@ -512,9 +529,27 @@ export default function StatisticsTab() {
             Failed to load statistics
           </div>
         ) : isPending ? (
-          <div className="flex items-center justify-center py-24 text-muted-foreground">
-            <Loader2 className="size-5 animate-spin text-primary" />
-          </div>
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-2">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-6 w-1/2" />
+                  <Skeleton className="h-2.5 w-3/4" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+              <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+            </div>
+          </>
         ) : (
           <>
             {statsMode === "leads" ? (
@@ -665,8 +700,9 @@ export default function StatisticsTab() {
                     Failed to load application stats
                   </div>
                 ) : appsPending ? (
-                  <div className="flex items-center justify-center py-16 text-muted-foreground">
-                    <Loader2 className="size-5 animate-spin text-primary" />
+                  <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-40 w-full" />
                   </div>
                 ) : (
                   <>

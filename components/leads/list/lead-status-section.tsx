@@ -10,6 +10,7 @@ export function LeadStatusSection({
   color,
   count,
   collapsed,
+  paused = false,
   onToggle,
   children,
 }: {
@@ -18,6 +19,11 @@ export function LeadStatusSection({
   color: string
   count: number
   collapsed: boolean
+  /** Stage is in the admin-controlled "paused" state — shown with a small
+   * badge next to the name instead of pulling the section out of stage
+   * order (pulling it out would desync the list from the Board's column
+   * order and the admin's configured stage order). */
+  paused?: boolean
   onToggle: () => void
   children: ReactNode
 }) {
@@ -25,7 +31,7 @@ export function LeadStatusSection({
   return (
     <section>
       {/* Section header row — matches the reference Tasks list group row */}
-      <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-muted/60 hover:bg-transparent  cursor-pointer">
+      <div className="flex items-center gap-2 px-5 py-2 border-b border-border bg-muted/60 transition-colors duration-150 hover:bg-transparent cursor-pointer">
         <div
           onClick={onToggle}
           aria-expanded={!collapsed}
@@ -55,6 +61,11 @@ export function LeadStatusSection({
           >
             {count}
           </span>
+          {paused && (
+            <span className="rounded-sm bg-status-amber/10 px-1.5 py-0.5 text-meta font-semibold uppercase tracking-wide text-status-amber">
+              Paused
+            </span>
+          )}
         </div>
       </div>
 

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { readOrganizationId } from "@/lib/api/organization";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -67,18 +66,6 @@ export async function PATCH(request: Request) {
   }
 
   const trimmedName = name.trim();
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "profile_updated",
-    description: `Updated profile name to ${trimmedName}`,
-    entityType: "user",
-    entityId: user.id,
-    entityLabel: trimmedName,
-    request,
-  });
 
   return NextResponse.json({ success: true, name: trimmedName });
 }

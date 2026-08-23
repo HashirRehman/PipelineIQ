@@ -96,7 +96,10 @@ export function ProfilesList({
 
       <div className="flex-1 overflow-y-auto p-6">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-dashed border-border">
+          <div
+            className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-dashed border-border"
+            style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+          >
             <UserRound className="size-10 text-muted-foreground/40 mb-3" />
             <p className="text-sm font-medium text-foreground">
               No profiles found
@@ -107,7 +110,10 @@ export function ProfilesList({
           </div>
         ) : (
           <>
-            <div className="flex items-center pb-4">
+            <div
+              className="flex items-center pb-4"
+              style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+            >
               <ResultsCount
                 count={filtered.length}
                 label={filtered.length === 1 ? "candidate" : "candidates"}

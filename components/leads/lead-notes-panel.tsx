@@ -35,7 +35,7 @@ export function LeadNotesPanel({
         placeholder={canEdit ? "Add a note about this lead…" : "No notes yet."}
         readOnly={!canEdit}
         disabled={!canEdit}
-        className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-ring transition-shadow disabled:cursor-not-allowed disabled:opacity-70"
+        className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-ring transition-shadow duration-150 disabled:cursor-not-allowed disabled:opacity-70"
       />
       {canEdit ? (
         <div className="flex gap-2">

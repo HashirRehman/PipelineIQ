@@ -17,15 +17,16 @@
 //
 // Role names come from the DB `roles` table; the JWT's `user_role` claim
 // (baked by custom_access_token_hook) carries the same name, so app-layer
-// checks read the claim and RLS re-checks against the live table.
+// checks read the claim directly.
 //
-// DATABASE BOUNDARY — keep RLS in sync: this matrix only gates the app layer
-// (pages, nav, API paths). Row-level security in supabase/migrations is the
-// real access boundary and must be widened for any new role/permission here
-// (e.g. migration 15 admits is_bd_manager() on every business table; user
-// management stays admin-only even at the DB level). A role added to this
-// matrix without the matching RLS policies will pass the app gates but see
-// no data.
+// THIS MATRIX IS THE REAL ACCESS BOUNDARY — RLS is disabled schema-wide, so
+// there is no database-level check backstopping it. Every API route/service
+// that touches a table must read the relevant flag off RolePermissions
+// (e.g. perms.canAccessProfiles) BEFORE querying — a route that skips this
+// check has no other layer catching the gap. When adding a new role or
+// permission here, make sure every route/service that should honor it
+// actually reads the flag; there is no equivalent of "the DB will still
+// block it if the app layer misses a check."
 // ===========================================================================
 
 export type RoleName = "Admin" | "BD Manager" | "Business Developer";
@@ -39,7 +40,7 @@ export type RolePermissionSet = {
   /** Users page (team roster) visibility. */
   canViewUsers: boolean;
   /** Editing / deactivating / deleting OTHER team members. Everyone may edit
-   * their own name (self-edit carve-out in the users API + RLS). */
+   * their own name (self-edit carve-out enforced in the users API route). */
   canManageUsers: boolean;
   /** Inviting team members. */
   canInviteUsers: boolean;
@@ -48,14 +49,20 @@ export type RolePermissionSet = {
   canAccessProfiles: boolean;
   /** Job pages — Discovery / Pipeline / Leads / Statistics. */
   canAccessJobs: boolean;
-  /** Editing a job's own fields (title, company, description…). Mirrors the
-   * jobs_update RLS policy (migration 20260812130222: is_admin() or
-   * is_bd_manager()) — Business Developers may create a job but not edit one. */
+  /** Editing a job's own fields (title, company, description…). Enforced in
+   * the jobs API route (originally introduced as a jobs_update RLS policy in
+   * migration 20260812130222, now a code-level check: Admin or BD Manager) —
+   * Business Developers may create a job but not edit one. */
   canEditJobs: boolean;
   /** Content moderation — delete other users' comments. */
   canModerateComments: boolean;
   /** Pipeline management — edit other users' lead notes. */
   canManageLeadNotes: boolean;
+  /** Lead Stages page — create / edit / reorder / delete pipeline_stages.
+   * Admin-only, enforced in the pipeline_stages API route (originally
+   * introduced as RLS policies in migration 20260823085325, now a
+   * code-level is_admin check). */
+  canManageLeadStages: boolean;
   /** Landing section for this role. The root page ("/") renders the
    *  Dashboard for every role (Statistics lives at /statistics), so this is
    *  "/" across the board — kept on the matrix so a per-role landing can
@@ -76,6 +83,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
+    canManageLeadStages: true,
     homeSection: "/",
     userRoleKey: "admin",
   },
@@ -92,6 +100,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
+    canManageLeadStages: false,
     homeSection: "/",
     userRoleKey: "lead",
   },
@@ -105,6 +114,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: false,
     canModerateComments: false,
     canManageLeadNotes: false,
+    canManageLeadStages: false,
     homeSection: "/",
     userRoleKey: "bd",
   },

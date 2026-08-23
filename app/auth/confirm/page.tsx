@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { PipelineIQLogo } from "@/components/pipelineiq-logo";
+import { organizationName } from "@/lib/constants";
 
 /**
  * Catches the link from an invite (or recovery) email and turns it into a
@@ -194,7 +195,7 @@ export default function ConfirmAuthPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          PipelineIQ &mdash; Recurso Labs
+          PipelineIQ &mdash; {organizationName}
         </p>
       </div>
     </div>

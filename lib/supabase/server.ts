@@ -1,4 +1,6 @@
-// Module 1 — server-side Supabase client, user-scoped (RLS-enforced)
+// Module 1 — server-side Supabase client, user-scoped (RLS is disabled
+// schema-wide; access control is enforced by the caller checking
+// RolePermissions and applying its own row filters before querying)
 import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -52,11 +54,33 @@ export async function createClient() {
 // anyway, and getUser() (vs. getSession()) revalidating against the Auth
 // server rather than trusting a possibly-stale/revoked cookie is a
 // deliberate existing security choice, not renegotiated here.
+//
+// Deactivation (users.is_active) is enforced here rather than in
+// middleware: middleware only runs the auth check for dashboard page
+// requests now (see proxy.ts), while this function runs on every API
+// route and every dashboard render regardless, so it's the one place
+// that's guaranteed to catch a deactivated account everywhere. Mirrors
+// the login gate (app/api/auth/login) — a row that exists but is flagged
+// inactive blocks; a missing row does not, so an invited user whose users
+// row isn't inserted yet isn't locked out of the confirm flow.
 export const getCachedUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("is_active")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (userRow && !userRow.is_active) {
+    await supabase.auth.signOut();
+    return null;
+  }
+
   return user;
 });
 
@@ -80,8 +104,9 @@ export type RolePermissions = RolePermissionSet & {
 // The acting user's permissions, derived once per server request from the
 // JWT's user_role claim (same memoization as getCachedUserRole). The flag
 // set comes from the ROLE_PERMISSIONS matrix in lib/auth/roles.ts — the
-// single source of truth for what each role may do. RLS is the real
-// boundary — these flags only gate which UI/API paths a role may take.
+// single source of truth for what each role may do, and (RLS being
+// disabled) the actual access-control boundary. Every route/service must
+// check these flags itself before querying or mutating.
 export const getCachedRolePermissions = cache(async (): Promise<RolePermissions> => {
   const role = await getCachedUserRole();
   return {

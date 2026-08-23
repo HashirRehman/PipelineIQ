@@ -356,7 +356,9 @@ export function ProfileDetailSheet({
           {/* Left column — everything else */}
           <div className="flex-1 min-w-0 overflow-y-auto bg-card px-8 py-6 space-y-7">
             {canManage && (
-              <section>
+              <section
+                style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: "40ms" }}
+              >
                 <SectionTitle>Assignment</SectionTitle>
                 <ProfileAssignment
                   profileId={displayProfile.id}
@@ -373,7 +375,9 @@ export function ProfileDetailSheet({
               </section>
             )}
 
-            <section>
+            <section
+              style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: "90ms" }}
+            >
               <SectionTitle>Summary</SectionTitle>
               <ProfileSummaryField
                 profile={displayProfile}
@@ -383,7 +387,9 @@ export function ProfileDetailSheet({
               />
             </section>
 
-            <section>
+            <section
+              style={{ animation: "chart-rise 0.3s ease-out backwards", animationDelay: "140ms" }}
+            >
               <SectionTitle>CVs</SectionTitle>
               <ProfileCvList
                 cvs={displayCvs}
@@ -403,7 +409,10 @@ export function ProfileDetailSheet({
           </div>
 
           {/* Right column — Details */}
-          <aside className="w-[280px] shrink-0 border-l border-border bg-page-bg overflow-y-auto px-6 py-6">
+          <aside
+            className="w-[280px] shrink-0 border-l border-border bg-page-bg overflow-y-auto px-6 py-6"
+            style={{ animation: "chart-fade-in 0.3s ease-out backwards", animationDelay: "60ms" }}
+          >
             <div className="mb-4 flex items-center justify-between">
               <div className="text-xs font-semibold text-foreground">
                 Details

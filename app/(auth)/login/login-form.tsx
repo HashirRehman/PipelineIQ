@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { apiPost } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export function LoginForm() {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -23,7 +25,8 @@ export function LoginForm() {
         email: formData.get("email"),
         password: formData.get("password"),
       })
-      window.location.href = "/"
+      router.push("/")
+      router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
     } finally {

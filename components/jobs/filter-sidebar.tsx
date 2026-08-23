@@ -39,9 +39,9 @@ export function FilterSidebar({
     >
       <div
         className={cn(
-          "flex h-full flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-200",
+          "flex h-full flex-col overflow-y-auto border-l border-border bg-card transition-opacity duration-150",
           widthClass,
-          open ? "opacity-100" : "opacity-0",
+          open ? "opacity-100 delay-100" : "opacity-0",
         )}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-3">

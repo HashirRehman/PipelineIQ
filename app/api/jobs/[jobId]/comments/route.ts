@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -164,19 +163,6 @@ export async function POST(
       { status: 500 },
     );
   }
-
-  await logActivity({
-    supabase,
-    organizationId: org.organizationId,
-    actorUserId: user.id,
-    actorName: actorNameFromUser(user),
-    action: "job_comment_posted",
-    description: `Commented on "${job.title} — ${job.company_name}"`,
-    entityType: "job_comment",
-    entityId: inserted.id,
-    entityLabel: parsed.data.body.slice(0, 120),
-    request,
-  });
 
   revalidatePath("/");
   return NextResponse.json({ success: true, comment: toDto(inserted) });

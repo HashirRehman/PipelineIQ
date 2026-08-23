@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { PipelineIQLogo } from "@/components/pipelineiq-logo"
+import { organizationName } from "@/lib/constants"
 import { ForgotPasswordForm } from "./forgot-password-form"
 
 export default async function ForgotPasswordPage() {
@@ -22,7 +23,7 @@ export default async function ForgotPasswordPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          PipelineIQ &mdash; Recurso Labs
+          PipelineIQ &mdash; {organizationName}
         </p>
       </div>
     </div>

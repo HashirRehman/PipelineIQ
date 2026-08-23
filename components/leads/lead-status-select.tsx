@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/select"
 import { stageColor } from "@/lib/constants"
 
-/** One pipeline stage — id/name come from the database. */
+/** One pipeline stage — id/name/state come from the database. */
 export interface StageOption {
   id: string
   name: string
+  state: "active" | "paused" | "closed"
 }
 
 export function LeadStatusSelect({
@@ -62,11 +63,6 @@ export function LeadStatusSelect({
       <SelectContent
         className="text-item"
         container={container}
-        side="bottom"
-        align="start"
-        sideOffset={4}
-        alignOffset={0}
-        alignItemWithTrigger={false}
       >
         {stages.map((s, i) => {
           const dotColor = stageColor(i)

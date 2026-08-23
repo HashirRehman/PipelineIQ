@@ -72,7 +72,7 @@ export default async function RootLayout({
         <ThemeBootstrapScript nonce={nonce} />
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem
           nonce={nonce}
         >

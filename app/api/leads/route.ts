@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { isWithinWindow, parseDateWindow, parseSort } from "@/lib/api/job-filters";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
@@ -27,6 +26,10 @@ export interface ApiLead {
   jobLocation: string;
   workType: "remote" | "onsite" | "hybrid";
   appliedAt: string;
+  /** Last time this lead row changed (status, notes, etc.) — used to detect
+   * stalled leads instead of appliedAt, so a lead that's actively being
+   * worked doesn't read as stalled just because it applied a while ago. */
+  updatedAt: string;
   status: string;
   profileId: string;
   profileName: string;
@@ -61,6 +64,7 @@ export interface ApiLeadUser {
 type LeadRow = {
   id: string;
   applied_at: string;
+  updated_at: string;
   job_id: string;
   profile_id: string;
   user_id: string | null;
@@ -92,6 +96,7 @@ function toApiLead(row: LeadRow): ApiLead {
     engagementType: row.jobs?.engagement_type ?? null,
     workType: row.jobs?.is_remote ? "remote" : "onsite",
     appliedAt: row.applied_at,
+    updatedAt: row.updated_at,
     status: row.pipeline_stages?.name ?? "",
     profileId: row.profile_id,
     profileName: row.profiles?.full_name ?? "",
@@ -162,7 +167,7 @@ export async function GET(request: Request) {
   let leadsQuery = supabase
     .from("leads")
     .select(
-      "id, applied_at, job_id, profile_id, user_id, pipeline_stage_id, notes, developer, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
+      "id, applied_at, updated_at, job_id, profile_id, user_id, pipeline_stage_id, notes, developer, jobs(title, company_name, company_location, is_remote, apply_url, engagement_type, parsed_data, scrapers(name)), profiles(full_name, user_id), users(full_name), pipeline_stages(name)",
     )
     .eq("organization_id", organizationId)
     .is("deleted_at", null);
@@ -184,7 +189,7 @@ export async function GET(request: Request) {
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
       .order("full_name"),
-    supabase.from("pipeline_stages").select("id, name, order_index").order("order_index"),
+    supabase.from("pipeline_stages").select("id, name, order_index, state").order("order_index"),
   ]);
 
   if (leadsRes.error || profilesRes.error || usersRes.error || stagesRes.error) {
@@ -298,6 +303,7 @@ export async function GET(request: Request) {
     id: s.id,
     name: s.name,
     orderIndex: s.order_index,
+    state: s.state as "active" | "paused" | "closed",
   }));
 
   return NextResponse.json({
@@ -388,7 +394,8 @@ export async function POST(request: Request) {
   }
 
   // Cross-org guard: the job must belong to the same org as the profiles
-  // (jobs are world-readable under RLS, so scope the reference explicitly).
+  // (RLS is disabled, so a bare id lookup would otherwise resolve any org's
+  // job — scope the reference explicitly here).
   const { data: job } = await supabase
     .from("jobs")
     .select("id, organization_id, title, company_name, parsed_data")
@@ -486,18 +493,6 @@ export async function POST(request: Request) {
     }
     leadIds.push(inserted.id);
 
-    await logActivity({
-      supabase,
-      organizationId,
-      actorUserId: user.id,
-      actorName: actorNameFromUser(user),
-      action: "lead_created",
-      description: `Added lead for "${job.title} — ${job.company_name}" (${profile.full_name})`,
-      entityType: "lead",
-      entityId: inserted.id,
-      entityLabel: `${job.title} — ${job.company_name}`,
-      request,
-    });
   }
 
   return NextResponse.json({ success: true, created: leadIds.length, leadIds });

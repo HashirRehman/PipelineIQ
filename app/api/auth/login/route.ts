@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { logAudit } from "@/lib/api/audit";
 import { isSameOrigin } from "@/lib/api/guard";
 import {
@@ -75,15 +75,20 @@ export async function POST(request: Request) {
 
   // Audit: record the successful sign-in (best-effort — an invited user
   // whose users row isn't inserted yet has no org id to scope the log to).
+  // Scheduled via after() so it runs once the response has been sent
+  // instead of adding a sequential DB round trip to sign-in latency.
   if (userRow?.organization_id) {
-    await logAudit({
-      supabase,
-      organizationId: userRow.organization_id,
-      actorUserId: data.user.id,
-      action: "login",
-      targetEmail: data.user.email ?? undefined,
-      request,
-    });
+    const organizationId = userRow.organization_id;
+    after(() =>
+      logAudit({
+        supabase,
+        organizationId,
+        actorUserId: data.user.id,
+        action: "login",
+        targetEmail: data.user.email ?? undefined,
+        request,
+      }),
+    );
   }
 
   return NextResponse.json({ success: true });

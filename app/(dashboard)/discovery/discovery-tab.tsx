@@ -73,7 +73,7 @@ const buildQueryKey = (opts: {
 interface DiscoveryResponse {
   jobs: Job[];
   profiles: DiscoveryProfile[];
-  /** Admin / BD Manager may edit job fields (the jobs_update RLS policy). */
+  /** Admin / BD Manager may edit job fields (enforced by canEditJobs in the jobs API route). */
   canEditJobs: boolean;
   totalCount: number;
   page: number;
@@ -318,11 +318,12 @@ export default function DiscoveryTab() {
                 <JobListView jobs={jobs} onClick={setSelectedJob} />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {jobs.map((job) => (
+                  {jobs.map((job, i) => (
                     <JobCard
                       key={job.id}
                       job={job}
                       onClick={() => setSelectedJob(job)}
+                      delay={Math.min(i, 12) * 25}
                     />
                   ))}
                 </div>

@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react"
+import { Check, Plus, X, Loader2, Pencil, Trash2, Users2, UserCheck, ShieldCheck } from "lucide-react"
 import type { ApiAppUser, UsersApiResponse } from "@/app/api/users/route"
 import { ApiError, apiGet, apiPost, apiRequest } from "@/lib/api/client"
 import { queryKeys } from "@/lib/api/query-keys"
@@ -13,11 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ResultsCount } from "@/components/results-count"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { roleUserKey } from "@/lib/auth/roles"
 import { ROLE_COLOR, USER_STATUS_COLOR } from "@/lib/constants"
 import { formatDate } from "@/lib/format"
 
-interface RoleOption { id: string; name: string }
+interface RoleOption { id: string; name: string; description: string | null }
 
 const labelClass = "block text-meta font-medium text-muted-foreground mb-1.5"
 const inputClass = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/50"
@@ -68,25 +67,26 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
     }
   }
 
-  const roleButtons = (
-    <div className="flex gap-2">
-      {roles.map(r => {
-        const color = ROLE_COLOR[roleUserKey(r.name)]
-        const sel = roleId === r.id
-        return (
-          <Button key={r.id} type="button" onClick={() => setRoleId(r.id)}
-            className="flex-1 h-9 rounded-md text-xs capitalize"
-            style={{
-              background: sel ? `color-mix(in srgb, ${color} 10%, transparent)` : "var(--muted)",
-              border: `1px solid ${sel ? `color-mix(in srgb, ${color} 25%, transparent)` : "var(--border)"}`,
-              color: sel ? color : "var(--foreground)",
-              fontWeight: sel ? 700 : 400,
-            }}>
-            {r.name}
-          </Button>
-        )
-      })}
-    </div>
+  const roleSelect = (
+    <Select value={roleId} onValueChange={(v) => { if (v) setRoleId(v) }} name="role">
+      <SelectTrigger className="h-9 w-full rounded-lg text-sm">
+        <SelectValue placeholder="Select a role">
+          {() => roles.find(r => r.id === roleId)?.name ?? "Select a role"}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {roles.map(r => (
+          <SelectItem key={r.id} value={r.id}>
+            <div className="flex flex-col">
+              <span>{r.name}</span>
+              {r.description && (
+                <span className="text-xs text-muted-foreground">{r.description}</span>
+              )}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 
   return (
@@ -135,7 +135,7 @@ function UserModal({ mode, roles, user, isSelf = false, allowedDomain, onClose, 
             ) : (
               <div>
                 <label className={labelClass}>Role</label>
-                {roleButtons}
+                {roleSelect}
               </div>
             )}
             <div className="flex gap-2.5 pt-1">
@@ -322,9 +322,9 @@ export default function UsersTab() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-3 px-6 py-4 border-b border-border bg-background shrink-0">
-        <StatCard label="Total Members" value={users.length} color="var(--brand-blue)" />
-        <StatCard label="Active" value={activeCount} color="var(--status-green)" />
-        <StatCard label="Admins" value={adminCount} color="var(--status-red)" />
+        <StatCard label="Total Members" value={users.length} icon={Users2} accent="var(--brand-blue)" delay={0} />
+        <StatCard label="Active" value={activeCount} icon={UserCheck} accent="var(--status-green)" delay={60} />
+        <StatCard label="Admins" value={adminCount} icon={ShieldCheck} accent="var(--status-red)" delay={120} />
       </div>
 
       {/* Filters */}
@@ -367,13 +367,19 @@ export default function UsersTab() {
       {/* Table */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-border text-center">
+          <div
+            className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-border text-center"
+            style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+          >
             <p className="text-sm font-medium text-foreground">No members found</p>
             <p className="text-xs text-muted-foreground mt-1">Try adjusting your search or filters.</p>
           </div>
         ) : (
           <>
-            <div className="flex items-center pb-3">
+            <div
+              className="flex items-center pb-3"
+              style={{ animation: "chart-fade-in 0.25s ease-out backwards" }}
+            >
               <ResultsCount
                 count={filtered.length}
                 label={filtered.length === 1 ? "member" : "members"}
@@ -396,10 +402,19 @@ export default function UsersTab() {
                   const statusColor = USER_STATUS_COLOR[user.status ?? "inactive"]
                   const isSelf = user.id === activeUser?.id
                   return (
-                    <tr key={`${user.id}-${idx}`} className="bg-background transition-colors hover:bg-accent/40">
+                    <tr
+                      key={`${user.id}-${idx}`}
+                      style={{
+                        animation: "chart-rise 0.3s ease-out backwards",
+                        animationDelay: `${Math.min(idx, 12) * 25}ms`,
+                      }}
+                      className="group bg-background transition-colors duration-150 hover:bg-accent/40"
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <Avatar name={user.name} size={32} />
+                          <div className="transition-transform duration-150 group-hover:scale-105">
+                            <Avatar name={user.name} size={32} />
+                          </div>
                           <div className="min-w-0">
                             <p className="font-medium text-foreground truncate">
                               {user.name}

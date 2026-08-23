@@ -1,13 +1,8 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
-import {
-  CloudinaryConfigError,
-  deleteCvFile,
-  uploadCvFile,
-  type CvUploadResult,
-} from "@/lib/cloudinary";
+import { isAdminRole } from "@/lib/auth/roles";
+import { deleteCvFile, uploadCvFile } from "@/lib/supabase/storage";
 import { scheduleCvParse } from "@/lib/cv-parsing/schedule";
 import {
   archiveProfileSchema,
@@ -48,9 +43,9 @@ type AdminGate =
 // Mirrors the rest of the app: roles come from the JWT's user_role claim
 // baked in by the custom_access_token_hook migration (getCachedRolePermissions
 // reads it locally via cached JWKS — no live RPC round trip), same as
-// app/api/users/route.ts. RLS still re-checks is_admin()/is_bd_manager() live
-// at query time regardless. Profile management is Admin + BD Manager
-// (Business Developers see no Profiles page at all).
+// app/api/users/route.ts. This check is the access-control boundary (RLS is
+// disabled schema-wide). Profile management is Admin + BD Manager (Business
+// Developers see no Profiles page at all).
 async function requireProfileManagerUser(): Promise<AdminGate> {
   const user = await getCachedUser();
 
@@ -130,18 +125,6 @@ export async function createProfile(
       error: "Something went wrong. Please try again.",
     };
   }
-
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: gate.user.id,
-    actorName: actorNameFromUser(gate.user),
-    action: "profile_created",
-    description: `Created profile "${parsed.data.fullName}"`,
-    entityType: "profile",
-    entityId: data.id,
-    entityLabel: parsed.data.fullName,
-  });
 
   return { success: true, profileId: data.id };
 }
@@ -226,18 +209,6 @@ export async function updateProfile(
     return { success: false, status: 404, error: "Profile not found." };
   }
 
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: gate.user.id,
-    actorName: actorNameFromUser(gate.user),
-    action: "profile_updated",
-    description: `Updated profile "${parsed.data.fullName}"`,
-    entityType: "profile",
-    entityId: profileId,
-    entityLabel: parsed.data.fullName,
-  });
-
   return { success: true, profileId };
 }
 
@@ -268,7 +239,7 @@ export async function archiveProfile(
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
-    .select("id, full_name");
+    .select("id");
 
   if (error) {
     console.error("archiveProfile: profiles update failed", error);
@@ -282,18 +253,6 @@ export async function archiveProfile(
   if (data.length === 0) {
     return { success: false, status: 404, error: "Profile not found." };
   }
-
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: gate.user.id,
-    actorName: actorNameFromUser(gate.user),
-    action: "profile_archived",
-    description: `Archived profile "${data[0].full_name}"`,
-    entityType: "profile",
-    entityId: profileId,
-    entityLabel: data[0].full_name,
-  });
 
   return { success: true, profileId };
 }
@@ -325,15 +284,14 @@ export async function setProfileAssignment(
 
   // The assigned user must belong to the same org. profiles.user_id only FKs
   // to users(id), so without this check an admin could attach a cross-org
-  // user to a profile — making that user the RLS owner of another tenant's
-  // profile (and its CVs), which their discovery feed would then surface.
-  // Admins are excluded from assignment entirely (they manage profiles, they
-  // don't own them).
-  let assignedUserName: string | null = null;
+  // user to a profile — making that user the effective owner of another
+  // tenant's profile (and its CVs), which their discovery feed would then
+  // surface. Admins are excluded from assignment entirely (they manage
+  // profiles, they don't own them).
   if (userId) {
     const { data: userRow } = await supabase
       .from("users")
-      .select("id, full_name, roles(name)")
+      .select("id, roles(name)")
       .eq("id", userId)
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
@@ -341,10 +299,9 @@ export async function setProfileAssignment(
     if (!userRow) {
       return { success: false, status: 400, error: "Selected user not found." };
     }
-    if (userRow.roles?.name === "Admin") {
+    if (isAdminRole(userRow.roles?.name)) {
       return { success: false, status: 400, error: "Admins cannot be assigned to profiles." };
     }
-    assignedUserName = userRow.full_name;
   }
 
   const { data, error } = await supabase
@@ -352,7 +309,7 @@ export async function setProfileAssignment(
     .update({ user_id: userId })
     .eq("id", profileId)
     .eq("organization_id", organizationId)
-    .select("id, full_name");
+    .select("id");
 
   if (error) {
     if (error.code === "23503") {
@@ -374,22 +331,6 @@ export async function setProfileAssignment(
     return { success: false, status: 404, error: "Profile not found." };
   }
 
-  const profileName = data[0].full_name;
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: gate.user.id,
-    actorName: actorNameFromUser(gate.user),
-    action: assignedUserName ? "profile_assigned" : "profile_unassigned",
-    description: assignedUserName
-      ? `Assigned profile "${profileName}" to ${assignedUserName}`
-      : `Unassigned profile "${profileName}"`,
-    entityType: "profile",
-    entityId: profileId,
-    entityLabel: profileName,
-    metadata: { userId },
-  });
-
   return { success: true, profileId };
 }
 
@@ -400,9 +341,10 @@ const CV_HARD_ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-// CVs are stored in Cloudinary (raw assets); profile_cvs.storage_path holds
-// the CDN secure URL returned by the upload. Seeded rows keep dummy paths
-// until real files are uploaded through the app.
+// CVs are stored in the private `profile-cvs` Storage bucket;
+// profile_cvs.storage_path holds the object key (<profileId>/<cvId>-<file>).
+// Seeded rows carry paths in the same shape with no object behind them, until
+// real files are uploaded through the app.
 export async function uploadProfileCv(
   supabase: Client,
   profileId: string,
@@ -428,7 +370,7 @@ export async function uploadProfileCv(
   // the org so a cross-org profile id can't be used to attach a CV.
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id")
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
@@ -455,28 +397,28 @@ export async function uploadProfileCv(
 
   const cvId = crypto.randomUUID();
 
-  // Read once and reuse: Cloudinary needs these bytes, and so does the parse
+  // Read once and reuse: the upload needs these bytes, and so does the parse
   // scheduled at the end of this function — re-downloading the file we just
   // uploaded would be a pointless round trip.
   const fileBytes = Buffer.from(await file.arrayBuffer());
 
-  let upload: CvUploadResult;
+  let storagePath: string;
   try {
-    upload = await uploadCvFile(
-      fileBytes,
+    // The org/role gate above is what authorizes this call, since the
+    // bucket has no client-facing policies of its own.
+    ({ path: storagePath } = await uploadCvFile({
+      buffer: fileBytes,
       profileId,
       cvId,
-      file.name,
-    );
+      fileName: file.name,
+      contentType: file.type,
+    }));
   } catch (uploadError) {
-    console.error("uploadProfileCv: Cloudinary upload failed", uploadError);
+    console.error("uploadProfileCv: Storage upload failed", uploadError);
     return {
       success: false,
       status: 500,
-      error:
-        uploadError instanceof CloudinaryConfigError
-          ? uploadError.message
-          : "Something went wrong uploading the file. Please try again.",
+      error: "Something went wrong uploading the file. Please try again.",
     };
   }
 
@@ -485,7 +427,7 @@ export async function uploadProfileCv(
   const { error: insertError } = await supabase.from("profile_cvs").insert({
     id: cvId,
     profile_id: profileId,
-    storage_path: upload.secureUrl,
+    storage_path: storagePath,
     file_name: file.name,
     file_type: file.type,
     file_size_bytes: file.size,
@@ -493,12 +435,12 @@ export async function uploadProfileCv(
 
   if (insertError) {
     console.error("uploadProfileCv: profile_cvs insert failed", insertError);
-    // The file is already on Cloudinary — remove it so a failed row insert
-    // doesn't leave an orphaned asset behind.
+    // The bytes are already in the bucket — remove them so a failed row
+    // insert doesn't leave an orphaned object behind.
     try {
-      await deleteCvFile(upload.publicId);
+      await deleteCvFile(storagePath);
     } catch (cleanupError) {
-      console.error("uploadProfileCv: Cloudinary cleanup failed", cleanupError);
+      console.error("uploadProfileCv: Storage cleanup failed", cleanupError);
     }
     return {
       success: false,
@@ -512,55 +454,13 @@ export async function uploadProfileCv(
   // successful insert, so there is always a row to write the result to.
   scheduleCvParse({ cvId, fileType: file.type, buffer: fileBytes });
 
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: gate.user.id,
-    actorName: actorNameFromUser(gate.user),
-    action: "profile_cv_uploaded",
-    description: `Uploaded CV "${file.name}" to profile "${profileRow.full_name}"`,
-    entityType: "profile_cv",
-    entityId: cvId,
-    entityLabel: file.name,
-  });
-
   return { success: true, profileId };
 }
 
-// Extracts the Cloudinary public_id from a CDN secure URL. Raw assets embed
-// the id in the path (…/upload/v<version>/<public_id>), so the upload's
-// public_id can be recovered from the URL stored in profile_cvs.storage_path.
-// Seeded rows carry dummy paths that are not Cloudinary URLs — returns null.
-function publicIdFromCvUrl(secureUrl: string): string | null {
-  if (!secureUrl.startsWith("https://res.cloudinary.com")) {
-    return null;
-  }
-
-  const uploadMarker = "/upload/";
-  const uploadIndex = secureUrl.indexOf(uploadMarker);
-  if (uploadIndex === -1) {
-    return null;
-  }
-
-  const publicId = secureUrl
-    .slice(uploadIndex + uploadMarker.length)
-    .replace(/^v\d+\//, "");
-
-  if (!publicId) {
-    return null;
-  }
-
-  try {
-    return decodeURIComponent(publicId);
-  } catch {
-    return publicId;
-  }
-}
-
-// CVs are soft-deleted (deleted_at) — RLS grants update but not delete on
-// profile_cvs, and hard deletes would break job_profile_matches FK rows.
-// The Cloudinary asset is removed best-effort afterwards; seeded rows with
-// dummy storage paths are simply unlinked.
+// CVs are soft-deleted (deleted_at) — the row is never hard-deleted, since
+// that would break job_profile_matches FK rows. The stored FILE is removed
+// best-effort afterwards; seeded rows point at no object, and Storage treats
+// removing a missing key as a no-op, so they are simply unlinked.
 export async function deleteProfileCv(
   supabase: Client,
   profileId: string,
@@ -582,7 +482,7 @@ export async function deleteProfileCv(
   // so a cross-org profile id must not resolve its CVs.
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id")
     .eq("id", profileId)
     .eq("organization_id", organizationId)
     .is("deleted_at", null)
@@ -593,7 +493,7 @@ export async function deleteProfileCv(
 
   const { data: cvRow, error: selectError } = await supabase
     .from("profile_cvs")
-    .select("storage_path, file_name")
+    .select("storage_path")
     .eq("id", cvId)
     .eq("profile_id", profileId)
     .is("deleted_at", null)
@@ -628,29 +528,11 @@ export async function deleteProfileCv(
     };
   }
 
-  const publicId = publicIdFromCvUrl(cvRow.storage_path);
-  if (publicId) {
-    try {
-      await deleteCvFile(publicId);
-    } catch (cleanupError) {
-      console.error(
-        "deleteProfileCv: Cloudinary cleanup failed",
-        cleanupError,
-      );
-    }
+  try {
+    await deleteCvFile(cvRow.storage_path);
+  } catch (cleanupError) {
+    console.error("deleteProfileCv: Storage cleanup failed", cleanupError);
   }
-
-  await logActivity({
-    supabase,
-    organizationId,
-    actorUserId: gate.user.id,
-    actorName: actorNameFromUser(gate.user),
-    action: "profile_cv_deleted",
-    description: `Deleted CV "${cvRow.file_name}" from profile "${profileRow.full_name}"`,
-    entityType: "profile_cv",
-    entityId: cvId,
-    entityLabel: cvRow.file_name,
-  });
 
   return { success: true, profileId };
 }

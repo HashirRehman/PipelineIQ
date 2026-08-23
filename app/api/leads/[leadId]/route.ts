@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { actorNameFromUser, logActivity } from "@/lib/api/activity";
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
@@ -44,12 +43,13 @@ export async function PATCH(
   const org = await verifyOrganizationAccess(request, supabase, user.id);
   if (!org.ok) return org.response;
 
-  // RLS scopes this to the owner (owner snapshot or the profile's current
-  // assigned user) or admin/manager; the org filter additionally rejects
-  // cross-org lead ids up front.
+  // This lookup itself is org-scoped only (RLS is disabled, so it is not
+  // further restricted to the owner/admin/manager here) — the field-level
+  // checks below (notes: owner-or-canManageLeadNotes; developer:
+  // canEditJobs) are what actually gate who can change what.
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, user_id, profiles(user_id), jobs(title, company_name)")
+    .select("id, user_id, profiles(user_id)")
     .eq("id", leadId)
     .eq("organization_id", org.organizationId)
     .maybeSingle();
@@ -99,68 +99,6 @@ export async function PATCH(
       { error: "Something went wrong. Please try again." },
       { status: 500 },
     );
-  }
-
-  const entityLabel = lead.jobs
-    ? `${lead.jobs.title} — ${lead.jobs.company_name}`
-    : "Untitled job";
-  const actorUserId = user.id;
-  const actorName = actorNameFromUser(user);
-
-  if (notes !== undefined) {
-    await logActivity({
-      supabase,
-      organizationId: org.organizationId,
-      actorUserId,
-      actorName,
-      action: "lead_notes_updated",
-      description: `Updated notes on lead for "${entityLabel}"`,
-      entityType: "lead",
-      entityId: leadId,
-      entityLabel,
-      request,
-    });
-  }
-
-  if (pipelineStageId !== undefined) {
-    const { data: stage } = await supabase
-      .from("pipeline_stages")
-      .select("name")
-      .eq("id", pipelineStageId)
-      .maybeSingle();
-
-    await logActivity({
-      supabase,
-      organizationId: org.organizationId,
-      actorUserId,
-      actorName,
-      action: "lead_stage_updated",
-      description: stage
-        ? `Moved lead for "${entityLabel}" to "${stage.name}"`
-        : `Moved lead for "${entityLabel}"`,
-      entityType: "lead",
-      entityId: leadId,
-      entityLabel,
-      metadata: { pipelineStageId },
-      request,
-    });
-  }
-
-  if (developer !== undefined) {
-    await logActivity({
-      supabase,
-      organizationId: org.organizationId,
-      actorUserId,
-      actorName,
-      action: "lead_developer_updated",
-      description: developer
-        ? `Assigned "${developer}" as developer for lead "${entityLabel}"`
-        : `Cleared the developer for lead "${entityLabel}"`,
-      entityType: "lead",
-      entityId: leadId,
-      entityLabel,
-      request,
-    });
   }
 
   return NextResponse.json({ success: true });

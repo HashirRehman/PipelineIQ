@@ -13,10 +13,10 @@ import { setOrganizationId } from "@/lib/api/client";
 export function OrganizationProvider({
   organizationId,
   children,
-}: {
+}: Readonly<{
   organizationId: string | null;
   children: React.ReactNode;
-}) {
+}>) {
   if (typeof window !== "undefined") {
     setOrganizationId(organizationId);
   }

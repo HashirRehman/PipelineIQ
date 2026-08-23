@@ -32,11 +32,6 @@ PROJECT_REF=<ref>
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 SUPABASE_SECRET_KEY=<service-role-key>
-
-# Cloudinary (CV file storage) — Dashboard > Settings > API Keys
-CLOUDINARY_CLOUD_NAME=<cloud-name>
-CLOUDINARY_API_KEY=<api-key>
-CLOUDINARY_API_SECRET=<api-secret>
 ```
 
 See `.env.example` for the full template.

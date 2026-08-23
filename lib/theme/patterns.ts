@@ -59,6 +59,38 @@ const STRIPES: ThemePattern = {
   css: "var(--pattern-stripes), var(--pattern-fade-to-page), var(--page-bg)",
 }
 
+/** Fine two-directional hairline crosshatch. */
+const CROSSHATCH: ThemePattern = {
+  id: "crosshatch",
+  name: "Crosshatch",
+  description: "A fine two-directional hairline weave. Quiet and textural.",
+  css: "var(--pattern-crosshatch), var(--pattern-fade-to-page), var(--page-bg)",
+}
+
+/** Soft chevron / herringbone rows. */
+const CHEVRON: ThemePattern = {
+  id: "chevron",
+  name: "Chevron",
+  description: "Soft herringbone rows for a calmer sense of direction than stripes.",
+  css: "var(--pattern-chevron), var(--pattern-fade-to-page), var(--page-bg)",
+}
+
+/** Circuit-board style right-angled traces with junction pads. */
+const TECH: ThemePattern = {
+  id: "tech",
+  name: "Tech",
+  description: "Circuit-board style traces with junction pads. A quiet, geometric tech texture.",
+  css: "var(--pattern-tech), var(--pattern-fade-to-page), var(--page-bg)",
+}
+
+/** Concentric warped rings — an optical-illusion spiral texture. */
+const DIZZY: ThemePattern = {
+  id: "dizzy",
+  name: "Dizzy",
+  description: "Concentric rings radiating outward, evoking an optical-illusion spiral.",
+  css: "var(--pattern-dizzy), var(--pattern-fade-to-page), var(--page-bg)",
+}
+
 /** Outlined business icons — briefcase, building, user, mail, docs, chart. */
 const BUSINESS: ThemePattern = {
   id: "business",
@@ -83,14 +115,27 @@ const CHARTS: ThemePattern = {
   css: "var(--pattern-icon-charts), var(--page-bg)",
 }
 
+/** Outlined everyday icons — chat, heart, camera, smile, leaf, music. */
+const DOODLE: ThemePattern = {
+  id: "doodle",
+  name: "Doodle",
+  description: "A loose scatter of everyday icons — chat, heart, camera, music and more.",
+  css: "var(--pattern-icon-doodle), var(--page-bg)",
+}
+
 /** All selectable patterns (default first). */
 export const PATTERNS: ThemePattern[] = [
   DEFAULT_PATTERN,
   GRID,
   STRIPES,
+  CROSSHATCH,
+  CHEVRON,
+  TECH,
+  DIZZY,
   BUSINESS,
   FOOD,
   CHARTS,
+  DOODLE,
 ]
 
 export function getPattern(id: string | null | undefined): ThemePattern | undefined {

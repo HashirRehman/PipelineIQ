@@ -1,9 +1,3 @@
-// Module 3/9 — Groq-backed AiClient implementation.
-//
-// Only scoreRelevance and extractRemoteRegion are real — everything else
-// on the AiClient interface is Phase 2 scope (see docs/03 Section 12) and
-// throws rather than pretending to work, so this class stays honestly
-// type-checked against the full interface without faking capability.
 import {
   isUsableParse,
   parsedCvSchema,
@@ -11,17 +5,10 @@ import {
 } from "@/lib/cv-parsing/parsed-cv";
 import type { AiClient, JobListing, LeadContext, ProfileContext, ParsedJobData } from "./client";
 
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 const MAX_429_RETRIES = 3;
 
-// Proactive pacing at Groq's real 30 RPM limit (60s / 30 = 2s/call) so
-// calls mostly succeed on the first attempt instead of firing
-// sequentially and absorbing reactive 429 backoff — this is what caps a
-// discovery run's real wall-clock time predictably (see the per-run caps
-// in lib/cron/discover-jobs.ts, sized against this exact interval).
-// Module-level state is safe here: this codebase's discovery loop is
-// strictly sequential, never concurrent Groq calls.
 const GROQ_PACE_INTERVAL_MS = 2000;
 let lastCallStartedAt = 0;
 
@@ -33,30 +20,8 @@ async function paceCall(): Promise<void> {
   lastCallStartedAt = Date.now();
 }
 
-// Real RPM-driven 429s observed this session honor short waits (single-
-// digit seconds); real daily-token-cap (TPD) 429s honor waits of many
-// minutes. Without a bound, one call hitting an exhausted daily quota
-// could block for 10-20+ minutes through the retry loop below, silently
-// defeating the per-run wall-clock caps this pacing exists to support —
-// so a suggested wait past this threshold fails fast instead of waiting.
-// This only bounds how long a slow failure takes to fail; it makes no
-// attempt to get more calls through the daily cap, and is not a fix for
-// that separate, per-day budget problem.
-const MAX_RETRY_WAIT_MS = 10_000;
+const MAX_RETRY_WAIT_MS = 65_000;
 
-// Groq's real rate-limit body (confirmed against a forced live 429, not
-// assumed): {"error":{"message":"Rate limit reached ... Please try again
-// in 2s. ...","type":"requests","code":"rate_limit_exceeded"}} — the
-// number can be an integer ("2s") or fractional ("1.234s"), so both are
-// matched. Daily-token-cap (TPD) 429s use a longer "Xm Y.Zs" format (e.g.
-// "22m29.568s") — a plain "(\d+(?:\.\d+)?)s" match against that string
-// silently matches only the trailing "29.568s", dropping the "22m"
-// entirely (confirmed against real captured TPD error bodies), so the
-// optional minutes group is required for this to parse TPD waits
-// correctly, not just RPM ones. Returns null (not a guessed default) if
-// Groq's message format ever changes and this can't find a number — the
-// caller decides the fallback explicitly rather than this function
-// silently making one up.
 function parseGroqRetryDelayMs(errorBody: string): number | null {
   const match = errorBody.match(/try again in (?:(\d+)m)?(\d+(?:\.\d+)?)s/i);
   if (!match) return null;
@@ -69,11 +34,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The scoring/eligibility calls return a handful of fields and fit in Groq's
-// default output allowance. A CV parse doesn't: a full parsed_data object for
-// a multi-role CV runs well past it, and a truncated response is not a
-// degraded parse but invalid JSON, so that caller raises the ceiling
-// explicitly rather than discovering the limit as a parse error.
 type GroqCallOptions = { maxTokens?: number };
 
 async function callGroqJson(
@@ -86,12 +46,8 @@ async function callGroqJson(
     throw new Error("GROQ_API_KEY is not set.");
   }
 
-  // Paced once per logical call, not per retry below — a retry's own
-  // (now-bounded) wait already provides spacing for that specific attempt.
   await paceCall();
 
-  // Only 429s are retried here — any other failure (4xx, 5xx, network)
-  // still fails on the first attempt, same as before this change.
   for (let attempt = 1; attempt <= MAX_429_RETRIES + 1; attempt++) {
     const response = await fetch(GROQ_CHAT_URL, {
       method: "POST",
@@ -107,6 +63,7 @@ async function callGroqJson(
         ],
         response_format: { type: "json_object" },
         temperature: 0,
+        reasoning_effort: "low",
         ...(options.maxTokens ? { max_tokens: options.maxTokens } : {}),
       }),
     });
@@ -130,12 +87,6 @@ async function callGroqJson(
       const parsedDelayMs = parseGroqRetryDelayMs(errorText);
       const waitMs = parsedDelayMs ?? 1000;
 
-      // Real RPM 429s honor short waits (single-digit seconds); real TPD
-      // (daily-cap) 429s honor waits of many minutes. Retrying through a
-      // TPD wait would block this call for that entire duration — failing
-      // fast here instead is what keeps a per-run wall-clock cap honest
-      // when TPD happens to be exhausted, not an attempt to get more
-      // calls through the daily cap itself.
       if (waitMs > MAX_RETRY_WAIT_MS) {
         console.warn(
           `Groq 429 rate limit — suggested wait ${waitMs}ms exceeds ${MAX_RETRY_WAIT_MS}ms, failing fast ` +
@@ -155,21 +106,9 @@ async function callGroqJson(
     throw new Error(`Groq request failed: ${response.status} ${errorText}`);
   }
 
-  // Unreachable — the loop above always either returns or throws.
   throw new Error("Groq request failed: 429 rate limit, retries exhausted.");
 }
 
-// Real measured ratio for llama-3.3-70b on actual job-posting text is
-// ~5.5 chars/token (not the generic "4 chars/token" heuristic often
-// assumed for English prose) — measured directly against 3 real postings
-// via Groq's own usage.prompt_tokens, comparing full-vs-empty description.
-// Real postings frequently bury exactly the signal these calls most need
-// — eligibility/citizenship restrictions, contract-contingency language —
-// in a footer/disclaimer near the END of the text, not the intro (e.g. a
-// real "Candidates must be based in the United States" line appeared in
-// an "Engagement Details" section ~85% through one posting). A head-only
-// truncation would systematically blind both calls to that signal, so
-// this keeps both ends and drops only the middle.
 const DESCRIPTION_HEAD_CHARS = 1000;
 const DESCRIPTION_TAIL_CHARS = 500;
 const TRUNCATION_MARKER = "\n...[truncated]...\n";
@@ -185,12 +124,6 @@ function normalizeForMatch(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// This profile skill catalog's "X Js" naming convention ("Node Js",
-// "React Js", "Express Js") frequently doesn't literally appear in real
-// postings, which more often just say "Node", "React", or "Node.js"
-// without a space — a bare substring match on "Node Js" misses "Node.js"
-// entirely. Normalizing punctuation away, plus checking the root token
-// with a trailing "js" stripped, closes that gap.
 function hasLiteralSkillMention(skills: string[], description: string): boolean {
   const normalizedDescription = normalizeForMatch(description);
   return skills.some((skill) => {
@@ -200,24 +133,9 @@ function hasLiteralSkillMention(skills: string[], description: string): boolean 
   });
 }
 
-// A CV is truncated from the END, unlike a job description (which keeps both
-// ends — see the head+tail reasoning above). The two documents bury their
-// signal in opposite places: a posting hides eligibility rules in a footer,
-// while a CV is reverse-chronological, so its most recent and most relevant
-// roles are at the top and what falls off the end is the oldest history.
-//
-// The ceiling is set generously rather than tightly: real one-page resumes
-// measured ~970-1000 characters of extracted text, so this is roughly a
-// twelve-page CV before anything is dropped at all. Cost is not the binding
-// constraint here the way it is for per-job scoring — a CV is parsed once,
-// not once per job per run.
 const CV_TEXT_MAX_CHARS = 12_000;
 
-// A parsed_data object for a CV with several roles, each carrying highlights
-// and skills, comfortably exceeds Groq's default output allowance; past it the
-// JSON is cut mid-string and fails to parse outright. Sized with real headroom
-// because the failure mode is a total loss of the parse, not a shorter one.
-const CV_PARSE_MAX_OUTPUT_TOKENS = 8_000;
+const CV_PARSE_MAX_OUTPUT_TOKENS = 4_000;
 
 export class GroqAiClient implements AiClient {
   async parseCv(text: string): Promise<{ parsed: ParsedCv; modelVersion: string }> {
@@ -242,9 +160,6 @@ export class GroqAiClient implements AiClient {
       '"languages":[{"name":<string|null>,"proficiency":<string|null>}],' +
       '"projects":[{"name":<string|null>,"description":<string|null>,"url":<string|null>,"skills":[<string>]}]' +
       "}\n" +
-      // The flat list is what the app actually reads, so it must be complete
-      // on its own — a skill that appears only inside a role would be
-      // invisible to every consumer of `skills`.
       '"skills" must be a FLAT list of every distinct technology, tool, and professional skill named ' +
       "anywhere in the CV, including ones mentioned only inside a job or project. Name each skill as the " +
       "CV writes it. Do not group them, and do not put categories in this list.\n" +
@@ -261,8 +176,6 @@ export class GroqAiClient implements AiClient {
       maxTokens: CV_PARSE_MAX_OUTPUT_TOKENS,
     });
 
-    // parsedCvSchema coerces the shape; it does not rescue a response that
-    // isn't an object at all.
     const result = parsedCvSchema.safeParse(raw);
     if (!result.success) {
       throw new Error(
@@ -324,11 +237,6 @@ export class GroqAiClient implements AiClient {
     );
     const clampedScore = Math.max(0, Math.min(100, score));
 
-    // The model's own extraction is the primary signal; this cheap
-    // substring cross-check only serves as a rescue when the model
-    // wrongly reports zero matches despite obvious textual evidence — it
-    // does not need to be exhaustive, only directionally generous, since
-    // both signals must agree there's no evidence before the cap fires.
     const noModelMatch = matchedSkills.length === 0;
     const noTextEvidence = !hasLiteralSkillMention(profile.skills, job.description ?? "");
     const cappedScore = noModelMatch && noTextEvidence ? Math.min(clampedScore, 55) : clampedScore;

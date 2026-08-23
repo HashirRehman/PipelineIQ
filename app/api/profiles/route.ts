@@ -7,6 +7,7 @@ import {
 import { isSameOrigin } from "@/lib/api/guard";
 import { verifyOrganizationAccess } from "@/lib/api/organization";
 import { createProfile } from "@/lib/services/profiles";
+import { isAdminRole } from "@/lib/auth/roles";
 import {
   createClient,
   getCachedRolePermissions,
@@ -122,11 +123,10 @@ export async function GET(request: Request) {
     assignedUserName: profile.users?.full_name ?? null,
   }));
 
-  // RLS on users exposes the full list to Admins and BD Managers (migration
-  // 15's users_select), so profile managers can assign users to profiles.
   // The GET gate above already guarantees canAccessProfiles (Admin + BD
-  // Manager). Admins themselves are excluded — they manage profiles, they
-  // don't own them (and admins can't be assigned, per the permission model).
+  // Manager), so this query can return the full org roster for assignment.
+  // Admins themselves are excluded — they manage profiles, they don't own
+  // them (and admins can't be assigned, per the permission model).
   const { data: userRows, error: usersError } = await supabase
     .from("users")
     .select("id, full_name, email, roles(name)")
@@ -144,7 +144,7 @@ export async function GET(request: Request) {
   }
 
   const assignableUsers: AssignableUser[] = (userRows ?? [])
-    .filter((userRow) => userRow.roles?.name !== "Admin")
+    .filter((userRow) => !isAdminRole(userRow.roles?.name))
     .map((userRow) => ({
       id: userRow.id,
       name: userRow.full_name || userRow.email.split("@")[0] || "User",

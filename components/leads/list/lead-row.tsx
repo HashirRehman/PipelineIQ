@@ -14,7 +14,7 @@ export function LeadRow({
   lead,
   bdName,
   stages,
-  doneStage,
+  delay = 0,
   onToggleDone,
   onStatusChange,
   onOpen,
@@ -22,19 +22,21 @@ export function LeadRow({
   lead: Lead
   bdName?: string
   stages: StageOption[]
-  doneStage: string | null
+  /** Entrance delay (ms) — lets a section's rows stagger in. */
+  delay?: number
   onToggleDone: (id: string) => void
   onStatusChange: (id: string, status: string) => void
   onOpen: (lead: Lead) => void
 }) {
-  const isDone = doneStage !== null && lead.status === doneStage
+  const isDone = stages.find(s => s.name === lead.status)?.state === "closed"
 
   return (
     // content-visibility: with up to a hundred rows, off-screen rows skip
     // layout/paint until scrolled into view (rendering-content-visibility).
     <div
+      style={{ animation: "chart-rise 0.25s ease-out backwards", animationDelay: `${delay}ms` }}
       className={cn(
-        "group flex items-center gap-3 border-b border-border bg-background px-5 py-1.5 transition-colors hover:bg-accent/40 [content-visibility:auto] [contain-intrinsic-size:auto_52px]",
+        "group flex items-center gap-3 border-b border-border bg-background px-5 py-1.5 transition-colors duration-150 hover:bg-accent/40 [content-visibility:auto] [contain-intrinsic-size:auto_52px]",
         isDone && "opacity-55",
       )}
     >

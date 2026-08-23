@@ -148,8 +148,12 @@ function RelevanceMatch({ profiles, job }: { profiles: ActiveProfile[]; job: Job
           {cvMatches
             .slice()
             .sort((a, b) => b.relevanceScore - a.relevanceScore)
-            .map(cv => (
-              <div key={cv.cvId} className="flex items-center gap-2">
+            .map((cv, i) => (
+              <div
+                key={cv.cvId}
+                className="flex items-center gap-2"
+                style={{ animation: "chart-fade-in 0.25s ease-out backwards", animationDelay: `${i * 40}ms` }}
+              >
                 <span className="flex-1 min-w-0 truncate text-xs text-foreground">
                   {cv.cvLabel}
                   {cv.isCurrentCv && <span className="ml-1.5 text-caption text-muted-foreground">(current)</span>}
@@ -160,7 +164,12 @@ function RelevanceMatch({ profiles, job }: { profiles: ActiveProfile[]; job: Job
                 <div className="w-24 h-1.5 rounded-full bg-border overflow-hidden shrink-0">
                   <div
                     className="h-full rounded-full"
-                    style={{ width: `${cv.relevanceScore}%`, background: scoreColor(cv.relevanceScore) }}
+                    style={{
+                      width: `${cv.relevanceScore}%`,
+                      background: scoreColor(cv.relevanceScore),
+                      animation: "chart-grow-x 0.5s ease-out backwards",
+                      animationDelay: `${i * 40}ms`,
+                    }}
                   />
                 </div>
                 <span className="w-9 text-right font-mono text-xs font-semibold text-foreground shrink-0">
