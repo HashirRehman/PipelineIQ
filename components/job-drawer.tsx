@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Bookmark, Loader2, X } from "lucide-react"
+import { Bookmark, Check, Loader2, Undo2, X } from "lucide-react"
 
 import { InlineEditBlock } from "@/components/inline-edit-block"
 import { InlineEditField } from "@/components/inline-edit-field"
@@ -372,6 +372,12 @@ interface Props {
    * since a job can have many leads, one per profile — returns error string
    * on failure or null on success. */
   onDeveloperSave?: (value: string) => Promise<string | null>
+  /** Revert to Pipeline — undoes Convert to Leads (soft-deletes the lead so
+   * the (job, profile) pair becomes convertible again). Gated the same as
+   * Convert to Leads (canAccessJobs — every role that can convert can also
+   * revert), so unlike onDeveloperSave this has no separate permission prop. */
+  onRevertToPipeline?: () => void
+  revertPending?: boolean
 }
 
 /** Payload accepted by onJobFieldSave — column values plus the parsed-data
@@ -399,6 +405,7 @@ export default function JobDrawer({
   canEditJob = false, onJobFieldSave, isLeadsView = false,
   dismissReason = "", setDismissReason, dismissOpen = false, setDismissOpen,
   stages, onStageChange, onDeveloperSave,
+  onRevertToPipeline, revertPending = false,
 }: Props) {
   // The drawer content node — the lead stage select portals its popup into
   // it so the dialog's focus trap (vaul is modal) doesn't blink it shut.
@@ -425,10 +432,13 @@ export default function JobDrawer({
     actionableIds: Set<string>
   }>(null)
 
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false)
+
   if (job !== prevJob) {
     setPrevJob(job)
     if (job) setLastJob(job)
     setPendingAction(null)
+    setRevertConfirmOpen(false)
   }
   if (notes !== prevNotes) {
     setPrevNotes(notes)
@@ -486,6 +496,56 @@ export default function JobDrawer({
           >
             <Bookmark className="size-3.5" />
           </Button>
+          {isLeadsView && onRevertToPipeline && (
+            revertConfirmOpen ? (
+              <div className="flex items-center gap-1.5 mr-1">
+                <span className="text-xs text-muted-foreground">Revert to Pipeline?</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => {
+                    setRevertConfirmOpen(false)
+                    onRevertToPipeline()
+                  }}
+                  disabled={revertPending}
+                  title="Confirm revert"
+                  aria-label="Confirm revert to Pipeline"
+                  className="size-7 rounded-md border-primary/30 text-primary hover:bg-primary/10 hover:text-primary disabled:opacity-60"
+                >
+                  {revertPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Check className="size-3.5" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setRevertConfirmOpen(false)}
+                  disabled={revertPending}
+                  title="Cancel"
+                  aria-label="Cancel revert"
+                  className="size-7 rounded-md text-muted-foreground"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setRevertConfirmOpen(true)}
+                title="Revert to Pipeline"
+                aria-label="Revert to Pipeline"
+                className="size-7 rounded-md border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+              >
+                <Undo2 className="size-3.5" />
+              </Button>
+            )
+          )}
           <Button variant="ghost" size="icon-xs" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="size-4" />
           </Button>

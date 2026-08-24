@@ -1,6 +1,6 @@
-# PipelineIQ — Fresh Database Schema
+# RevX — Fresh Database Schema
 
-The database schema for the redesigned PipelineIQ platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
+The database schema for the redesigned RevX platform. It replaces the old database, which was removed from the repository (`supabase/migrations/` now contains only the fresh history). All migrations run against a fresh Supabase project via the Supabase CLI.
 
 - **Migrations:** 3 (consolidated) · **Tables:** 16 · **Status:** schema + seed data + helper/transition functions all in place. **Row Level Security is disabled on every public-schema table** — access control is enforced entirely in the backend (Next.js Route Handlers / `lib/services/*`), not by Postgres policies.
 - **Workflow:** `npm run migrate:new -- <name>` → edit SQL → `npm run migrate:up` (see README)

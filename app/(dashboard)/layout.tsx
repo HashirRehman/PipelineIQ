@@ -13,7 +13,7 @@ import {
 export const metadata: Metadata = {
   title: {
     default: "Dashboard",
-    template: "%s · PipelineIQ",
+    template: "%s · RevX",
   },
 };
 

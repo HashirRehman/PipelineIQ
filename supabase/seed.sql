@@ -1,5 +1,5 @@
 -- ============================================================
--- PipelineIQ — seed data (reference data only, no dummy records)
+-- RevX — seed data (reference data only, no dummy records)
 -- Idempotent: safe to re-run (ON CONFLICT ... DO NOTHING, matched by the
 -- natural key — name/email — not by a hardcoded id; every id here is
 -- generated fresh by gen_random_uuid() on first insert).

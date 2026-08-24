@@ -9,7 +9,7 @@
 
    A palette is just light + dark values for the core tokens. Selecting one:
    1. persists the palette id in localStorage,
-   2. injects a `<style id="pipelineiq-palette-style">` block containing
+   2. injects a `<style id="revx-palette-style">` block containing
       `:root { …light vars… }` and `:root.dark { …dark vars… }` overrides.
    Unlayered, appended last in <head>, it wins over the defaults while
    `:root.dark` also beats the `prefers-color-scheme` media fallback.
@@ -55,16 +55,16 @@ export interface ThemePalette {
 
 export const DEFAULT_PALETTE_ID = "default"
 
-export const STORAGE_KEY = "pipelineiq.theme.palette"
+export const STORAGE_KEY = "revx.theme.palette"
 
-export const STYLE_ID = "pipelineiq-palette-style"
+export const STYLE_ID = "revx-palette-style"
 
 /** The app's built-in look — selecting this clears any palette override. */
 const DEFAULT_PALETTE: ThemePalette = {
   id: DEFAULT_PALETTE_ID,
   name: organizationName,
   source: "Built-in",
-  description: "The default PipelineIQ look. Neutral slate with a single blue accent.",
+  description: "The default RevX look. Neutral slate with a single blue accent.",
   light: {
     pageBg: "#f8fafc",
     background: "#ffffff",

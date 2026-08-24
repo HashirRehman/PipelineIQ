@@ -29,6 +29,7 @@ import { useMounted } from "@/hooks/use-mounted"
 import { cn } from "@/lib/utils"
 import { apiRequest, withOrgId } from "@/lib/api/client"
 import { getRolePermissionsByKey } from "@/lib/auth/roles"
+import { PASSWORD_REQUIREMENTS } from "@/lib/validation/schemas"
 import {
   applyPalette,
   DEFAULT_PALETTE_ID,
@@ -268,9 +269,23 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordSuccess, setPasswordSuccess] = useState("")
   const [passwordError, setPasswordError] = useState("")
+
+  const passwordChecks = useMemo(() => ({
+    minLength: newPassword.length >= PASSWORD_REQUIREMENTS.minLength,
+    hasLetterAndNumber:
+      PASSWORD_REQUIREMENTS.hasLetter(newPassword) && PASSWORD_REQUIREMENTS.hasNumber(newPassword),
+    hasSymbol: PASSWORD_REQUIREMENTS.hasSymbol(newPassword),
+    matches: newPassword.length > 0 && newPassword === confirmPassword,
+  }), [newPassword, confirmPassword])
+
+  const passwordMeetsRequirements =
+    passwordChecks.minLength && passwordChecks.hasLetterAndNumber && passwordChecks.hasSymbol
+
+  const canSubmitPassword = passwordMeetsRequirements && passwordChecks.matches
 
   // Organization settings state (Admin only)
   const [orgDomainMode, setOrgDomainMode] = useState<"restricted" | "any">("restricted")
@@ -443,12 +458,12 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
     setPasswordError("")
     setPasswordSuccess("")
 
-    if (newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters long.")
+    if (!passwordMeetsRequirements) {
+      setPasswordError("Password does not meet all requirements.")
       return
     }
 
-    if (newPassword !== confirmPassword) {
+    if (!passwordChecks.matches) {
       setPasswordError("Passwords do not match.")
       return
     }
@@ -460,7 +475,7 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
       const passwordRes = await fetch(withOrgId("/api/me/password"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPassword }),
+        body: JSON.stringify({ password: newPassword, confirmPassword }),
       })
 
       if (!passwordRes.ok) {
@@ -824,7 +839,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                       value={name}
                       onChange={e => setName(e.target.value)}
                       placeholder="Enter your full name"
-                      className="h-9 text-sm"
+                      readOnly={!isAdmin}
+                      disabled={!isAdmin}
+                      className={`h-9 text-sm ${!isAdmin ? "bg-muted/40 cursor-not-allowed opacity-75" : ""}`}
                     />
                   </div>
 
@@ -845,7 +862,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                   </div>
                 </div>
                 <p className="text-caption text-muted-foreground -mt-3">
-                  Email address is managed by your organization account and cannot be modified directly.
+                  {isAdmin
+                    ? "Email address is managed by your organization account and cannot be modified directly."
+                    : "Your name, email, and role are managed by an administrator and cannot be changed here."}
                 </p>
 
                 {userRole && (
@@ -858,12 +877,14 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                 )}
               </div>
 
-              <div className="pt-4 border-t border-border flex justify-end">
-                <Button type="submit" disabled={savingProfile || !name.trim()}>
-                  {savingProfile && <Loader2 className="size-3.5 animate-spin" />}
-                  Save Profile Name
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="pt-4 border-t border-border flex justify-end">
+                  <Button type="submit" disabled={savingProfile || !name.trim()}>
+                    {savingProfile && <Loader2 className="size-3.5 animate-spin" />}
+                    Save Profile Name
+                  </Button>
+                </div>
+              )}
             </form>
 
             {/* Side panel — account summary */}
@@ -892,8 +913,9 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
                 )}
               </div>
               <p className="text-caption text-muted-foreground leading-relaxed border-t border-border pt-3">
-                Your role and email are managed by an administrator. Only your display name can be
-                changed here.
+                {isAdmin
+                  ? "Your role and email are managed by an administrator. Only your display name can be changed here."
+                  : "Your name, role, and email are managed by an administrator."}
               </p>
             </div>
           </div>
@@ -952,19 +974,31 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
 
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-foreground block">Confirm New Password</label>
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      className="h-9 text-sm"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
+                        className="h-9 text-sm pr-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150 cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                    {confirmPassword.length > 0 && !passwordChecks.matches && (
+                      <p className="text-caption text-destructive">Passwords do not match.</p>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-border flex justify-end">
-                <Button type="submit" disabled={savingPassword || !newPassword || !confirmPassword}>
+                <Button type="submit" disabled={savingPassword || !canSubmitPassword}>
                   {savingPassword && <Loader2 className="size-3.5 animate-spin" />}
                   Update Password
                 </Button>
@@ -982,14 +1016,25 @@ export default function SettingsTab({ user: initialUser }: SettingsTabProps) {
               </div>
               <ul className="space-y-2.5">
                 {[
-                  "At least 8 characters long",
-                  "Mix of letters and numbers",
-                  "At least one symbol",
-                  "Not reused from another account",
-                ].map((tip) => (
-                  <li key={tip} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <Check className="size-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
-                    {tip}
+                  { label: "At least 8 characters long", met: passwordChecks.minLength },
+                  { label: "Mix of letters and numbers", met: passwordChecks.hasLetterAndNumber },
+                  { label: "At least one symbol", met: passwordChecks.hasSymbol },
+                  { label: "Not reused from another account", met: undefined },
+                ].map((req) => (
+                  <li
+                    key={req.label}
+                    className={cn(
+                      "flex items-start gap-2 text-xs",
+                      req.met ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    <Check
+                      className={cn(
+                        "size-3.5 shrink-0 mt-0.5",
+                        req.met ? "text-status-emerald" : "text-muted-foreground/60",
+                      )}
+                    />
+                    {req.label}
                   </li>
                 ))}
               </ul>

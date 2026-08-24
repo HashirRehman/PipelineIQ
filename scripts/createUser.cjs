@@ -17,9 +17,9 @@ require('dotenv').config({ path: '.env.local' });
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createClient } = require('@supabase/supabase-js');
 
-const ADMIN_EMAIL = 'fareed.zafar@recursolabs.com';
+const ADMIN_EMAIL = 'hashir@recursolabs.com';
 const ADMIN_PASSWORD = 'Test@123';
-const ADMIN_NAME = 'Fareed Zafar';
+const ADMIN_NAME = 'Hashir Rehman';
 const ORG_NAME = 'Recurso Labs';
 const ROLE_NAME = 'Admin';
 

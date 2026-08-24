@@ -39,8 +39,9 @@ export type RolePermissionSet = {
   label: string;
   /** Users page (team roster) visibility. */
   canViewUsers: boolean;
-  /** Editing / deactivating / deleting OTHER team members. Everyone may edit
-   * their own name (self-edit carve-out enforced in the users API route). */
+  /** Editing / deactivating / deleting team members, including one's own
+   * name, email, or role — Admin-only, no self-edit carve-out. Enforced in
+   * the users API route and the /api/me/profile route. */
   canManageUsers: boolean;
   /** Inviting team members. */
   canInviteUsers: boolean;
@@ -59,9 +60,9 @@ export type RolePermissionSet = {
   /** Pipeline management — edit other users' lead notes. */
   canManageLeadNotes: boolean;
   /** Lead Stages page — create / edit / reorder / delete pipeline_stages.
-   * Admin-only, enforced in the pipeline_stages API route (originally
-   * introduced as RLS policies in migration 20260823085325, now a
-   * code-level is_admin check). */
+   * Admin and BD Manager, enforced in the pipeline_stages API route
+   * (originally introduced as RLS policies in migration 20260823085325, now
+   * a code-level check). */
   canManageLeadStages: boolean;
   /** Landing section for this role. The root page ("/") renders the
    *  Dashboard for every role (Statistics lives at /statistics), so this is
@@ -91,8 +92,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     label: "BD Manager",
     canViewUsers: true,
     // Everything Admin has EXCEPT user management: full Profiles / job pages
-    // / moderation — but only their own user row (name) may be edited, and
-    // invites are out.
+    // / moderation, but no editing of any user row (including their own
+    // name/email/role), and invites are out.
     canManageUsers: false,
     canInviteUsers: false,
     canAccessProfiles: true,
@@ -100,7 +101,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, RolePermissionSet> = {
     canEditJobs: true,
     canModerateComments: true,
     canManageLeadNotes: true,
-    canManageLeadStages: false,
+    canManageLeadStages: true,
     homeSection: "/",
     userRoleKey: "lead",
   },

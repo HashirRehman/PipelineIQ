@@ -34,7 +34,7 @@ import {
   type EngagementType,
   type SortOption,
 } from "@/lib/constants";
-import { apiGet, apiPatch } from "@/lib/api/client";
+import { apiDelete, apiGet, apiPatch } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
 import { getDateWindow } from "@/lib/date-window";
 import JobDrawer, { type Job, type JobFieldPatch } from "@/components/job-drawer";
@@ -147,6 +147,7 @@ export default function LeadsTab() {
   // more than one closed-state stage, so "mark done" can't default to
   // whichever one happens to be first.
   const [closingLeadId, setClosingLeadId] = useState<string | null>(null);
+  const [revertPending, setRevertPending] = useState(false);
 
   const params = buildQueryKey({
     search,
@@ -314,6 +315,25 @@ export default function LeadsTab() {
     selectedLead &&
     (currentUser.id === selectedLead.assignedTo || canManageLeadNotes),
   );
+
+  // Revert to Pipeline — undoes an accidental Convert to Leads. Same method
+  // as converting (soft-delete via the API), gated the same way (the API
+  // checks canAccessJobs, which every role that can convert also has — no
+  // separate permission prop needed here, unlike canEditJobs for developer).
+  const revertToPipeline = async () => {
+    if (!selectedLead || revertPending) return;
+    setRevertPending(true);
+    try {
+      await apiDelete<{ success: boolean }>(`/api/leads/${selectedLead.id}`);
+    } catch (err) {
+      console.error("Failed to revert lead to pipeline:", err);
+      return;
+    } finally {
+      setRevertPending(false);
+    }
+    setSelectedLead(null);
+    await refreshLeads();
+  };
 
   const saveNote = async (id: string, notes: string) => {
     const lead = leads.find((l) => l.id === id);
@@ -575,6 +595,8 @@ export default function LeadsTab() {
         onStageChange={(stage) => {
           if (selectedLead) updateStatus(selectedLead.id, stage);
         }}
+        onRevertToPipeline={revertToPipeline}
+        revertPending={revertPending}
       />
 
       {/* Import — bulk-add jobs from an Excel file; defaults to importing as

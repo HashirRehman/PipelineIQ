@@ -32,7 +32,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "PipelineIQ",
+  title: "RevX",
   description: "Internal profile placement and BD tracking platform",
 };
 

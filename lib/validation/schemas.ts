@@ -54,12 +54,34 @@ export const forgotPasswordSchema = z.object({
   email: z.email("Enter a valid email address."),
 });
 
+// Single source of truth for password strength — shared by the set-password
+// flow and the change-password flow (Settings). Keep in sync with the
+// "Password guidelines" copy in app/(dashboard)/settings/settings-tab.tsx.
+export const PASSWORD_REQUIREMENTS = {
+  minLength: 8,
+  hasLetter: (password: string) => /[a-zA-Z]/.test(password),
+  hasNumber: (password: string) => /[0-9]/.test(password),
+  hasSymbol: (password: string) => /[^a-zA-Z0-9]/.test(password),
+};
+
 export const setPasswordSchema = z
   .object({
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters.")
-      .max(256, "Password must be at most 256 characters."),
+      .min(
+        PASSWORD_REQUIREMENTS.minLength,
+        `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters.`,
+      )
+      .max(256, "Password must be at most 256 characters.")
+      .refine(PASSWORD_REQUIREMENTS.hasLetter, {
+        message: "Password must include at least one letter.",
+      })
+      .refine(PASSWORD_REQUIREMENTS.hasNumber, {
+        message: "Password must include at least one number.",
+      })
+      .refine(PASSWORD_REQUIREMENTS.hasSymbol, {
+        message: "Password must include at least one symbol.",
+      }),
     confirmPassword: z.string().max(256),
   })
   .refine((data) => data.password === data.confirmPassword, {
