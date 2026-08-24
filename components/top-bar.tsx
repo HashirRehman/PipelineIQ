@@ -27,7 +27,7 @@ const PAGE_NAMES: Record<string, string> = {
 export function TopBar({ user }: TopBarProps) {
   const pathname = usePathname();
   const segment = "/" + (pathname.split("/")[1] ?? "");
-  const pageName = PAGE_NAMES[segment] ?? "PipelineIQ";
+  const pageName = PAGE_NAMES[segment] ?? "RevX";
 
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();

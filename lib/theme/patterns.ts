@@ -11,7 +11,7 @@
 
    Selecting one:
    1. persists the pattern id in localStorage,
-   2. injects a `<style id="pipelineiq-pattern-style">` block that overrides
+   2. injects a `<style id="revx-pattern-style">` block that overrides
       `--page-bg-pattern` on `:root`. Unlayered and appended last in <head>,
       it wins over the default in patterns.css. Clearing it (or selecting
       the default "Dots" pattern) restores the built-in texture.
@@ -31,15 +31,15 @@ export interface ThemePattern {
 
 export const DEFAULT_PATTERN_ID = "dots"
 
-export const STORAGE_KEY = "pipelineiq.theme.pattern"
+export const STORAGE_KEY = "revx.theme.pattern"
 
-export const STYLE_ID = "pipelineiq-pattern-style"
+export const STYLE_ID = "revx-pattern-style"
 
 /** The app's built-in look — selecting this clears any pattern override. */
 const DEFAULT_PATTERN: ThemePattern = {
   id: DEFAULT_PATTERN_ID,
   name: "Dots",
-  description: "The default PipelineIQ texture. A quiet dot grid with a soft brand glow.",
+  description: "The default RevX texture. A quiet dot grid with a soft brand glow.",
   css: "var(--pattern-dots), var(--pattern-fade-to-page), var(--pattern-glow-blue), var(--pattern-glow-navy), var(--page-bg)",
 }
 

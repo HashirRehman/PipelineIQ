@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { PipelineIQLogo } from "@/components/pipelineiq-logo";
+import { RevXLogo } from "@/components/revx-logo";
 import { organizationName } from "@/lib/constants";
 
 /**
@@ -149,7 +149,7 @@ export default function ConfirmAuthPage() {
     <div className="min-h-screen bg-page-bg flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <PipelineIQLogo size="lg" />
+          <RevXLogo size="lg" />
         </div>
 
         <div className="bg-background rounded-xl border border-border shadow-sm px-8 py-8">
@@ -195,7 +195,7 @@ export default function ConfirmAuthPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          PipelineIQ &mdash; {organizationName}
+          RevX &mdash; {organizationName}
         </p>
       </div>
     </div>

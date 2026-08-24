@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readOrganizationId } from "@/lib/api/organization";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { setPasswordSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -37,24 +38,24 @@ export async function PATCH(request: Request) {
     );
   }
 
-  let body: { password?: string };
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { password } = body;
-  if (!password || typeof password !== "string" || password.length < 8) {
+  const parsed = setPasswordSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Password is required and must be at least 8 characters." },
-      { status: 400 }
+      { error: parsed.error.issues[0]?.message ?? "Invalid input." },
+      { status: 400 },
     );
   }
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.updateUserById(user.id, {
-    password: password,
+    password: parsed.data.password,
   });
 
   if (error) {

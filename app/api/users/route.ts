@@ -329,16 +329,10 @@ export async function PATCH(request: Request) {
 
   const { userId, name, status, roleId } = parsed.data;
 
-  // BD Managers mirror Admins except user management: editing/deactivating/
-  // deleting OTHER team members is Admin-only, but anyone may edit their own
-  // name (the isSelfNameEdit carve-out below — name only, no status/role).
-  // The check below still blocks own status/role changes.
-  const isSelfNameEdit =
-    userId === user.id &&
-    name !== undefined &&
-    status === undefined &&
-    roleId === undefined;
-  if (!perms.canManageUsers && !isSelfNameEdit) {
+  // Editing ANY user row — including one's own name, email, or role — is
+  // Admin-only. BD Manager and Business Developer cannot update names,
+  // emails, or roles for themselves or anyone else.
+  if (!perms.canManageUsers) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

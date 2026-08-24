@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readOrganizationId } from "@/lib/api/organization";
-import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { createClient, getCachedRolePermissions, getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,13 @@ export async function PATCH(request: Request) {
   const user = await getCachedUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Only Admins may change a name — including their own. BD Manager and
+  // Business Developer cannot edit their own name, email, or role.
+  const perms = await getCachedRolePermissions();
+  if (!perms.canManageUsers) {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   // Get user's organization ID from database

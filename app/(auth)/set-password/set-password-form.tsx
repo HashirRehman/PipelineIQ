@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Eye, EyeOff, Loader2, Check } from "lucide-react"
 import { apiPost } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PASSWORD_REQUIREMENTS } from "@/lib/validation/schemas"
+import { cn } from "@/lib/utils"
 
 /** `isRecovery` only swaps wording — the password update path is identical. */
 export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }) {
@@ -13,17 +15,30 @@ export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }
   const [isPending, setIsPending] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+
+  const checks = useMemo(() => ({
+    minLength: password.length >= PASSWORD_REQUIREMENTS.minLength,
+    hasLetterAndNumber:
+      PASSWORD_REQUIREMENTS.hasLetter(password) && PASSWORD_REQUIREMENTS.hasNumber(password),
+    hasSymbol: PASSWORD_REQUIREMENTS.hasSymbol(password),
+    matches: password.length > 0 && password === confirmPassword,
+  }), [password, confirmPassword])
+
+  const meetsRequirements = checks.minLength && checks.hasLetterAndNumber && checks.hasSymbol
+  const canSubmit = meetsRequirements && checks.matches
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
 
-    const formData = new FormData(event.currentTarget)
-    const password = String(formData.get("password") ?? "")
-    const confirmPassword = String(formData.get("confirmPassword") ?? "")
+    if (!meetsRequirements) {
+      setError("Password does not meet all requirements.")
+      return
+    }
 
-    // Instant feedback — setPasswordSchema stays the authority server-side.
-    if (password !== confirmPassword) {
+    if (!checks.matches) {
       setError("Passwords do not match.")
       return
     }
@@ -60,6 +75,8 @@ export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }
             minLength={8}
             placeholder="Min. 8 characters"
             className="h-10 bg-muted/40 border-border text-sm pr-10"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
           <button
             type="button"
@@ -86,6 +103,8 @@ export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }
             minLength={8}
             placeholder="Repeat password"
             className="h-10 bg-muted/40 border-border text-sm pr-10"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
           />
           <button
             type="button"
@@ -96,7 +115,29 @@ export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }
             {showConfirmPassword ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
           </button>
         </div>
+        {confirmPassword.length > 0 && !checks.matches && (
+          <p className="text-xs text-destructive">Passwords do not match.</p>
+        )}
       </div>
+
+      <ul className="space-y-1.5">
+        {[
+          { label: "At least 8 characters long", met: checks.minLength },
+          { label: "Mix of letters and numbers", met: checks.hasLetterAndNumber },
+          { label: "At least one symbol", met: checks.hasSymbol },
+        ].map((req) => (
+          <li
+            key={req.label}
+            className={cn(
+              "flex items-center gap-1.5 text-xs",
+              req.met ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            <Check className={cn("size-3.5 shrink-0", req.met ? "text-status-emerald" : "text-muted-foreground/60")} />
+            {req.label}
+          </li>
+        ))}
+      </ul>
 
       {error && (
         <p role="alert" className="text-xs text-destructive rounded-md bg-destructive/10 px-3 py-2">
@@ -104,7 +145,7 @@ export function SetPasswordForm({ isRecovery = false }: { isRecovery?: boolean }
         </p>
       )}
 
-      <Button type="submit" disabled={isPending} className="mt-1 h-10 w-full text-sm font-semibold">
+      <Button type="submit" disabled={isPending || !canSubmit} className="mt-1 h-10 w-full text-sm font-semibold">
         {isPending ? (
           <>
             <Loader2 className="size-4 animate-spin mr-2" />

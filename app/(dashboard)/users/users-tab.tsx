@@ -260,9 +260,8 @@ export default function UsersTab() {
   const adminCount = users.filter(u => u.role === "admin").length
   const activeCount = users.filter(u => u.status === "active").length
 
-  // Everyone on this page (Admins + BD Managers) may edit their own profile
-  // (name only); only Admins get edit / deactivate / delete on other members.
-  const showActionsColumn = isAdmin || activeUser != null
+  // Edit / deactivate / delete on any row, including one's own, is Admin-only.
+  const showActionsColumn = isAdmin
 
   if (accessDenied) {
     return (
@@ -441,7 +440,7 @@ export default function UsersTab() {
                           {user.joinedAt ? formatDate(user.joinedAt) : "N/A"}
                         </span>
                       </td>
-                      {(isAdmin || isSelf) && (
+                      {isAdmin && (
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -454,7 +453,7 @@ export default function UsersTab() {
                             >
                               <Pencil className="size-3.5" />
                             </Button>
-                            {isAdmin && !isSelf && (
+                            {!isSelf && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -477,7 +476,7 @@ export default function UsersTab() {
                                 )}
                               </Button>
                             )}
-                            {isAdmin && !isSelf && (
+                            {!isSelf && (
                               <Button
                                 type="button"
                                 variant="ghost"

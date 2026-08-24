@@ -4,7 +4,7 @@ import SettingsTab from "./settings-tab";
 import { getCachedUser, getCachedUserRole } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Settings — PipelineIQ",
+  title: "Settings — RevX",
 };
 
 export default async function SettingsPage() {

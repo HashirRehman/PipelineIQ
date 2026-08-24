@@ -17,7 +17,7 @@ export function RecursoMark({ size = 32 }: { size?: number }) {
   )
 }
 
-export function PipelineIQLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+export function RevXLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const markSize = size === "lg" ? 40 : size === "sm" ? 20 : 25
   const titleClass = size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm"
   return (
@@ -25,7 +25,7 @@ export function PipelineIQLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
       <RecursoMark size={markSize} />
       <div className="min-w-0 space-y-1">
         <div className={`${titleClass} font-bold tracking-tight text-foreground leading-none`}>
-          Pipeline<span className="text-primary">IQ</span>
+          Rev<span className="text-primary">X</span>
         </div>
         <div className="text-micro text-muted-foreground tracking-widest uppercase font-medium mt-0.5">
           {organizationName}

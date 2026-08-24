@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
-import { PipelineIQLogo, RecursoMark } from "@/components/pipelineiq-logo";
+import { RevXLogo, RecursoMark } from "@/components/revx-logo";
 import { Button } from "@/components/ui/button";
 import { apiPost } from "@/lib/api/client";
 import { getRolePermissionsByKey } from "@/lib/auth/roles";
@@ -59,8 +59,8 @@ const NAV: { id: TabId; label: string; icon: LucideIcon; href: string }[] = [
 ];
 
 
-const COLLAPSED_KEY = "pipelineiq.sidebar.collapsed";
-const COLLAPSED_CHANGED_EVENT = "pipelineiq:sidebar-collapsed-changed";
+const COLLAPSED_KEY = "revx.sidebar.collapsed";
+const COLLAPSED_CHANGED_EVENT = "revx:sidebar-collapsed-changed";
 
 function onCollapsedChange(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -187,7 +187,7 @@ export default function Sidebar({ counts, user }: SidebarProps) {
             : "px-5",
         )}
       >
-        {collapsed ? <RecursoMark size={16} /> : <PipelineIQLogo />}
+        {collapsed ? <RecursoMark size={16} /> : <RevXLogo />}
         <Button
           type="button"
           variant="ghost"
